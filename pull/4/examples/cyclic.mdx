@@ -1,0 +1,291 @@
+---
+title: Cyclic Generator
+---
+
+The Cyclic generator creates time series with irregular business cycles,
+combining trend, multiple overlapping cycles with varying periods and
+amplitudes, and random noise. Useful for economic indicators, commodity
+prices, and business metrics.
+
+```python
+import polars as pl
+import matplotlib.pyplot as plt
+
+from synforecast.generators import CyclicGenerator
+```
+
+## 1. Basic Business Cycle
+
+A simple model with ~60-day cycles, upward trend, and 3 overlapping
+cycle components.
+
+```python
+basic_params = {
+    "min_length": 300,
+    "max_length": 300,
+    "freq": "D",
+    "base_level": 100.0,
+    "trend": 0.05,
+    "cycle_period_mean": 60.0,
+    "cycle_amplitude_mean": 20.0,
+    "num_cycles": 3,
+    "seed": 42,
+}
+
+basic_gen = CyclicGenerator(engine="polars", **basic_params)
+basic_df = basic_gen.generate(n_series=1)
+
+print(f"Generated {len(basic_df)} observations with irregular cycles")
+print(f"Statistics: Mean={basic_df['y'].mean():.4f}, Std={basic_df['y'].std():.4f}")
+basic_df.head(10)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+for uid in basic_df["unique_id"].unique().to_list():
+    series = basic_df.filter(pl.col("unique_id") == uid)
+    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Value")
+ax.set_title("Basic Business Cycle")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+## 2. Fast Cycles (Monthly Patterns)
+
+Shorter ~30-day cycles with 5 overlapping components.
+
+```python
+fast_params = {
+    "min_length": 400,
+    "max_length": 400,
+    "freq": "D",
+    "base_level": 50.0,
+    "trend": 0.02,
+    "cycle_period_mean": 30.0,
+    "cycle_amplitude_mean": 10.0,
+    "num_cycles": 5,
+    "seed": 42,
+}
+
+fast_gen = CyclicGenerator(engine="polars", **fast_params)
+fast_df = fast_gen.generate(n_series=1)
+
+print(f"Generated {len(fast_df)} observations with fast cycles")
+print(f"Statistics: Mean={fast_df['y'].mean():.4f}, Std={fast_df['y'].std():.4f}")
+fast_df.head(10)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+for uid in fast_df["unique_id"].unique().to_list():
+    series = fast_df.filter(pl.col("unique_id") == uid)
+    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Value")
+ax.set_title("Fast Cycles (Monthly Patterns)")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+## 3. Slow Cycles (Quarterly Patterns)
+
+Longer ~90-day cycles with high amplitude, simulating quarterly business
+cycles.
+
+```python
+slow_params = {
+    "min_length": 500,
+    "max_length": 500,
+    "freq": "D",
+    "base_level": 100.0,
+    "trend": 0.03,
+    "cycle_period_mean": 90.0,
+    "cycle_amplitude_mean": 30.0,
+    "num_cycles": 2,
+    "seed": 42,
+}
+
+slow_gen = CyclicGenerator(engine="polars", **slow_params)
+slow_df = slow_gen.generate(n_series=1)
+
+print(f"Generated {len(slow_df)} observations with slow cycles")
+print(f"Statistics: Mean={slow_df['y'].mean():.4f}, Std={slow_df['y'].std():.4f}")
+slow_df.head(10)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+for uid in slow_df["unique_id"].unique().to_list():
+    series = slow_df.filter(pl.col("unique_id") == uid)
+    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Value")
+ax.set_title("Slow Cycles (Quarterly Patterns)")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+## 4. High Amplitude Cycles (Large Fluctuations)
+
+An amplitude of 50 produces large swings around the base level.
+
+```python
+high_amp_params = {
+    "min_length": 300,
+    "max_length": 300,
+    "freq": "D",
+    "base_level": 100.0,
+    "trend": 0.01,
+    "cycle_period_mean": 60.0,
+    "cycle_amplitude_mean": 50.0,
+    "num_cycles": 3,
+    "seed": 42,
+}
+
+high_amp_gen = CyclicGenerator(engine="polars", **high_amp_params)
+high_amp_df = high_amp_gen.generate(n_series=1)
+
+print(f"Generated {len(high_amp_df)} observations with high amplitude cycles")
+print(f"Statistics: Mean={high_amp_df['y'].mean():.4f}, Std={high_amp_df['y'].std():.4f}")
+high_amp_df.head(10)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+for uid in high_amp_df["unique_id"].unique().to_list():
+    series = high_amp_df.filter(pl.col("unique_id") == uid)
+    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Value")
+ax.set_title("High Amplitude Cycles")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+## 5. Negative Trend with Cycles (Declining Market)
+
+A downward trend combined with cyclical fluctuations.
+
+```python
+declining_params = {
+    "min_length": 300,
+    "max_length": 300,
+    "freq": "D",
+    "base_level": 150.0,
+    "trend": -0.05,
+    "cycle_period_mean": 50.0,
+    "cycle_amplitude_mean": 20.0,
+    "num_cycles": 3,
+    "seed": 42,
+}
+
+declining_gen = CyclicGenerator(engine="polars", **declining_params)
+declining_df = declining_gen.generate(n_series=1)
+
+print(f"Generated {len(declining_df)} observations with declining trend")
+print(f"Statistics: Mean={declining_df['y'].mean():.4f}, Std={declining_df['y'].std():.4f}")
+declining_df.head(10)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+for uid in declining_df["unique_id"].unique().to_list():
+    series = declining_df.filter(pl.col("unique_id") == uid)
+    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Value")
+ax.set_title("Negative Trend with Cycles (Declining Market)")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+## 6. Multiple Overlapping Cycles (Complex Pattern)
+
+Five overlapping cycle components create a complex, realistic pattern.
+
+```python
+complex_params = {
+    "min_length": 500,
+    "max_length": 500,
+    "freq": "D",
+    "base_level": 100.0,
+    "trend": 0.02,
+    "cycle_period_mean": 60.0,
+    "cycle_amplitude_mean": 15.0,
+    "num_cycles": 5,
+    "seed": 42,
+}
+
+complex_gen = CyclicGenerator(engine="polars", **complex_params)
+complex_df = complex_gen.generate(n_series=1)
+
+print(f"Generated {len(complex_df)} observations with multiple overlapping cycles")
+print(f"Statistics: Mean={complex_df['y'].mean():.4f}, Std={complex_df['y'].std():.4f}")
+complex_df.head(10)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+for uid in complex_df["unique_id"].unique().to_list():
+    series = complex_df.filter(pl.col("unique_id") == uid)
+    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Value")
+ax.set_title("Multiple Overlapping Cycles (Complex Pattern)")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+## 7. Multiple Cyclic Series
+
+Generate multiple independent cyclic series in one call.
+
+```python
+multi_params = {
+    "min_length": 200,
+    "max_length": 200,
+    "freq": "D",
+    "base_level": 100.0,
+    "trend": 0.03,
+    "cycle_period_mean": 60.0,
+    "cycle_amplitude_mean": 20.0,
+    "num_cycles": 3,
+    "seed": 42,
+}
+
+multi_gen = CyclicGenerator(engine="polars", **multi_params)
+multi_df = multi_gen.generate(n_series=3)
+
+print(f"Generated 3 series with {len(multi_df)} total observations")
+print(f"Overall Statistics: Mean={multi_df['y'].mean():.4f}, Std={multi_df['y'].std():.4f}")
+multi_df.filter(pl.col("unique_id") == "0").head(10)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+for uid in multi_df["unique_id"].unique().to_list():
+    series = multi_df.filter(pl.col("unique_id") == uid)
+    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Value")
+ax.set_title("Multiple Cyclic Series")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
