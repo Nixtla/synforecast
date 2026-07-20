@@ -1,0 +1,273 @@
+---
+title: Energy Load Generator
+---
+
+Simulate electricity demand patterns for different customer types
+(residential, commercial, industrial). The generator incorporates
+daily/weekly seasonality, temperature sensitivity, holiday effects, and
+extreme weather events.
+
+```python
+import polars as pl
+import matplotlib.pyplot as plt
+
+from synforecast.generators import EnergyLoadGenerator
+```
+
+## 1. Residential Energy Load
+
+Generate one week of hourly residential electricity demand with typical
+morning/evening peaks.
+
+```python
+residential_params = {
+    "min_length": 168,
+    "max_length": 168,
+    "freq": "h",
+    "load_type": "residential",
+    "base_load": 2.0,
+    "temperature_sensitivity": 0.05,
+    "seed": 42,
+}
+residential_gen = EnergyLoadGenerator(engine="polars", **residential_params)
+residential_df = residential_gen.generate(n_series=1)
+print(f"Generated {len(residential_df)} hourly observations")
+print(
+    f"Statistics: Mean={residential_df['y'].mean():.2f} kW, "
+    f"Min={residential_df['y'].min():.2f} kW, Max={residential_df['y'].max():.2f} kW"
+)
+residential_df.head(24)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+ax.plot(residential_df["ds"].to_list(), residential_df["y"].to_list(), alpha=0.8)
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Load (kW)")
+ax.set_title("Residential Energy Load (1 Week)")
+plt.tight_layout()
+plt.show()
+```
+
+## 2. Commercial Energy Load (Office Building)
+
+Office buildings show high demand during business hours and low demand
+at night/weekends.
+
+```python
+commercial_params = {
+    "min_length": 168,
+    "max_length": 168,
+    "freq": "h",
+    "load_type": "commercial",
+    "base_load": 50.0,
+    "temperature_sensitivity": 0.08,
+    "seed": 42,
+}
+commercial_gen = EnergyLoadGenerator(engine="polars", **commercial_params)
+commercial_df = commercial_gen.generate(n_series=1)
+print(f"Generated {len(commercial_df)} hourly observations")
+print(
+    f"Statistics: Mean={commercial_df['y'].mean():.2f} kW, "
+    f"Min={commercial_df['y'].min():.2f} kW, Max={commercial_df['y'].max():.2f} kW"
+)
+commercial_df.head(24)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+ax.plot(commercial_df["ds"].to_list(), commercial_df["y"].to_list(), alpha=0.8, color="C1")
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Load (kW)")
+ax.set_title("Commercial Energy Load - Office Building (1 Week)")
+plt.tight_layout()
+plt.show()
+```
+
+## 3. Industrial Energy Load (Factory)
+
+Industrial loads are typically more constant with less temperature
+sensitivity.
+
+```python
+industrial_params = {
+    "min_length": 168,
+    "max_length": 168,
+    "freq": "h",
+    "load_type": "industrial",
+    "base_load": 200.0,
+    "temperature_sensitivity": 0.02,
+    "seed": 42,
+}
+industrial_gen = EnergyLoadGenerator(engine="polars", **industrial_params)
+industrial_df = industrial_gen.generate(n_series=1)
+print(f"Generated {len(industrial_df)} hourly observations")
+print(
+    f"Statistics: Mean={industrial_df['y'].mean():.2f} kW, "
+    f"Min={industrial_df['y'].min():.2f} kW, Max={industrial_df['y'].max():.2f} kW"
+)
+industrial_df.head(24)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+ax.plot(industrial_df["ds"].to_list(), industrial_df["y"].to_list(), alpha=0.8, color="C2")
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Load (kW)")
+ax.set_title("Industrial Energy Load - Factory (1 Week)")
+plt.tight_layout()
+plt.show()
+```
+
+## 4. Residential Load with Extreme Weather
+
+Simulate load spikes during extreme weather events like heat waves or
+cold snaps.
+
+```python
+extreme_weather_params = {
+    "min_length": 336,
+    "max_length": 336,
+    "freq": "h",
+    "load_type": "residential",
+    "base_load": 2.0,
+    "temperature_sensitivity": 0.05,
+    "extreme_weather_prob": 0.1,
+    "extreme_weather_impact": 2.5,
+    "seed": 42,
+}
+extreme_gen = EnergyLoadGenerator(engine="polars", **extreme_weather_params)
+extreme_df = extreme_gen.generate(n_series=1)
+print(f"Generated {len(extreme_df)} hourly observations with extreme weather events")
+print(
+    f"Statistics: Mean={extreme_df['y'].mean():.2f} kW, "
+    f"Min={extreme_df['y'].min():.2f} kW, Max={extreme_df['y'].max():.2f} kW"
+)
+extreme_df.head(24)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+ax.plot(extreme_df["ds"].to_list(), extreme_df["y"].to_list(), alpha=0.8, color="C3")
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Load (kW)")
+ax.set_title("Residential Load with Extreme Weather Events (2 Weeks)")
+plt.tight_layout()
+plt.show()
+```
+
+## 5. Commercial Load with Holiday Effect
+
+Model reduced commercial demand during holidays and weekends.
+
+```python
+holiday_params = {
+    "min_length": 336,
+    "max_length": 336,
+    "freq": "h",
+    "load_type": "commercial",
+    "base_load": 50.0,
+    "temperature_sensitivity": 0.08,
+    "holiday_effect": 0.3,
+    "seed": 42,
+}
+holiday_gen = EnergyLoadGenerator(engine="polars", **holiday_params)
+holiday_df = holiday_gen.generate(n_series=1)
+print(f"Generated {len(holiday_df)} hourly observations with holiday/weekend effects")
+print(
+    f"Statistics: Mean={holiday_df['y'].mean():.2f} kW, "
+    f"Min={holiday_df['y'].min():.2f} kW, Max={holiday_df['y'].max():.2f} kW"
+)
+holiday_df.head(24)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+ax.plot(holiday_df["ds"].to_list(), holiday_df["y"].to_list(), alpha=0.8, color="C4")
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Load (kW)")
+ax.set_title("Commercial Load with Holiday Effect (2 Weeks)")
+plt.tight_layout()
+plt.show()
+```
+
+## 6. Residential Load with High Temperature Sensitivity
+
+Simulate a household with heavy AC/heating usage that is very sensitive
+to temperature changes.
+
+```python
+high_temp_params = {
+    "min_length": 168,
+    "max_length": 168,
+    "freq": "h",
+    "load_type": "residential",
+    "base_load": 3.0,
+    "temperature_sensitivity": 0.15,
+    "seed": 42,
+}
+high_temp_gen = EnergyLoadGenerator(engine="polars", **high_temp_params)
+high_temp_df = high_temp_gen.generate(n_series=1)
+print(f"Generated {len(high_temp_df)} hourly observations with high temperature sensitivity")
+print(
+    f"Statistics: Mean={high_temp_df['y'].mean():.2f} kW, "
+    f"Min={high_temp_df['y'].min():.2f} kW, Max={high_temp_df['y'].max():.2f} kW"
+)
+high_temp_df.head(24)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+ax.plot(high_temp_df["ds"].to_list(), high_temp_df["y"].to_list(), alpha=0.8, color="C5")
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Load (kW)")
+ax.set_title("Residential Load with High Temperature Sensitivity (1 Week)")
+plt.tight_layout()
+plt.show()
+```
+
+## 7. Multiple Residential Customers
+
+Generate load profiles for 5 residential customers simultaneously.
+
+```python
+multi_params = {
+    "min_length": 168,
+    "max_length": 168,
+    "freq": "h",
+    "load_type": "residential",
+    "base_load": 2.5,
+    "temperature_sensitivity": 0.05,
+    "seed": 42,
+}
+multi_gen = EnergyLoadGenerator(engine="polars", **multi_params)
+multi_df = multi_gen.generate(n_series=5)
+print(f"Generated 5 residential customers with {len(multi_df)} total observations")
+print(
+    f"Overall Statistics: Mean={multi_df['y'].mean():.2f} kW, "
+    f"Total Load={multi_df.group_by('ds').agg(pl.col('y').sum()).select('y').mean().item():.2f} kW"
+)
+
+multi_df.filter(pl.col("unique_id") == "0").head(24)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+for uid in multi_df["unique_id"].unique().to_list():
+    series = multi_df.filter(pl.col("unique_id") == uid)
+    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.7)
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Load (kW)")
+ax.set_title("Multiple Residential Customers (1 Week)")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
