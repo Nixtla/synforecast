@@ -46,7 +46,7 @@ Issues = "https://github.com/Nixtla/synforecast/issues"
 dev = [
     "arch>=6.0",
     "datasetsforecast>=1.0.1",
-    "ipykernel<7.0",
+    "ipykernel<8.0",
     "maturin>=1.14.1",
     "matplotlib",
     "mypy>=1.0.0",
@@ -60,7 +60,7 @@ dev = [
 ]
 docs = [
     "mkdocstrings-parser @ git+https://github.com/Nixtla/mkdocstrings-parser@b28e6925beba7e05d7f40047d99244c9c8d6baed",
-    "ipykernel<7.0",
+    "ipykernel<8.0",
     "ipython<=8.32.0",
 ]
 
