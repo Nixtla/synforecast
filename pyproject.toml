@@ -49,7 +49,7 @@ dev = [
     "ipykernel<7.0",
     "maturin>=1.14.1",
     "matplotlib",
-    "mypy>=1.0.0",
+    "mypy>=2.3.0",
     "pandas",
     "pre-commit>=4.6.0",
     "pytest>=9.1.1",
