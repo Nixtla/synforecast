@@ -1,0 +1,115 @@
+---
+title: Regime-Switching Generator
+---
+
+Generate time series that switch between different statistical regimes
+(e.g., bull/bear markets). Each regime has its own mean, variance, and
+autoregressive behavior, with transitions governed by a Markov chain.
+
+```python
+import polars as pl
+import matplotlib.pyplot as plt
+
+from synforecast.generators import RegimeSwitchingGenerator
+```
+
+## Bull/Bear Market Model
+
+Define a two-regime model where the bull regime has positive mean and
+low variance, while the bear regime has negative mean and high variance.
+
+```python
+params = {
+    "min_length": 500,
+    "max_length": 500,
+    "freq": "D",
+    "n_regimes": 2,
+    "regime_means": [0.05, -0.03],
+    "regime_variances": [1.0, 4.0],
+    "regime_ar_coeffs": [0.1, 0.2],
+    "transition_matrix": [
+        [0.98, 0.02],
+        [0.10, 0.90],
+    ],
+    "seed": 42,
+}
+
+generator = RegimeSwitchingGenerator(engine="polars", **params)
+df = generator.generate(n_series=3)
+
+print(f"Generated {df['unique_id'].n_unique()} time series")
+print(f"Total observations: {len(df)}")
+df.head(10)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 4))
+for uid in df["unique_id"].unique().to_list():
+    series = df.filter(pl.col("unique_id") == uid)
+    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Value")
+ax.set_title("Regime-Switching Time Series (Bull/Bear)")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+## Model Information
+
+Inspect model parameters including the stationary distribution of the
+Markov chain.
+
+```python
+info = generator.get_model_info()
+print(f"Number of regimes: {info['n_regimes']}")
+print(f"Regime means: {info['regime_means']}")
+print(f"Regime variances: {info['regime_variances']}")
+print(f"Stationary distribution: {[f'{p:.3f}' for p in info['stationary_distribution']]}")
+```
+
+## Regime Labels
+
+Generate data with regime labels to see how observations are distributed
+across regimes.
+
+```python
+values, regimes, ids = generator.generate_with_regimes(n_series=1)
+regime_counts = {0: (regimes == 0).sum(), 1: (regimes == 1).sum()}
+print(f"Regime 0 (Bull) observations: {regime_counts[0]}")
+print(f"Regime 1 (Bear) observations: {regime_counts[1]}")
+```
+
+
+```python
+fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
+axes[0].plot(values, alpha=0.8)
+axes[0].set_ylabel("Value")
+axes[0].set_title("Regime-Switching - Values and Regime Labels")
+axes[1].fill_between(range(len(regimes)), regimes, alpha=0.5, step="mid", color="tab:orange")
+axes[1].set_xlabel("Time Step")
+axes[1].set_ylabel("Regime")
+axes[1].set_yticks([0, 1])
+axes[1].set_yticklabels(["Bull (0)", "Bear (1)"])
+plt.tight_layout()
+plt.show()
+```
+
+## Statistics by Series
+
+Compare summary statistics across the generated series.
+
+```python
+stats = df.group_by("unique_id").agg(
+    [
+        pl.col("y").count().alias("count"),
+        pl.col("y").min().alias("min_value"),
+        pl.col("y").max().alias("max_value"),
+        pl.col("y").mean().alias("mean_value"),
+        pl.col("y").std().alias("std_value"),
+    ]
+)
+stats
+```
+

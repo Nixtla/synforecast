@@ -1,0 +1,117 @@
+---
+title: SynSet Dataset
+---
+
+SynSet combines multiple generators into unified datasets. This example
+shows how to create a dataset with both RandomWalk and Seasonal
+generators, generate multiple series from each, and inspect the results.
+
+```python
+import matplotlib.pyplot as plt
+import polars as pl
+
+from synforecast import SynSet
+from synforecast.generators import RandomWalkGenerator, SeasonalGenerator
+```
+
+## Define Generators
+
+Create a random walk generator and a seasonal generator with different
+parameter configurations.
+
+```python
+rw_params = {
+    "min_length": 100,
+    "max_length": 150,
+    "freq": "h",
+    "drift": 0.1,
+    "volatility": 1.5,
+    "start_value": 100.0,
+    "seed": 42,
+}
+
+seasonal_params = {
+    "min_length": 100,
+    "max_length": 150,
+    "freq": "h",
+    "seasonality_period": 24,
+    "seasonality_amplitude": 15.0,
+    "trend": 0.05,
+    "noise_level": 2.0,
+    "base_level": 50.0,
+    "seed": 123,
+}
+
+rw_gen = RandomWalkGenerator(engine="polars", **rw_params)
+seasonal_gen = SeasonalGenerator(engine="polars", **seasonal_params)
+```
+
+## Generate Dataset
+
+Create a SynSet with both generators and generate 3 series from each (6
+total).
+
+```python
+dataset = SynSet([rw_gen, seasonal_gen])
+df = dataset.generate(n_series_per_generator=3)
+
+print(f"Generated {df['unique_id'].n_unique()} time series")
+print(f"Total observations: {len(df)}")
+df.head(10)
+```
+
+
+```python
+fig, ax = plt.subplots(figsize=(12, 5))
+unique_ids = df["unique_id"].unique().to_list()
+
+for uid in unique_ids:
+    series = df.filter(pl.col("unique_id") == uid)
+    # IDs 0, 1, 2 are RandomWalk; IDs 3, 4, 5 are Seasonal.
+    gen_type = "RandomWalk" if int(uid) < 3 else "Seasonal"
+    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=f"{uid} ({gen_type})", alpha=0.8)
+ax.set_title("SynSet Dataset: RandomWalk and Seasonal Generators")
+ax.set_xlabel("Timestamp")
+ax.set_ylabel("Value")
+ax.legend(fontsize=8)
+plt.tight_layout()
+plt.show()
+```
+
+## Statistics by Series
+
+Compare summary statistics across all generated series.
+
+```python
+stats = (
+    df.group_by("unique_id")
+    .agg(
+        [
+            pl.col("y").count().alias("count"),
+            pl.col("y").min().alias("min_value"),
+            pl.col("y").max().alias("max_value"),
+            pl.col("y").mean().alias("mean_value"),
+            pl.col("y").std().alias("std_value"),
+        ]
+    )
+    .sort("unique_id")
+)
+stats
+```
+
+## Sample Data
+
+Compare the first few rows from a random walk series and a seasonal
+series.
+
+```python
+print("Sample of series 0 (Random Walk - first 10 rows):")
+df.filter(pl.col("unique_id") == "0").head(10)
+```
+
+
+```python
+print("Sample of series 3 (Seasonal - first 10 rows):")
+df.filter(pl.col("unique_id") == "3").head(10)
+```
+
