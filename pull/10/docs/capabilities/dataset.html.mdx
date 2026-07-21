@@ -1,10 +1,21 @@
 ---
-title: SynSet Dataset
+title: Compose datasets with SynSet
 ---
 
-SynSet combines multiple generators into unified datasets. This example
-shows how to create a dataset with both RandomWalk and Seasonal
-generators, generate multiple series from each, and inspect the results.
+`SynSet` combines several generators into one long-format panel — the
+way to build a dataset that *mixes* behaviors (say, trending random
+walks alongside daily-seasonal demand) instead of repeating one shape.
+Each generator contributes a batch of series, and their ids are numbered
+sequentially so the result stays a single, model-ready frame.
+
+> **SynSet vs. balanced_pool vs. generate_series**
+>
+> `SynSet` is the low-level composer you control directly.
+> [`balanced_pool`](balanced_pool) is a ready-made list of 42 generators
+> you can drop into a `SynSet`, and
+> [`generate_series`](../getting-started/quickstart) wraps that pool in
+> a one-liner. Reach for `SynSet` when you want an explicit, curated mix
+> of generators.
 
 ```python
 import matplotlib.pyplot as plt
@@ -46,10 +57,12 @@ rw_gen = RandomWalkGenerator(engine="polars", **rw_params)
 seasonal_gen = SeasonalGenerator(engine="polars", **seasonal_params)
 ```
 
-## Generate Dataset
+## Generate the dataset
 
-Create a SynSet with both generators and generate 3 series from each (6
-total).
+`generate(n_series_per_generator=3)` draws 3 series from each generator
+— 6 in total. Ids are assigned in generator order: `0-2` are the random
+walks, `3-5` the seasonal series. Pass `start_id` to offset the
+numbering when stitching several datasets together.
 
 ```python
 dataset = SynSet([rw_gen, seasonal_gen])

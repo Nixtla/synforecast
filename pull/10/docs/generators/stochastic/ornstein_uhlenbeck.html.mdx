@@ -1,10 +1,19 @@
 ---
-title: Ornstein-Uhlenbeck Generator
+title: Ornstein-Uhlenbeck (mean reversion)
 ---
 
-The Ornstein-Uhlenbeck process is a mean-reverting stochastic process
-commonly used to model interest rates, commodity prices, and other
-financial variables that exhibit mean reversion.
+The Ornstein-Uhlenbeck process is the canonical *mean-reverting* series:
+it wanders like a random walk but is continually pulled back toward a
+long-run level. It models interest-rate spreads, temperatures, and any
+quantity with an equilibrium it drifts around rather than away from.
+
+> **The model**
+>
+> $$dx_t = \theta\,(\mu - x_t)\,dt + \sigma\,dW_t$$
+>
+> `theta` is the reversion speed (how hard it is pulled back), `mu` the
+> long-run mean, and `sigma` the volatility. Large `theta` gives a tight
+> band around `mu`; small `theta` approaches a random walk.
 
 ```python
 import polars as pl
@@ -309,4 +318,14 @@ plt.show()
 ```
 
 ![](./ornstein_uhlenbeck_files/figure-markdown_strict/cell-12-output-1.png)
+
+> **Related generators**
+>
+> -   [Random walk](../statistical/random_walk) — the no-reversion limit
+>     (`theta` → 0).
+> -   [Bounded process](bounded_process) — mean reversion constrained to
+>     an interval.
+>
+> Reversion, mean, and volatility parameters are in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 

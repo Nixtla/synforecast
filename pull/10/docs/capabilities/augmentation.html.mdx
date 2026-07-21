@@ -1,12 +1,23 @@
 ---
-title: SynAugment - Time Series Data Augmentation
+title: 'SynAugment: data augmentation'
 ---
 
-SynAugment enables data augmentation for time series by analyzing each
-series to detect patterns (seasonality, trend, stationarity),
-auto-selecting the most appropriate generator, fitting parameters to
-match the original series’ statistics, and generating synthetic series
-that preserve the statistical fingerprint.
+`SynAugment` expands a panel of real series with synthetic look-alikes.
+For each input series it detects the pattern (seasonality, trend,
+stationarity), picks a matching generator, fits its parameters, and
+draws new series that share the original’s statistical fingerprint — a
+cheap way to give a global model more to learn from.
+
+> **Two augmentation strategies**
+>
+> -   **`augment`** (this guide) — fit a generator per series and draw
+>     statistically similar copies.
+> -   **[`mixup`](#tsmixup-convex-combinations-of-real-series)** — blend
+>     several real series with convex weights (TSMixup), covered at the
+>     end.
+>
+> Fit augmentation on the **training split only** — fitting on
+> validation or test observations leaks information into training.
 
 ```python
 import matplotlib.pyplot as plt
@@ -124,10 +135,17 @@ for series_id, info in analysis.items():
 Analysis results for each series:
 
   seasonal:
-    Recommended generator: RegimeSwitchingGenerator
+    Recommended generator: SeasonalGenerator
     Has seasonality: True
     Has trend: False
     Is stationary: True
+    Is intermittent: False
+
+  random_walk:
+    Recommended generator: RandomWalkGenerator
+    Has seasonality: False
+    Has trend: True
+    Is stationary: False
     Is intermittent: False
 
   intermittent:
@@ -136,13 +154,6 @@ Analysis results for each series:
     Has trend: False
     Is stationary: True
     Is intermittent: True
-
-  random_walk:
-    Recommended generator: RegimeSwitchingGenerator
-    Has seasonality: True
-    Has trend: True
-    Is stationary: False
-    Is intermittent: False
 ```
 
 ```python
@@ -215,10 +226,10 @@ Original series (series_0):
   Max:  2.3403
 
 Synthetic series:
-  series_0_aug_0: mean=-2.6977, std=2.0970
-  series_0_aug_1: mean=-2.6973, std=2.0973
-  series_0_aug_2: mean=-2.6975, std=2.0970
-  series_0_aug_3: mean=-2.6970, std=2.0973
+  series_0_aug_0: mean=-2.6977, std=2.0971
+  series_0_aug_1: mean=-2.6973, std=2.0972
+  series_0_aug_2: mean=-2.6975, std=2.0969
+  series_0_aug_3: mean=-2.6970, std=2.0969
   series_0_aug_4: mean=-2.6976, std=2.0970
 ```
 
@@ -308,6 +319,67 @@ plt.show()
 ```
 
 ![](./augmentation_files/figure-markdown_strict/cell-11-output-1.png)
+
+## TSMixup: convex combinations of real series
+
+`SynAugment.mixup` implements TSMixup, the augmentation used to pretrain
+the Chronos models (Ansari et al. 2024). Each synthetic series is a
+convex combination of a random window from `1..max_mix` source series,
+weighted by a `Dirichlet(alpha)` draw. Unlike `augment`, which fits one
+generator per series, a mixup series blends the dynamics of several — a
+cheap way to broaden a small panel without fitting any model.
+
+The blend lives in scaled space: sources are normalized before mixing
+(`scaling="mean"` divides by the mean absolute value, the Chronos
+default), so the output shares the scaling rather than any single
+source’s level. Use `scaling="none"` when the series already share a
+scale.
+
+```python
+mixed = SynAugment(seed=0).mixup(combined_df, n_series=6, max_mix=3, scaling="mean")
+
+mixup_ids = [
+    u for u in mixed["unique_id"].unique().to_list() if str(u).startswith("mixup_")
+]
+print(
+    f"{combined_df['unique_id'].n_unique()} source series "
+    f"-> {len(mixup_ids)} TSMixup series"
+)
+mixed.filter(pl.col("unique_id") == mixup_ids[0]).head()
+```
+
+``` text
+4 source series -> 6 TSMixup series
+```
+
+| unique_id | ds                  | y        |
+|-----------|---------------------|----------|
+| cat       | datetime\[ns\]      | f64      |
+| "mixup_0" | 2000-01-01 00:00:00 | 0.388051 |
+| "mixup_0" | 2000-01-01 01:00:00 | 0.405526 |
+| "mixup_0" | 2000-01-01 02:00:00 | 0.565628 |
+| "mixup_0" | 2000-01-01 03:00:00 | 0.651099 |
+| "mixup_0" | 2000-01-01 04:00:00 | 0.666551 |
+
+```python
+fig, axes = plt.subplots(1, 2, figsize=(13, 4), sharex=True)
+for uid in combined_df["unique_id"].unique(maintain_order=True).to_list():
+    s = combined_df.filter(pl.col("unique_id") == uid)
+    axes[0].plot(s["ds"], s["y"], linewidth=1, label=str(uid))
+axes[0].set_title("Source series (raw scale)")
+axes[0].legend(fontsize=8)
+for uid in mixup_ids[:4]:
+    s = mixed.filter(pl.col("unique_id") == uid)
+    axes[1].plot(s["ds"], s["y"], linewidth=1, label=str(uid))
+axes[1].set_title("TSMixup series (mean-scaled blends)")
+axes[1].legend(fontsize=8)
+for ax in axes:
+    ax.set_xlabel("Timestamp")
+plt.tight_layout()
+plt.show()
+```
+
+![](./augmentation_files/figure-markdown_strict/cell-13-output-1.png)
 
 ## Low-Level API - augment_single_series
 

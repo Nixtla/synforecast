@@ -1,11 +1,19 @@
 ---
-title: State Space Model Generator
+title: State space
 ---
 
-Generate time series from state space models where hidden states evolve
-over time and observations depend on these states. State space models
-are highly flexible and can represent local level models, local trend
-models, structural time series, and custom dynamics.
+A state-space model separates a hidden *state* that evolves over time
+from the *observations* it emits. It is the general framework underlying
+ARIMA, ETS, and Kalman filtering; `StateSpaceGenerator` lets you specify
+the transition and observation dynamics directly to build custom linear
+systems.
+
+> **The model**
+>
+> A latent state evolves by a linear transition with process noise, and
+> is mapped to the observed series by an observation equation with
+> measurement noise. Choosing these dynamics reproduces local-level,
+> local-trend, and other structural time-series models.
 
 ```python
 import numpy as np
@@ -497,4 +505,14 @@ plt.show()
 ```
 
 ![](./state_space_files/figure-markdown_strict/cell-18-output-1.png)
+
+> **Related generators**
+>
+> -   [SARIMA](../statistical/sarima) and [ETS](../statistical/ets) —
+>     specific state-space families.
+> -   [Chaotic system](../stochastic/chaotic_system) — deterministic
+>     nonlinear dynamics.
+>
+> Full parameters are in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 

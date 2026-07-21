@@ -1,11 +1,18 @@
 ---
-title: Cyclic Generator
+title: Cyclic (irregular cycles)
 ---
 
-The Cyclic generator creates time series with irregular business cycles,
-combining trend, multiple overlapping cycles with varying periods and
-amplitudes, and random noise. Useful for economic indicators, commodity
-prices, and business metrics.
+Cyclic series oscillate, but — unlike a clean seasonal wave — with
+*irregular* periods and amplitudes: business cycles, ecological booms
+and busts, quasi-periodic signals. The generator overlays one or more
+noisy cycles so the period drifts rather than repeating exactly.
+
+> **The model**
+>
+> Each series superimposes `num_cycles` oscillations whose periods vary
+> from cycle to cycle (`cycle_period_std` controls how irregular). Small
+> variance approaches a fixed seasonal wave; large variance produces
+> genuinely aperiodic cycling.
 
 ```python
 import polars as pl
@@ -428,4 +435,14 @@ plt.show()
 ```
 
 ![](./cyclic_files/figure-markdown_strict/cell-16-output-1.png)
+
+> **Related generators**
+>
+> -   [Seasonal](../statistical/seasonal) — a fixed, exactly repeating
+>     period.
+> -   [Gaussian process](../multivariate/gaussian_process) — periodic
+>     kernels for smooth quasi-periodicity.
+>
+> Cycle-count and irregularity parameters are in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 

@@ -1,9 +1,20 @@
 ---
-title: SARIMA Generator
+title: SARIMA
 ---
 
-Generate Seasonal ARIMA time series with configurable AR, MA,
-differencing, and seasonal components.
+SARIMA — Seasonal AutoRegressive Integrated Moving Average — is the
+workhorse linear model for series with autocorrelation, trend, and
+seasonality. Generating from a *known* `(p, d, q)(P, D, Q)`
+specification lets you confirm a model recovers the order you put in, or
+build panels with a precise, well-understood dependence structure.
+
+> **The model**
+>
+> An ARIMA(p, d, q) process combines `p` autoregressive lags, `d` orders
+> of differencing (for trend / unit roots), and `q` moving-average lags;
+> the seasonal part `(P, D, Q)` repeats that structure at the seasonal
+> period. Set the orders and coefficients to dial in anything from white
+> noise to a strongly seasonal, integrated series.
 
 ```python
 import polars as pl
@@ -248,4 +259,15 @@ plt.show()
 ```
 
 ![](./sarima_files/figure-markdown_strict/cell-11-output-1.png)
+
+> **Related generators**
+>
+> -   [ETS](ets) — the exponential-smoothing counterpart for trend and
+>     seasonality.
+> -   [Seasonal](seasonal) — a simpler fixed seasonal wave without ARMA
+>     dynamics.
+> -   [Random walk](random_walk) — the special case ARIMA(0, 1, 0).
+>
+> All orders and coefficients are documented in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 

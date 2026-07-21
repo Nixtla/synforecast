@@ -1,19 +1,22 @@
 ---
-title: Exogenous Variables
+title: Exogenous variables
 ---
 
-All generators in SynForecast support opt-in exogenous variable
-generation via the `exogenous` parameter. When enabled, additional
-columns are appended to the output DataFrame alongside the standard
-`unique_id`, `ds`, and `y` columns.
+Forecasts often improve when the model sees more than the target’s own
+past — calendar effects, known interventions, related drivers. Every
+SynForecast generator can attach these as extra columns via the
+`exogenous` parameter, so you can build test panels that exercise a
+model’s covariate handling end to end, all reproducible from the seed.
 
-Three categories of exogenous variables are available:
-
-1.  **Datetime features** - calendar and cyclical time encodings
-2.  **Pattern injection flags** - binary columns marking anomalies,
-    changepoints, and missing data
-3.  **Correlated exogenous** - numeric columns statistically related to
-    the target series
+> **Three kinds of covariate**
+>
+> 1.  **Datetime features** — calendar and cyclical (sin/cos) time
+>     encodings, added frequency-aware.
+> 2.  **Pattern-injection flags** — binary `anomaly_flag` /
+>     `changepoint_flag` / `missing_flag` columns marking exactly where
+>     each injected pattern landed (ground-truth labels for detectors).
+> 3.  **Correlated exogenous** — numeric columns statistically tied to
+>     the target series.
 
 ```python
 import matplotlib.pyplot as plt
@@ -209,16 +212,25 @@ plt.show()
 
 ![](./exogenous_files/figure-markdown_strict/cell-6-output-1.png)
 
-## Correlated Exogenous Variables
+## Correlated exogenous variables
 
 Generate additional numeric columns that are statistically related to
 the target series. Three methods are available:
 
-| Method             | Description                                          |
+| Method             | Description                                            |
 |----------------------------|--------------------------------------------|
-| `correlated_noise` | Cholesky-based noise with target Pearson correlation |
-| `lagged_copy`      | Shifted copy of target series with additive noise    |
-| `trend_following`  | Moving-average smoothing of the target               |
+| `correlated_noise` | Cholesky-based noise with a target Pearson correlation |
+| `lagged_copy`      | Shifted copy of the target series with additive noise  |
+| `trend_following`  | Moving-average smoothing of the target                 |
+
+> **These are derived from the target**
+>
+> Each correlated column is computed *from* `y` — a correlated draw, a
+> lagged copy, or a smoothed trend — so it carries information about the
+> target by construction. That is exactly what you want when testing
+> whether a model can exploit covariates. But treat them accordingly: a
+> `lagged_copy` with `lag=7` is only a leak-free feature for a real
+> forecast if the lag exceeds the forecast horizon.
 
 ```python
 gen = RandomWalkGenerator(engine="polars", **{

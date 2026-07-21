@@ -1,10 +1,19 @@
 ---
-title: Geometric Brownian Motion Generator
+title: Geometric Brownian motion
 ---
 
-Geometric Brownian Motion (GBM) is widely used to model stock prices and
-other financial assets that exhibit exponential growth with random
-fluctuations. Values are always positive.
+Geometric Brownian motion (GBM) is the standard model for strictly
+positive, compounding quantities — asset prices, populations, anything
+that grows *multiplicatively*. Its log grows as a drifting random walk,
+so the level is log-normal and never goes negative.
+
+> **The model**
+>
+> $$dS_t = \mu\,S_t\,dt + \sigma\,S_t\,dW_t$$
+>
+> Returns are proportional to the current level: `drift` (`mu`) sets the
+> exponential growth rate and `volatility` (`sigma`) the multiplicative
+> noise. This is the process behind Black-Scholes option pricing.
 
 ```python
 import polars as pl
@@ -297,4 +306,13 @@ plt.show()
 ```
 
 ![](./geometric_brownian_motion_files/figure-markdown_strict/cell-12-output-1.png)
+
+> **Related generators**
+>
+> -   [Random walk](../statistical/random_walk) — the *additive*
+>     counterpart.
+> -   [Jump diffusion](jump_diffusion) — GBM plus sudden jumps.
+>
+> Drift and volatility parameters are in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 

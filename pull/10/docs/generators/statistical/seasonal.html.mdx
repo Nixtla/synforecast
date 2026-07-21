@@ -1,9 +1,23 @@
 ---
-title: Seasonal Generator
+title: Seasonal
 ---
 
-Generate time series with configurable seasonal patterns, trend, and
-noise.
+A seasonal series is a repeating cycle riding on a trend — daily
+traffic, weekly sales, yearly demand. `SeasonalGenerator` builds one by
+adding a periodic wave, a linear trend, and observation noise, which
+makes it the natural test of whether a model captures periodicity and
+extrapolates the level.
+
+> **The model**
+>
+> $$y_t = \text{base} + \text{trend}\cdot t + \text{amplitude}\cdot s\!\left(2\pi t / \text{period}\right) + \varepsilon_t$$
+>
+> -   `seasonality_period` — length of one cycle in time steps (24 gives
+>     a daily cycle on hourly data).
+> -   `seasonality_amplitude` — height of the seasonal swing.
+> -   `trend` — linear drift per step; `base_level` — the starting
+>     level.
+> -   `noise_level` — standard deviation of the additive noise.
 
 ```python
 import polars as pl
@@ -49,6 +63,11 @@ plt.show()
 ```
 
 ![](./seasonal_files/figure-markdown_strict/cell-4-output-1.png)
+
+Every series repeats on a 24-step cycle around a gently rising level.
+The series have different lengths (`min_length` ≠ `max_length`) but
+share the same daily shape and trend — the seasonal structure a
+forecaster should learn.
 
 ## Inspect the Generated Data
 
@@ -120,4 +139,14 @@ df.filter(pl.col("unique_id") == "0").head(24)
 | "0"       | 2000-01-01 21:00:00 | 43.811501 |
 | "0"       | 2000-01-01 22:00:00 | 45.388067 |
 | "0"       | 2000-01-01 23:00:00 | 47.831552 |
+
+> **Related generators**
+>
+> -   [SARIMA](sarima) — seasonality with autoregressive/moving-average
+>     dynamics instead of a fixed wave.
+> -   [ETS](ets) — seasonality through exponential-smoothing state-space
+>     models.
+> -   Layer on [anomalies](../../capabilities/anomalies) or
+>     [changepoints](../../capabilities/changepoints) to stress-test a
+>     seasonal model.
 

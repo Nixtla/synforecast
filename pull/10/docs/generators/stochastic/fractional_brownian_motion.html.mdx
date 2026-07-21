@@ -1,11 +1,18 @@
 ---
-title: Fractional Brownian Motion Generator
+title: Fractional Brownian motion (long memory)
 ---
 
-Generate fractional Brownian motion (fBm) time series with different
-Hurst exponents. The Hurst exponent controls the memory of the process:
-H \< 0.5 is anti-persistent (mean-reverting), H = 0.5 is standard
-Brownian motion, and H \> 0.5 is persistent (trending).
+Fractional Brownian motion generalizes the random walk with a tunable
+*memory*: increments can be persistent (trending) or anti-persistent
+(mean-reverting), governed by the Hurst exponent. It models long-range
+dependence in network traffic, hydrology, and finance.
+
+> **The model**
+>
+> The Hurst exponent `hurst` ∈ (0, 1) sets the correlation of
+> increments: `H = 0.5` is ordinary Brownian motion, `H > 0.5` is
+> persistent (long-range positive dependence, smooth trends), and
+> `H < 0.5` is anti-persistent (rough, mean-reverting).
 
 ```python
 import polars as pl
@@ -175,4 +182,14 @@ long_range_dependence_exponent: 0.3999999999999999
 method: fft
 return_increments: False
 ```
+
+> **Related generators**
+>
+> -   [Random walk](../statistical/random_walk) — the `H = 0.5` special
+>     case.
+> -   [Ornstein-Uhlenbeck](ornstein_uhlenbeck) — a different route to
+>     mean reversion.
+>
+> The Hurst parameter is documented in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 

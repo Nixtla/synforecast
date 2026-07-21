@@ -1,10 +1,18 @@
 ---
-title: Regime-Switching Generator
+title: Regime switching (Markov switching)
 ---
 
-Generate time series that switch between different statistical regimes
-(e.g., bull/bear markets). Each regime has its own mean, variance, and
-autoregressive behavior, with transitions governed by a Markov chain.
+A regime-switching series alternates between distinct dynamic *regimes*
+— bull/bear markets, expansion/recession — with switches governed by a
+hidden Markov chain. Each regime has its own mean and volatility, so the
+series changes character abruptly and persistently.
+
+> **The model**
+>
+> A latent Markov chain over `n_regimes` states controls which dynamics
+> generate each step; a transition matrix sets how sticky each regime
+> is. The result is piecewise-stationary data with structural breaks
+> that recur rather than happen once.
 
 ```python
 import polars as pl
@@ -152,4 +160,14 @@ stats
 | "0"       | 500   | -4.397419 | 4.687607  | 0.085832   | 1.1675    |
 | "1"       | 500   | -6.417219 | 6.649223  | 0.054715   | 1.114054  |
 | "2"       | 500   | -5.390482 | 5.381689  | 0.083175   | 1.140473  |
+
+> **Related generators**
+>
+> -   [Changepoints](../../capabilities/changepoints) — one-off
+>     structural breaks rather than recurring regimes.
+> -   [GARCH](garch) — smoothly varying volatility instead of discrete
+>     states.
+>
+> Regime and transition parameters are in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 

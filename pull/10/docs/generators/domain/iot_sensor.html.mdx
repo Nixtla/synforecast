@@ -1,10 +1,20 @@
 ---
-title: IoT Sensor Generator
+title: IoT sensor
 ---
 
-Generate realistic IoT sensor data with features like measurement noise,
-sensor drift, battery degradation, intermittent failures, and spatial
-correlation between sensors.
+A real sensor feed is more than a clean signal: it drifts as the device
+ages, grows noisier as the battery drains, and occasionally fails.
+`IoTSensorGenerator` reproduces these artifacts so you can test
+monitoring and anomaly-detection pipelines against realistic device
+behavior.
+
+> **The model**
+>
+> A baseline signal is corrupted by calibration `drift_rate`,
+> `battery_degradation_rate`, and intermittent or permanent faults set
+> by `failure_probability` and `failure_type`. Leave them at zero for a
+> healthy sensor, or turn them up to simulate a degrading or failing
+> one.
 
 ```python
 import numpy as np
@@ -491,4 +501,14 @@ plt.show()
 ```
 
 ![](./iot_sensor_files/figure-markdown_strict/cell-18-output-1.png)
+
+> **Related generators**
+>
+> -   [Anomalies](../../capabilities/anomalies) — inject labelled
+>     outliers on top of any generator.
+> -   [Missingness](../../capabilities/missingness) — dropout gaps from
+>     outages.
+>
+> Full parameters are in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 

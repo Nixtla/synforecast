@@ -1,10 +1,20 @@
 ---
-title: INAR Generator
+title: INAR (integer counts)
 ---
 
-INAR (Integer-valued AutoRegressive) models generate count-valued time
-series using binomial thinning, ideal for modeling event counts with
-memory (e.g., daily incidents, arrivals, claims).
+INAR — INteger-valued AutoRegression — generates *count* series:
+non-negative integers with autocorrelation, for demand, arrivals, and
+case counts where a Gaussian model makes no sense. It carries dependence
+forward through binomial thinning rather than a linear lag, so the
+output stays integer-valued.
+
+> **The model**
+>
+> Each step keeps a binomially-thinned fraction of the previous count
+> and adds a fresh integer innovation. The thinning probability sets the
+> persistence; the innovation distribution (`poisson` or
+> `negative_binomial`) sets the marginal spread — negative binomial for
+> overdispersion.
 
 ```python
 import polars as pl
@@ -148,4 +158,14 @@ plt.show()
 ```
 
 ![](./inar_files/figure-markdown_strict/cell-7-output-1.png)
+
+> **Related generators**
+>
+> -   [Intermittent demand](../domain/intermittent_demand) — sparse
+>     counts with many zeros.
+> -   [Poisson process](../stochastic/poisson_process) — event arrivals
+>     in continuous time.
+>
+> Innovation and thinning parameters are in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 

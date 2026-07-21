@@ -1,10 +1,20 @@
 ---
-title: Gaussian Process Generator
+title: Gaussian process (kernel-defined structure)
 ---
 
-Gaussian Processes produce smooth, correlated time series whose
-roughness and periodicity are controlled by kernel functions (RBF,
-Matern, Periodic).
+A Gaussian process specifies a series entirely through its *covariance
+kernel*: choose the kernel and you choose the smoothness, length scale,
+and periodicity of the samples. It is the most direct way to dial in a
+precise correlation structure, from rough and jagged to infinitely
+smooth.
+
+> **Kernels**
+>
+> `kernel` selects the covariance function — `rbf` (infinitely smooth),
+> `matern_0.5` / `matern_1.5` / `matern_2.5` (increasingly smooth), or
+> `periodic` (exact periodicity). `length_scale` sets how quickly
+> correlation decays with distance, and `amplitude` sets the output
+> scale.
 
 ```python
 import polars as pl
@@ -150,4 +160,14 @@ plt.show()
 ```
 
 ![](./gaussian_process_files/figure-markdown_strict/cell-7-output-1.png)
+
+> **Related generators**
+>
+> -   [KernelSynth](../pretraining/kernel_synth) — *random compositions*
+>     of these kernels for pretraining corpora.
+> -   [Cyclic](../stochastic/cyclic) — irregular oscillation without a
+>     fixed kernel.
+>
+> Full parameters are in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 

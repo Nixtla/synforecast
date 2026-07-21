@@ -1,10 +1,18 @@
 ---
-title: Hawkes Process (Self-Exciting) Generator
+title: Hawkes process (self-excitation)
 ---
 
-Generate self-exciting point process time series using the Hawkes
-process model. In a Hawkes process, past events increase the probability
-of future events, creating clustering behavior.
+A Hawkes process is a *self-exciting* arrival process: each event
+temporarily raises the probability of further events, producing the
+clustered bursts seen in trades, earthquakes, and social-media cascades.
+It is the natural counterpoint to the memoryless Poisson process.
+
+> **The model**
+>
+> The arrival intensity is a baseline rate plus a decaying kick after
+> every event, so activity begets activity. The excitation strength and
+> decay set how tightly events cluster and how long a burst lasts; below
+> a stability threshold the process stays finite.
 
 ```python
 import polars as pl
@@ -214,4 +222,13 @@ plt.show()
 ```
 
 ![](./hawkes_process_files/figure-markdown_strict/cell-11-output-1.png)
+
+> **Related generators**
+>
+> -   [Poisson process](poisson_process) — the no-excitation baseline.
+> -   [Jump diffusion](jump_diffusion) — continuous dynamics with
+>     discrete shocks.
+>
+> Excitation and decay parameters are in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 

@@ -1,10 +1,17 @@
 ---
-title: Clickstream (Web Analytics) Generator
+title: Clickstream
 ---
 
-The ClickstreamGenerator simulates web analytics data including
-sessions, pageviews, conversions, bounces, and bot traffic. It supports
-multiple traffic sources and configurable seasonality patterns.
+Web clickstream data is bursty and sessionized: visits cluster into
+sessions, sessions convert at some rate, and traffic ebbs and flows with
+time of day and day of week. `ClickstreamGenerator` reproduces these
+session and conversion dynamics for web-analytics modeling.
+
+> **The model**
+>
+> The generator produces sessionized activity with conversion behavior
+> layered on daily and weekly traffic rhythms. Tune the session and
+> conversion parameters to match different traffic profiles.
 
 ```python
 import polars as pl
@@ -303,4 +310,14 @@ include_bots: True
 bot_fraction: 0.15
 output_type: sessions
 ```
+
+> **Related generators**
+>
+> -   [Daily active users](daily_active_users) — the aggregate
+>     engagement metric.
+> -   [Poisson process](../stochastic/poisson_process) — a baseline
+>     arrival model.
+>
+> Full parameters are in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 

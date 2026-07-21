@@ -1,250 +1,215 @@
 ---
-title: Getting Started with SynForecast
+title: Quick start
 ---
 
-This tutorial covers the basics of generating synthetic time series data
-with SynForecast. You will learn how to create generators, configure
-parameters, inject patterns, and combine multiple generators into
-datasets.
+SynForecast generates synthetic time-series panels — validated,
+reproducible, and in the same long format as the rest of the
+Nixtlaverse. This guide goes from a one-line panel to explicitly
+controlled generators, injected real-world patterns, and mixed datasets.
+
+> **When do you reach for synthetic data?**
+>
+> -   **Testing** a forecasting pipeline on data whose true process you
+>     know, before trusting it on real series.
+> -   **Augmenting** a small panel so a global model has more to learn
+>     from — see [SynAugment](../capabilities/augmentation).
+> -   **Pretraining** foundation models on a diverse corpus no single
+>     real dataset provides.
+> -   **Sharing** a reproducible example without exposing proprietary
+>     data.
+
+## 1. Generate a panel in one line
+
+`generate_series` draws from a balanced pool of generators spanning
+trends, seasonality, volatility clustering, counts, and more, then
+returns a panel you can hand straight to any Nixtla forecaster.
 
 ```python
-import polars as pl
-import matplotlib.pyplot as plt
+from synforecast import generate_series
 
-from synforecast import SynSet
-from synforecast.generators import RandomWalkGenerator, SeasonalGenerator
-```
-
-## Create a Simple Generator
-
-Every generator takes a dictionary of parameters. At minimum, you
-specify the series length and frequency.
-
-```python
-generator = RandomWalkGenerator(engine="polars", **{
-    "min_length": 100,
-    "max_length": 100,
-    "freq": "D",
-    "seed": 42,
-})
-
-df = generator.generate(n_series=3)
-df.head(10)
+panel = generate_series(
+    n_series=6,
+    freq="D",
+    min_length=200,
+    max_length=200,
+    engine="polars",
+    seed=1,
+)
+panel.head()
 ```
 
 | unique_id | ds                  | y         |
 |-----------|---------------------|-----------|
 | cat       | datetime\[ns\]      | f64       |
-| "0"       | 2000-01-01 00:00:00 | -1.401594 |
-| "0"       | 2000-01-02 00:00:00 | -2.307539 |
-| "0"       | 2000-01-03 00:00:00 | -1.352484 |
-| "0"       | 2000-01-04 00:00:00 | -1.011828 |
-| "0"       | 2000-01-05 00:00:00 | -1.511372 |
-| "0"       | 2000-01-06 00:00:00 | -2.176202 |
-| "0"       | 2000-01-07 00:00:00 | -1.574639 |
-| "0"       | 2000-01-08 00:00:00 | -1.915517 |
-| "0"       | 2000-01-09 00:00:00 | -1.746987 |
-| "0"       | 2000-01-10 00:00:00 | -1.566314 |
+| "0"       | 2000-01-01 00:00:00 | 0.705375  |
+| "0"       | 2000-01-02 00:00:00 | 0.838695  |
+| "0"       | 2000-01-03 00:00:00 | 0.303755  |
+| "0"       | 2000-01-04 00:00:00 | -0.502002 |
+| "0"       | 2000-01-05 00:00:00 | 0.060002  |
+
+> **The Nixtla long format**
+>
+> Every SynForecast output uses three columns — `unique_id` (series id),
+> `ds` (timestamp), and `y` (value) — the schema `statsforecast`,
+> `mlforecast`, and `neuralforecast` all expect, so no adapter is
+> needed. The default `engine="pandas"` returns a pandas frame; pass
+> `engine="polars"` (as here) for Polars.
 
 ```python
-fig, ax = plt.subplots(figsize=(12, 4))
-for uid in df["unique_id"].unique().to_list():
-    series = df.filter(pl.col("unique_id") == uid)
-    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Value")
-ax.set_title("Basic Random Walk Generation")
-ax.legend()
-plt.tight_layout()
-plt.show()
+import matplotlib.pyplot as plt
+import polars as pl
+
+
+def plot_panel(df, title, max_series=8):
+    """Plot each series in a long-format panel on a shared axis."""
+    fig, ax = plt.subplots(figsize=(11, 4))
+    for uid in df["unique_id"].unique(maintain_order=True).to_list()[:max_series]:
+        series = df.filter(pl.col("unique_id") == uid)
+        ax.plot(series["ds"], series["y"], linewidth=1, alpha=0.8, label=str(uid))
+    ax.set(title=title, xlabel="ds", ylabel="y")
+    ax.legend(fontsize=8, ncol=4)
+    plt.tight_layout()
+    plt.show()
+
+
+plot_panel(panel, "A balanced synthetic panel from generate_series")
+```
+
+![](./quickstart_files/figure-markdown_strict/cell-3-output-1.png)
+
+Each line is a *different* data-generating process — a random walk here,
+a seasonal profile there, a volatile stretch elsewhere. That diversity
+is what turns the panel into a stress test for a forecaster rather than
+one shape repeated six times.
+
+## 2. Choose a generator when you need control
+
+`generate_series` is the fast default. When you need a *known* process —
+for example, to confirm your model recovers an upward trend —
+instantiate a generator and set its parameters explicitly. Here, a
+random walk with positive drift and moderate volatility.
+
+```python
+from synforecast.generators import RandomWalkGenerator
+
+rw = RandomWalkGenerator(
+    engine="polars",
+    min_length=200,
+    max_length=200,
+    freq="D",
+    drift=0.1,
+    volatility=1.5,
+    start_value=100.0,
+    seed=42,
+)
+walks = rw.generate(n_series=4)
+plot_panel(walks, "Random walks with positive drift (drift=0.1, volatility=1.5)")
 ```
 
 ![](./quickstart_files/figure-markdown_strict/cell-4-output-1.png)
 
-## Configure Generator Parameters
+All four series share the same process but a different noise draw: the
+common upward pull is the `drift`, the jaggedness is the `volatility`.
+Change `seed` for fresh draws, or the parameters to reshape the process.
+Every generator’s full parameter set is listed in the [generator
+reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 
-Each generator has specific parameters that control the shape of the
-output. For `RandomWalkGenerator`, you can set drift, volatility, and
-start value.
+## 3. Inject real-world patterns
 
-```python
-generator = RandomWalkGenerator(engine="polars", **{
-    "min_length": 100,
-    "max_length": 150,
-    "freq": "h",
-    "drift": 0.1,
-    "volatility": 1.5,
-    "start_value": 100.0,
-    "seed": 42,
-})
-
-df = generator.generate(n_series=2)
-print(f"Generated {df['unique_id'].n_unique()} series, {len(df)} total rows")
-df.head(10)
-```
-
-``` text
-Generated 2 series, 243 total rows
-```
-
-| unique_id | ds                  | y          |
-|-----------|---------------------|------------|
-| cat       | datetime\[ns\]      | f64        |
-| "0"       | 2000-01-01 00:00:00 | 97.970343  |
-| "0"       | 2000-01-01 01:00:00 | 97.797686  |
-| "0"       | 2000-01-01 02:00:00 | 99.952696  |
-| "0"       | 2000-01-01 03:00:00 | 101.316565 |
-| "0"       | 2000-01-01 04:00:00 | 101.585458 |
-| "0"       | 2000-01-01 05:00:00 | 99.693524  |
-| "0"       | 2000-01-01 06:00:00 | 98.830769  |
-| "0"       | 2000-01-01 07:00:00 | 97.657048  |
-| "0"       | 2000-01-01 08:00:00 | 98.728945  |
-| "0"       | 2000-01-01 09:00:00 | 97.588927  |
+Real series are rarely clean. Any generator can add anomalies, level
+shifts, and missing values, so you can measure how a model copes with
+them — and because everything is seeded, the messy series is
+reproducible.
 
 ```python
-fig, ax = plt.subplots(figsize=(12, 4))
-for uid in df["unique_id"].unique().to_list():
-    series = df.filter(pl.col("unique_id") == uid)
-    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Value")
-ax.set_title("Configured Random Walk (Drift + Volatility)")
-ax.legend()
-plt.tight_layout()
-plt.show()
+messy = RandomWalkGenerator(
+    engine="polars",
+    min_length=200,
+    max_length=200,
+    freq="D",
+    start_value=100.0,
+    seed=42,
+    # spikes and dips
+    anomalies=True,
+    anomaly_fraction=0.03,
+    anomaly_types=["spike", "dip"],
+    # abrupt level shifts
+    changepoints=True,
+    num_changepoints=2,
+    changepoint_type="level",
+    # gaps
+    missing_data=True,
+    missing_rate=0.02,
+)
+plot_panel(
+    messy.generate(n_series=1),
+    "One random walk with spikes/dips, level shifts, and gaps",
+)
+```
+
+![](./quickstart_files/figure-markdown_strict/cell-5-output-1.png)
+
+> **Each pattern has its own guide**
+>
+> The knobs above are the quick version. Fine-grained control lives in
+> the capability guides: [anomalies](../capabilities/anomalies),
+> [changepoints](../capabilities/changepoints), and
+> [missingness](../capabilities/missingness). To attach exogenous
+> regressors, see [exogenous](../capabilities/exogenous).
+
+## 4. Combine generators into one dataset
+
+A realistic panel mixes behaviors. `SynSet` composes several generators
+into a single long-format dataset, with each generator contributing a
+batch of series under its own ids.
+
+```python
+from synforecast import SynSet
+from synforecast.generators import SeasonalGenerator
+
+dataset = SynSet(
+    [
+        RandomWalkGenerator(
+            engine="polars", min_length=200, max_length=200, freq="D", seed=1
+        ),
+        SeasonalGenerator(
+            engine="polars",
+            min_length=200,
+            max_length=200,
+            freq="D",
+            seasonality_period=7,
+            seasonality_amplitude=8.0,
+            seed=2,
+        ),
+    ]
+)
+mixed = dataset.generate(n_series_per_generator=3)
+plot_panel(mixed, "SynSet: random-walk + weekly-seasonal series in one panel")
 ```
 
 ![](./quickstart_files/figure-markdown_strict/cell-6-output-1.png)
 
-## Pattern Injection
+> **Reproducibility and the alpha API**
+>
+> Generation is fully seeded: the same inputs produce the same panel
+> across runs and regardless of `n_jobs`. SynForecast is in alpha, so
+> seed-identical outputs may change between releases — pin a version if
+> you depend on exact values.
 
-SynForecast can inject realistic patterns into generated data:
-anomalies, changepoints, and missing values. These are configured
-through the generator parameters.
+## Where to go next
 
-```python
-generator = RandomWalkGenerator(engine="polars", **{
-    "min_length": 200,
-    "max_length": 200,
-    "freq": "D",
-    "start_value": 100.0,
-    "seed": 42,
-    # Enable anomalies
-    "anomalies": True,
-    "anomaly_fraction": 0.05,
-    "anomaly_types": ["spike", "dip"],
-    # Enable changepoints
-    "changepoints": True,
-    "num_changepoints": 2,
-    "changepoint_type": "level",
-    # Enable missing data
-    "missing_data": True,
-    "missing_rate": 0.03,
-})
-
-df = generator.generate(n_series=1)
-print(f"Null values: {df['y'].null_count()}")
-df.head(10)
-```
-
-``` text
-Null values: 0
-```
-
-| unique_id | ds                  | y          |
-|-----------|---------------------|------------|
-| cat       | datetime\[ns\]      | f64        |
-| "0"       | 2000-01-01 00:00:00 | 98.598406  |
-| "0"       | 2000-01-02 00:00:00 | 97.692461  |
-| "0"       | 2000-01-03 00:00:00 | 98.647516  |
-| "0"       | 2000-01-04 00:00:00 | 98.988172  |
-| "0"       | 2000-01-05 00:00:00 | 98.488628  |
-| "0"       | 2000-01-06 00:00:00 | 97.823798  |
-| "0"       | 2000-01-07 00:00:00 | 98.425361  |
-| "0"       | 2000-01-08 00:00:00 | 108.084483 |
-| "0"       | 2000-01-09 00:00:00 | NaN        |
-| "0"       | 2000-01-10 00:00:00 | 98.433686  |
-
-```python
-fig, ax = plt.subplots(figsize=(12, 4))
-for uid in df["unique_id"].unique().to_list():
-    series = df.filter(pl.col("unique_id") == uid)
-    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Value")
-ax.set_title("Pattern Injection (Anomalies, Changepoints, Missing Data)")
-ax.legend()
-plt.tight_layout()
-plt.show()
-```
-
-![](./quickstart_files/figure-markdown_strict/cell-8-output-1.png)
-
-## Combining Generators with SynSet
-
-`SynSet` lets you combine multiple generators into a single unified
-dataset. Each generator contributes a batch of series.
-
-```python
-generators = [
-    RandomWalkGenerator(engine="polars", **{
-        "min_length": 100,
-        "max_length": 100,
-        "freq": "D",
-        "seed": 1,
-    }),
-    SeasonalGenerator(engine="polars", **{
-        "min_length": 100,
-        "max_length": 100,
-        "freq": "D",
-        "seasonality_period": 7,
-        "seed": 2,
-    }),
-]
-
-synset = SynSet(generators)
-df = synset.generate(n_series_per_generator=2)
-print(f"Total unique series: {df['unique_id'].n_unique()}")
-df.head(10)
-```
-
-``` text
-Total unique series: 4
-```
-
-| unique_id | ds                  | y         |
-|-----------|---------------------|-----------|
-| cat       | datetime\[ns\]      | f64       |
-| "0"       | 2000-01-01 00:00:00 | -0.75549  |
-| "0"       | 2000-01-02 00:00:00 | -0.60759  |
-| "0"       | 2000-01-03 00:00:00 | 1.274036  |
-| "0"       | 2000-01-04 00:00:00 | 0.87971   |
-| "0"       | 2000-01-05 00:00:00 | -0.002609 |
-| "0"       | 2000-01-06 00:00:00 | -0.914103 |
-| "0"       | 2000-01-07 00:00:00 | -0.132172 |
-| "0"       | 2000-01-08 00:00:00 | 0.986832  |
-| "0"       | 2000-01-09 00:00:00 | 1.833801  |
-| "0"       | 2000-01-10 00:00:00 | 1.793422  |
-
-```python
-fig, ax = plt.subplots(figsize=(12, 4))
-for uid in df["unique_id"].unique().to_list():
-    series = df.filter(pl.col("unique_id") == uid)
-    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Value")
-ax.set_title("SynSet: Combined Random Walk + Seasonal Series")
-ax.legend()
-plt.tight_layout()
-plt.show()
-```
-
-![](./quickstart_files/figure-markdown_strict/cell-10-output-1.png)
-
-## Next Steps
-
-SynForecast includes 17+ generators covering statistical models (SARIMA,
-ETS), stochastic processes (GARCH, Ornstein-Uhlenbeck, GBM), and
-domain-specific patterns (IoT, energy, demand). Explore the other
-example notebooks to learn more about each generator.
+-   **Generators** — 31 generators from SARIMA, ETS, and GARCH to
+    Gaussian processes and the
+    [KernelSynth](../generators/pretraining/kernel_synth) pretraining
+    recipe. Start with [random
+    walk](../generators/statistical/random_walk) or
+    [seasonal](../generators/statistical/seasonal).
+-   **[Augmentation](../capabilities/augmentation)** — expand a small
+    real panel with `SynAugment` or TSMixup.
+-   **[Balanced pool](../capabilities/balanced_pool)** — what
+    `generate_series` draws from by default, and how to tailor it.
+-   **Integrations** — end-to-end workflows with
+    [statsforecast](../integrations/statsforecast),
+    [mlforecast](../integrations/mlforecast), and
+    [neuralforecast](../integrations/neuralforecast).
 

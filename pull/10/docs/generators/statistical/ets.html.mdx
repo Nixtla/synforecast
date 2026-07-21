@@ -1,11 +1,19 @@
 ---
-title: ETS Generator
+title: ETS (exponential smoothing)
 ---
 
-Generate Exponential Smoothing (ETS) time series with configurable
-error, trend, and seasonal components. Supports additive and
-multiplicative formulations, damped trends, state export, and Box-Cox
-transformations.
+ETS models describe a series through slowly evolving *states* — level,
+optional trend, optional seasonality — updated by exponential smoothing.
+The error/trend/season taxonomy spans 30 variants (additive or
+multiplicative, damped or not), so a single generator covers a broad
+family of realistic trend-plus-seasonality shapes.
+
+> **The model**
+>
+> Each series is built from a level state plus optional trend and
+> seasonal states, combined additively or multiplicatively via
+> `error_type`, `trend_type`, `seasonal_type`, and `damped`. This is the
+> state-space form behind Holt and Holt-Winters smoothing.
 
 ```python
 import polars as pl
@@ -383,4 +391,14 @@ plt.show()
 ```
 
 ![](./ets_files/figure-markdown_strict/cell-17-output-1.png)
+
+> **Related generators**
+>
+> -   [SARIMA](sarima) — the ARIMA view of the same trend/seasonal
+>     structure.
+> -   [Seasonal](seasonal) — a fixed seasonal wave when you don’t need
+>     evolving states.
+>
+> The full error/trend/season taxonomy is in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 

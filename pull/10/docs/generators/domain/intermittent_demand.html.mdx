@@ -1,11 +1,19 @@
 ---
-title: Intermittent Demand Generator
+title: Intermittent demand
 ---
 
-Generate sparse time series with intermittent demand patterns. These
-patterns are common in retail demand for slow-moving items, spare parts
-inventory, and supply chain forecasting where many observations are
-zero.
+Intermittent demand is *sparse*: long runs of zeros punctuated by
+occasional nonzero orders — the reality for spare parts and slow-moving
+SKUs. Standard forecasters trained on smooth series fail here, which
+makes this generator the test bed for Croston-type methods and
+zero-inflated models.
+
+> **The model**
+>
+> Nonzero demands are separated by random gaps, with order sizes drawn
+> independently. `intermittent_pattern` shapes *when* orders occur —
+> `random`, `clustered` (bursts of demand), or `seasonal` (periodic
+> demand windows).
 
 ```python
 import numpy as np
@@ -446,4 +454,13 @@ plt.show()
 ```
 
 ![](./intermittent_demand_files/figure-markdown_strict/cell-15-output-1.png)
+
+> **Related generators**
+>
+> -   [INAR](../statistical/inar) — autocorrelated integer counts.
+> -   [Poisson process](../stochastic/poisson_process) — event arrivals
+>     over time.
+>
+> Full parameters are in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 

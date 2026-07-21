@@ -1,11 +1,18 @@
 ---
-title: Energy Load Generator
+title: Energy load
 ---
 
-Simulate electricity demand patterns for different customer types
-(residential, commercial, industrial). The generator incorporates
-daily/weekly seasonality, temperature sensitivity, holiday effects, and
-extreme weather events.
+Electricity load has strong, *layered* seasonality — a daily usage
+rhythm nested inside a weekly one — plus consumer-driven shape
+variation. `EnergyLoadGenerator` reproduces these multi-seasonal
+profiles for grid-demand forecasting.
+
+> **The model**
+>
+> The series combines daily and weekly cycles with a load shape and
+> noise appropriate to `load_type` — `residential` (sharp morning and
+> evening peaks) or `industrial` (flatter, weekday-driven). The
+> overlapping periods make it a good test of multi-seasonal models.
 
 ```python
 import polars as pl
@@ -417,4 +424,12 @@ plt.show()
 ```
 
 ![](./energy_load_files/figure-markdown_strict/cell-16-output-1.png)
+
+> **Related generators**
+>
+> -   [Seasonal](../statistical/seasonal) — a single seasonal cycle.
+> -   [SARIMA](../statistical/sarima) — seasonal ARMA dynamics.
+>
+> Full parameters are in the [generator
+> reference](https://github.com/Nixtla/synforecast/blob/main/GENERATORS.md).
 
