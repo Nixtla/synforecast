@@ -281,7 +281,8 @@ Generate time series with irregular cyclic patterns.
 Models business cycles and economic indicators: a linear trend plus
 `num_cycles` superposed sinusoids whose periods and amplitudes are
 drawn once per series (period ~ |N(period_mean, period_std)|,
-amplitude ~ N(amplitude_mean, amplitude_std)), plus Gaussian noise.
+amplitude ~ N(amplitude_mean, amplitude_std)), plus additive noise drawn
+from the configured `innovation_distribution`.
 Each sinusoid's instantaneous frequency is slowly modulated (+-20%
 around 2\*pi/period, integrated as a cumulative phase), so cycle
 lengths vary within a series, unlike regular seasonal patterns.
