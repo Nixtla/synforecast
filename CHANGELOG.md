@@ -32,11 +32,23 @@
 
 ### Changed
 
+- `SynAugment` now raises when a fitted generator fails for a series instead
+  of silently substituting an AR(1) series. Pass `on_error="ar1"` to restore
+  the substitution behavior; substitutions are then reported in a single
+  summary warning. Unknown generator names in `generator_override` raise a
+  `ValueError` instead of silently using a random walk.
 - Publishing a GitHub Release now validates, builds, smoke-tests, and publishes
   the package to PyPI automatically. The release also deploys the production
   documentation.
 - Package and README descriptions use the same testing, augmentation, and
   pretraining positioning and link reproducible benchmark evidence.
+
+### Fixed
+
+- `SynAugment` fitted GARCH parameters under the key `mean`, which
+  `GARCHGenerator` rejects (its field is `mu`), so every GARCH-classified
+  series silently fell back to AR(1) generation. The fitter→generator
+  parameter contract is now covered by tests for all supported generators.
 
 ### Security
 

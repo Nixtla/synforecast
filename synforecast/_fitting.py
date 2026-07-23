@@ -270,7 +270,7 @@ def fit_garch(series: np.ndarray) -> dict:
             "omega": 0.1,
             "alpha": [0.1],  # GARCHGenerator expects lists
             "beta": [0.8],
-            "mean": 0.0,
+            "mu": 0.0,
         }
 
     # Compute returns
@@ -308,7 +308,7 @@ def fit_garch(series: np.ndarray) -> dict:
         "omega": float(omega),
         "alpha": [float(max(0.01, alpha))],
         "beta": [float(max(0.01, min(0.98, beta)))],
-        "mean": float(mean),
+        "mu": float(mean),
     }
 
 
