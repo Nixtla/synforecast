@@ -293,3 +293,67 @@ Get information about the ETS model configuration.
 Name | Type | Description
 ---- | ---- | -----------
 `dict` | <code>[dict](#dict)\[[str](#str), [Any](#typing.Any)\]</code> | Model information including type, parameters, and state
+
+### `INARGenerator`
+
+Bases: <code>[BaseGenerator](#synforecast.base.BaseGenerator)</code>
+
+Generate integer-valued time series with autoregressive structure.
+
+INAR(p) models use binomial thinning to maintain integer values while
+preserving autoregressive dynamics:
+
+```
+X_t = alpha_1 o X_{t-1} + ... + alpha_p o X_{t-p} + epsilon_t
+```
+
+where 'o' is binomial thinning, alpha o X = sum\_{i=1}^{X} Bernoulli(alpha),
+and epsilon_t are i.i.d. count innovations (Poisson or negative binomial).
+
+Stationarity requires sum(alpha) < 1, giving unconditional mean
+E[X] = E[epsilon] / (1 - sum(alpha)). The autocorrelation function
+follows the same Yule-Walker recursions as a Gaussian AR(p); for
+INAR(1), acf(k) = alpha^k. With Poisson innovations the INAR(1)
+stationary marginal is Poisson(innovation_mean / (1 - alpha)).
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`min_length` | <code>[int](#int)</code> | Minimum length of each series | *required*
+`max_length` | <code>[int](#int)</code> | Maximum length of each series | *required*
+`freq` | <code>[str](#str) | [int](#int)</code> | Frequency of the data (e.g. 'D', 'h', '5min') or int | *required*
+`p` | <code>[int](#int)</code> | Autoregressive order (default: 1) | *required*
+`alpha` | <code>[list](#list)\[[float](#float)\] | None</code> | Thinning probabilities, each in [0, 1] with sum < 1 (default: random with sum < 0.8) | *required*
+`innovation_type` | <code>[str](#str)</code> | 'poisson' or 'negative_binomial' (default: 'poisson') | *required*
+`innovation_mean` | <code>[float](#float)</code> | Mean of innovations (default: 5.0) | *required*
+`innovation_dispersion` | <code>[float](#float)</code> | Dispersion r for the negative binomial; innovation variance is mean + mean^2 / r (default: 2.0) | *required*
+`seed` | <code>[int](#int) | None</code> | Random seed for reproducibility (default: None) | *required*
+
+#### `INARGenerator.generate_single_series`
+
+```python
+generate_single_series(length)
+```
+
+Generate a single INAR time series.
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`length` | <code>[int](#int)</code> | The length of the series to generate | *required*
+
+**Returns:**
+
+Type | Description
+---- | -----------
+<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of non-negative integer time series values
+
+#### `INARGenerator.get_model_info`
+
+```python
+get_model_info()
+```
+
+Return information about the INAR configuration.

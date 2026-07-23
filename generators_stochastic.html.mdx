@@ -806,3 +806,209 @@ Get information about the regime-switching model.
 Name | Type | Description
 ---- | ---- | -----------
 `dict` | <code>[dict](#dict)</code> | Model parameters and characteristics
+
+### `ChaoticSystemGenerator`
+
+Bases: <code>[BaseGenerator](#synforecast.base.BaseGenerator)</code>
+
+Generate time series from deterministic chaotic dynamical systems.
+
+Produces series that look stochastic but are fully deterministic given
+the initial condition; randomness enters only through a seeded
+perturbation of the initial condition and optional observation noise.
+
+<details class="systems" open markdown="1">
+<summary>Systems</summary>
+
+- lorenz: Lorenz attractor `x' = sigma(y-x), y' = x(rho-z) - y, z' = xy - beta*z`, integrated with RK4 and sampled every
+  1/dt steps (one time unit per observation); the x-component is
+  returned.
+- logistic: Logistic map `x_{n+1} = r * x_n * (1 - x_n)`
+  (chaotic for r ~ 3.57..4; for r=4 the invariant density is
+  Beta(1/2, 1/2)).
+- mackey_glass: Mackey-Glass delay differential equation
+  `x' = beta * x(t-tau) / (1 + x(t-tau)^n) - gamma * x`,
+  Euler-integrated with unit step (chaotic for tau >= 17 at the
+  default parameters).
+
+</details>
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`system` | <code>[str](#str)</code> | 'lorenz', 'logistic' or 'mackey_glass' (default: 'lorenz'). | *required*
+`sigma` | <code>[float](#float)</code> | Lorenz sigma (default: 10.0). | *required*
+`rho` | <code>[float](#float)</code> | Lorenz rho (default: 28.0). | *required*
+`beta_param` | <code>[float](#float)</code> | Lorenz beta, alias 'lorenz_beta' (default: 2.6667). | *required*
+`dt` | <code>[float](#float)</code> | Lorenz RK4 integration step (default: 0.01). | *required*
+`logistic_r` | <code>[float](#float)</code> | Logistic map parameter r (default: 3.9). | *required*
+`mg_beta` | <code>[float](#float)</code> | Mackey-Glass beta (default: 0.2). | *required*
+`mg_gamma` | <code>[float](#float)</code> | Mackey-Glass gamma (default: 0.1). | *required*
+`mg_n` | <code>[float](#float)</code> | Mackey-Glass exponent n (default: 10.0). | *required*
+`mg_tau` | <code>[int](#int)</code> | Mackey-Glass delay tau (default: 17). | *required*
+`observation_noise` | <code>[float](#float)</code> | Std of additive Gaussian observation noise (default: 0.0). | *required*
+`initial_perturbation` | <code>[float](#float)</code> | Scale of the random initial-condition perturbation; 0 makes the output seed-independent (default: 0.01). | *required*
+
+#### `ChaoticSystemGenerator.generate_single_series`
+
+```python
+generate_single_series(length)
+```
+
+Generate a single chaotic time series.
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`length` | <code>[int](#int)</code> | The length of the series to generate. | *required*
+
+**Returns:**
+
+Type | Description
+---- | -----------
+<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values.
+
+#### `ChaoticSystemGenerator.get_model_info`
+
+```python
+get_model_info()
+```
+
+Return information about the chaotic system configuration.
+
+### `BoundedProcessGenerator`
+
+Bases: <code>[BaseGenerator](#synforecast.base.BaseGenerator)</code>
+
+Generate time series constrained to a bounded interval.
+
+Values are simulated on the unit interval and affinely mapped to
+[lower, upper] (default [0, 1]). Useful for proportions, market shares,
+probabilities, and other bounded quantities.
+
+<details class="models" open markdown="1">
+<summary>Models</summary>
+
+- beta_ar: Beta AR(1) via conditional mean parameterization.
+  mu_t = omega + phi * x\_{t-1}, x_t ~ Beta(mu_t * kappa,
+  (1 - mu_t) * kappa), so E[x_t | x\_{t-1}] = mu_t and the stationary
+  mean is omega / (1 - phi).
+- logit_normal: AR(1) on the logit scale, sigmoid-transformed back:
+  z_t = phi * z\_{t-1} + sigma * eps_t, x_t = sigmoid(z_t).
+
+</details>
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
+`max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
+`freq` | <code>[str](#str) | [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
+`model` | <code>[str](#str)</code> | 'beta_ar' or 'logit_normal' (default: 'beta_ar'). | *required*
+`phi` | <code>[float](#float)</code> | AR coefficient in [-1, 1] (default: 0.8). | *required*
+`omega` | <code>[float](#float)</code> | Intercept of the beta_ar conditional mean (default: 0.1). Must satisfy 0 < omega + phi * x < 1 for x in (0, 1). | *required*
+`kappa` | <code>[float](#float)</code> | Beta precision; larger = less noise (default: 20.0). | *required*
+`sigma` | <code>[float](#float)</code> | Logit-scale innovation std (logit_normal only, default: 0.3). | *required*
+`initial_value` | <code>[float](#float)</code> | Starting value on the unit scale, in (0, 1) (default: 0.5). | *required*
+`lower` | <code>[float](#float)</code> | Lower bound of the output interval (default: 0.0). | *required*
+`upper` | <code>[float](#float)</code> | Upper bound of the output interval (default: 1.0). | *required*
+`seed` | <code>[int](#int) | None</code> | Random seed for reproducibility (default: None). | *required*
+
+#### `BoundedProcessGenerator.generate_single_series`
+
+```python
+generate_single_series(length)
+```
+
+Generate a single bounded time series.
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`length` | <code>[int](#int)</code> | The length of the series to generate | *required*
+
+**Returns:**
+
+Type | Description
+---- | -----------
+<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values in [lower, upper]
+
+#### `BoundedProcessGenerator.get_model_info`
+
+```python
+get_model_info()
+```
+
+Return information about the bounded process configuration.
+
+### `LevyProcessGenerator`
+
+Bases: <code>[BaseGenerator](#synforecast.base.BaseGenerator)</code>
+
+Generate time series with alpha-stable (Levy) increments.
+
+Each observation step adds an independent increment
+`scale * X + location` where `X ~ S(alpha, beta_skew; 1)` is a
+standard alpha-stable random variable in the S1 parameterization
+(matching `scipy.stats.levy_stable`), sampled with the
+Chambers-Mallows-Stuck algorithm. For `alpha < 2` the increments have
+infinite variance, producing extreme jumps far beyond Gaussian or
+t-distributed innovations. There is no separate `dt`: `scale` is the
+per-step scale (a step of duration `dt` in model time corresponds to
+`scale ~ dt**(1/alpha)` by self-similarity).
+
+<details class="special-cases" open markdown="1">
+<summary>Special cases</summary>
+
+- `alpha=2`: Gaussian with standard deviation `scale * sqrt(2)`
+- `alpha=1, beta_skew=0`: Cauchy
+- `alpha=0.5, beta_skew=1`: Levy distribution
+
+</details>
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
+`max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
+`freq` | <code>[str](#str) | [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
+`alpha` | <code>[float](#float)</code> | Stability index in (0, 2\] (default: 1.5). | *required*
+`beta_skew` | <code>[float](#float)</code> | Skewness parameter in [-1, 1] (default: 0.0). | *required*
+`scale` | <code>[float](#float)</code> | Scale of each increment (default: 1.0). | *required*
+`location` | <code>[float](#float)</code> | Location shift of each increment (default: 0.0). | *required*
+`cumulative` | <code>[bool](#bool)</code> | Return the cumulative sum (Levy flight) instead of raw increments (default: True). | *required*
+`initial_value` | <code>[float](#float)</code> | Starting value for cumulative mode (default: 0.0). | *required*
+`seed` | <code>[int](#int) | None</code> | Random seed for reproducibility (default: None). | *required*
+
+#### `LevyProcessGenerator.generate_single_series`
+
+```python
+generate_single_series(length)
+```
+
+Generate a single Levy process time series.
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`length` | <code>[int](#int)</code> | The length of the series to generate. | *required*
+
+**Returns:**
+
+Type | Description
+---- | -----------
+<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values.
+
+#### `LevyProcessGenerator.get_model_info`
+
+```python
+get_model_info()
+```
+
+Return information about the Levy process configuration.

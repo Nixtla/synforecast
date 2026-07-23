@@ -187,3 +187,63 @@ Type | Description
 ---- | -----------
 <code>[IntoDataFrameT](#narwhals.stable.v2.typing.IntoDataFrameT)</code> | DataFrame in long format with columns \[id_col, time_col,
 <code>[IntoDataFrameT](#narwhals.stable.v2.typing.IntoDataFrameT)</code> | target_col\]; each unique_id is one correlated variable.
+
+### `GaussianProcessGenerator`
+
+Bases: <code>[BaseGenerator](#synforecast.base.BaseGenerator)</code>
+
+Generate time series by sampling from a Gaussian Process.
+
+Samples `f ~ GP(mean, k)` on the integer grid t = 0..length-1, so the
+marginal distribution is `N(mean, amplitude^2 + noise_variance)` and
+the correlation at lag r is `k(r) / k(0)`.
+
+Kernels (r = |t - t'|, l = length_scale, a = amplitude):
+\- rbf: `a^2 exp(-r^2 / (2 l^2))` — infinitely differentiable,
+very smooth paths
+\- matern_0.5: `a^2 exp(-r/l)` — rough, Ornstein-Uhlenbeck-like
+\- matern_1.5: `a^2 (1+s) exp(-s)`, s = sqrt(3) r / l —
+once-differentiable
+\- matern_2.5: `a^2 (1+s+s^2/3) exp(-s)`, s = sqrt(5) r / l —
+twice-differentiable
+\- periodic: `a^2 exp(-2 sin^2(pi r / period) / l^2)` — exact
+periodicity
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`kernel` | <code>[str](#str)</code> | Kernel type (default: 'rbf'). | *required*
+`length_scale` | <code>[float](#float)</code> | Kernel length scale (default: 20.0). | *required*
+`amplitude` | <code>[float](#float)</code> | Signal amplitude / output scale (default: 1.0). | *required*
+`period` | <code>[float](#float)</code> | Period for the periodic kernel (default: 50.0). | *required*
+`mean` | <code>[float](#float)</code> | Mean function value (default: 0.0). | *required*
+`noise_variance` | <code>[float](#float)</code> | Observation noise variance, also acts as jitter for the Cholesky factorization (default: 1e-6). | *required*
+
+#### `GaussianProcessGenerator.generate_single_series`
+
+```python
+generate_single_series(length)
+```
+
+Generate a single GP sample path.
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`length` | <code>[int](#int)</code> | The length of the series to generate | *required*
+
+**Returns:**
+
+Type | Description
+---- | -----------
+<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values
+
+#### `GaussianProcessGenerator.get_model_info`
+
+```python
+get_model_info()
+```
+
+Return information about the GP configuration.
