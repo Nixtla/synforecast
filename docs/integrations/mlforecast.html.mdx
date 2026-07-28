@@ -76,7 +76,7 @@ pd.DataFrame(
 |-----|----------------------------|--------|
 | 0   | observed only              | 1      |
 | 1   | observed + augmented       | 9      |
-| 2   | independent synthetic only | 31     |
+| 2   | independent synthetic only | 32     |
 
 ```python
 def make_forecaster() -> MLForecast:
@@ -152,8 +152,8 @@ metrics
 |     | workflow                          | MAE       |
 |-----|-----------------------------------|-----------|
 | 0   | Observed only                     | 15.904738 |
-| 2   | Synthetic pretraining (zero-shot) | 77.349692 |
-| 1   | Observed + synthetic              | 81.233920 |
+| 2   | Synthetic pretraining (zero-shot) | 71.346015 |
+| 1   | Observed + synthetic              | 97.735619 |
 
 ```python
 fig, ax = plt.subplots(figsize=(11, 5))

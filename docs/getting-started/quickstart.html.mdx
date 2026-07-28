@@ -77,10 +77,45 @@ plot_panel(panel, "A balanced synthetic panel from generate_series")
 
 ![](./quickstart_files/figure-markdown_strict/cell-3-output-1.png)
 
-Each line is a *different* data-generating process — a random walk here,
-a seasonal profile there, a volatile stretch elsewhere. That diversity
-is what turns the panel into a stress test for a forecaster rather than
-one shape repeated six times.
+Each line is a *different* data-generating process. Together they cover
+ARIMA dynamics, exponential smoothing, long memory, regime switching,
+volatility clustering, and irregular cycles. That diversity is what
+turns the panel into a stress test for a forecaster rather than one
+shape repeated six times.
+
+Don’t take that on trust — pass `with_generator_col=True` to record
+which generator produced each series:
+
+```python
+provenance = generate_series(
+    n_series=6,
+    freq="D",
+    min_length=200,
+    max_length=200,
+    engine="polars",
+    seed=1,
+    with_generator_col=True,
+)
+per_series = provenance.group_by("unique_id", "generator").len().sort("unique_id")
+print(per_series)
+assert per_series["generator"].n_unique() == 6, "panel should span 6 generators"
+```
+
+``` text
+shape: (6, 3)
+┌───────────┬─────────────────────────────────┬─────┐
+│ unique_id ┆ generator                       ┆ len │
+│ ---       ┆ ---                             ┆ --- │
+│ cat       ┆ str                             ┆ u32 │
+╞═══════════╪═════════════════════════════════╪═════╡
+│ 0         ┆ SARIMAGenerator                 ┆ 200 │
+│ 1         ┆ ETSGenerator                    ┆ 200 │
+│ 2         ┆ FractionalBrownianMotionGenera… ┆ 200 │
+│ 3         ┆ RegimeSwitchingGenerator        ┆ 200 │
+│ 4         ┆ GARCHGenerator                  ┆ 200 │
+│ 5         ┆ CyclicGenerator                 ┆ 200 │
+└───────────┴─────────────────────────────────┴─────┘
+```
 
 ## 2. Choose a generator when you need control
 
@@ -106,7 +141,7 @@ walks = rw.generate(n_series=4)
 plot_panel(walks, "Random walks with positive drift (drift=0.1, volatility=1.5)")
 ```
 
-![](./quickstart_files/figure-markdown_strict/cell-4-output-1.png)
+![](./quickstart_files/figure-markdown_strict/cell-5-output-1.png)
 
 All four series share the same process but a different noise draw: the
 common upward pull is the `drift`, the jaggedness is the `volatility`.
@@ -147,7 +182,7 @@ plot_panel(
 )
 ```
 
-![](./quickstart_files/figure-markdown_strict/cell-5-output-1.png)
+![](./quickstart_files/figure-markdown_strict/cell-6-output-1.png)
 
 > **Each pattern has its own guide**
 >
@@ -187,7 +222,7 @@ mixed = dataset.generate(n_series_per_generator=3)
 plot_panel(mixed, "SynSet: random-walk + weekly-seasonal series in one panel")
 ```
 
-![](./quickstart_files/figure-markdown_strict/cell-6-output-1.png)
+![](./quickstart_files/figure-markdown_strict/cell-7-output-1.png)
 
 > **Reproducibility and the alpha API**
 >
@@ -198,7 +233,7 @@ plot_panel(mixed, "SynSet: random-walk + weekly-seasonal series in one panel")
 
 ## Where to go next
 
--   **Generators** — 31 generators from SARIMA, ETS, and GARCH to
+-   **Generators** — 31 generator classes from SARIMA, ETS, and GARCH to
     Gaussian processes and the
     [KernelSynth](../generators/pretraining/kernel_synth) pretraining
     recipe. Start with [random

@@ -137,16 +137,26 @@ plt.show()
 
 ## 2. t-Copula with Heavy Tail Dependence
 
-The t-copula captures tail dependence, meaning extreme events are more
-likely to occur together than with a Gaussian copula.
+A t-copula with the *same* correlation as a Gaussian copula makes joint
+extremes more likely: every time step, all channels share one chi-square
+variance-mixing draw, so large deviations tend to arrive together. That
+shared mixing also means a t-copula exhibits some dependence even at
+zero nominal correlation — always pass an explicit `correlation_matrix`
+so the dependence you observe is the dependence you configured.
+
+Below, both copulas use the same 0.7 correlation and standard-normal
+marginals. Correlation alone cannot tell them apart; the joint tails
+can: we measure how often one channel sits in its worst (or best) 5% of
+values *given* that the other one does.
 
 ```python
-params_t = {
-    "min_length": 200,
-    "max_length": 200,
+corr_pair = np.array([[1.0, 0.7], [0.7, 1.0]])
+
+common_params = {
+    "min_length": 2000,
+    "max_length": 2000,
     "freq": "D",
-    "copula_type": "t",
-    "df": 5.0,
+    "correlation_matrix": corr_pair,
     "marginal_distributions": [
         {"type": "normal", "loc": 0.0, "scale": 1.0},
         {"type": "normal", "loc": 0.0, "scale": 1.0},
@@ -154,34 +164,54 @@ params_t = {
     "seed": 123,
 }
 
-gen_t = CopulaGenerator(engine="polars", **params_t)
-df_t = gen_t.generate(n_series=2)
+gen_gauss_pair = CopulaGenerator(
+    engine="polars", copula_type="gaussian", **common_params
+)
+gen_t = CopulaGenerator(engine="polars", copula_type="t", df=3.0, **common_params)
 
-print(f"Generated {len(df_t)} observations with t-copula")
+wide = {}
+for name, gen in [("gaussian", gen_gauss_pair), ("t", gen_t)]:
+    df_pair = gen.generate(n_series=2)
+    w = df_pair.pivot(on="unique_id", index="ds", values="y")
+    cols = sorted(c for c in w.columns if c != "ds")
+    wide[name] = (w[cols[0]].to_numpy(), w[cols[1]].to_numpy())
 
-df_t_wide = df_t.pivot(on="unique_id", index="ds", values="y")
-t_cols = sorted([col for col in df_t_wide.columns if col != "ds"])
-if len(t_cols) >= 2:
-    corr_t = np.corrcoef(
-        df_t_wide[t_cols[0]].to_numpy(), df_t_wide[t_cols[1]].to_numpy()
-    )[0, 1]
-    print(f"Correlation: {corr_t:.3f}")
+q = 0.05
+print(f"Same specified correlation (0.7), joint {q:.0%}-tail behavior:\n")
+for name, (x, y) in wide.items():
+    pearson = np.corrcoef(x, y)[0, 1]
+    lo = np.mean((x <= np.quantile(x, q)) & (y <= np.quantile(y, q)))
+    hi = np.mean((x >= np.quantile(x, 1 - q)) & (y >= np.quantile(y, 1 - q)))
+    cond = (lo + hi) / (2 * q)
+    print(
+        f"  {name:8s} copula: correlation {pearson:.2f}, "
+        f"P(other channel also in its {q:.0%} tail) = {cond:.0%}"
+    )
+print(f"\n  independent channels would give {q:.0%}")
 ```
 
 ``` text
-Generated 400 observations with t-copula
-Correlation: 0.318
+Same specified correlation (0.7), joint 5%-tail behavior:
+
+  gaussian copula: correlation 0.70, P(other channel also in its 5% tail) = 39%
+  t        copula: correlation 0.70, P(other channel also in its 5% tail) = 51%
+
+  independent channels would give 5%
 ```
 
 ```python
-fig, ax = plt.subplots(figsize=(12, 4))
-for uid in df_t["unique_id"].unique().to_list():
-    series = df_t.filter(pl.col("unique_id") == uid)
-    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Value")
-ax.set_title("t-Copula - Time Series with Tail Dependence")
-ax.legend()
+fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), sharex=True, sharey=True)
+for ax, (name, (x, y)) in zip(axes, wide.items()):
+    lo_x, lo_y = np.quantile(x, q), np.quantile(y, q)
+    hi_x, hi_y = np.quantile(x, 1 - q), np.quantile(y, 1 - q)
+    joint = ((x <= lo_x) & (y <= lo_y)) | ((x >= hi_x) & (y >= hi_y))
+    ax.scatter(x[~joint], y[~joint], alpha=0.25, s=8, label="body")
+    ax.scatter(x[joint], y[joint], alpha=0.9, s=14, label="joint tail")
+    ax.set_title(f"{name} copula ({joint.sum()} joint-tail points)")
+    ax.set_xlabel("channel 0")
+    ax.legend(fontsize=8)
+axes[0].set_ylabel("channel 1")
+plt.suptitle("Same correlation, different tails: joint extremes under each copula")
 plt.tight_layout()
 plt.show()
 ```

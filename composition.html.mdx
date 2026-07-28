@@ -6,7 +6,7 @@ description: Convenience APIs, generator pools, and multivariate composition
 ### `generate_series`
 
 ```python
-generate_series(n_series, freq='D', min_length=50, max_length=500, generators=None, engine='pandas', seed=0)
+generate_series(n_series, freq='D', min_length=50, max_length=500, generators=None, engine='pandas', seed=0, with_generator_col=False)
 ```
 
 Generate a synthetic panel of time series.
@@ -14,6 +14,12 @@ Generate a synthetic panel of time series.
 Series are drawn from a balanced pool of generators covering diverse
 temporal behaviors (or from `generators` when provided) and returned in
 long format, mirroring `utilsforecast.data.generate_series`.
+
+Series are spread evenly across the generator list from the front, so
+when `n_series` is smaller than the pool only the first `n_series`
+generators contribute. The default pool is ordered round-robin across
+its behavioral niches, so a small panel still spans distinct behaviors:
+the first 15 generators cover all 15 niches.
 
 **Parameters:**
 
@@ -26,12 +32,14 @@ Name | Type | Description | Default
 `generators` | <code>[list](#list)\[[BaseGenerator](#synforecast.base.BaseGenerator)\]</code> | Generators to draw from. Defaults to `synforecast.balanced_pool`. Ignores min_length / max_length / freq / engine / seed when provided. | <code>None</code>
 `engine` | <code>[str](#str)</code> | Output dataframe library. Defaults to 'pandas'. | <code>'pandas'</code>
 `seed` | <code>[int](#int)</code> | Random seed. Defaults to 0. | <code>0</code>
+`with_generator_col` | <code>[bool](#bool)</code> | When True, add a `generator` column with the alias of the generator that produced each series. Defaults to False. | <code>False</code>
 
 **Returns:**
 
 Type | Description
 ---- | -----------
-<code>[IntoDataFrameT](#narwhals.stable.v2.typing.IntoDataFrameT)</code> | DataFrame in long format with columns \[`unique_id`, `ds`, `y`\].
+<code>[IntoDataFrame](#narwhals.stable.v2.typing.IntoDataFrame)</code> | DataFrame in long format with columns \[`unique_id`, `ds`, `y`\],
+<code>[IntoDataFrame](#narwhals.stable.v2.typing.IntoDataFrame)</code> | plus `generator` when `with_generator_col` is True.
 
 ### `balanced_pool`
 
@@ -45,6 +53,13 @@ Returns 42 pre-configured generator instances across 15 behavioral niches,
 with allocation proportional to each generator's behavioral range. This
 avoids the implicit bias toward financial processes that occurs when using
 all generators equally.
+
+The list is ordered round-robin across the niches (one variant of every
+niche, then second variants, and so on), so any prefix spans as many
+distinct behaviors as possible: the first 15 entries cover all 15 niches.
+Consumers that use only the first k generators — such as
+`generate_series` with `n_series < 42` — therefore still get a
+behaviorally diverse panel.
 
 <details class="behavioral-niches-covered" open markdown="1">
 <summary>Behavioral niches covered</summary>

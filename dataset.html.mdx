@@ -93,7 +93,7 @@ Series IDs are unique across all generators. With 2 generators and
 ### `SynAugment`
 
 ```python
-SynAugment(id_col='unique_id', time_col='ds', target_col='y', seed=None, engine=None)
+SynAugment(id_col='unique_id', time_col='ds', target_col='y', seed=None, engine=None, on_error='raise')
 ```
 
 Augment time series datasets with synthetic series.
@@ -160,6 +160,7 @@ Name | Type | Description | Default
 `target_col` | <code>[str](#str)</code> | Name of the value column | <code>'y'</code>
 `seed` | <code>[int](#int) | None</code> | Random seed for reproducibility | <code>None</code>
 `engine` | <code>[str](#str) | None</code> | Output dataframe library (e.g. 'pandas', 'polars'). None (default) matches the input DataFrame's library. | <code>None</code>
+`on_error` | <code>[Literal](#typing.Literal)['raise', 'ar1']</code> | What to do when a fitted generator fails for a series. 'raise' (default) propagates the error; 'ar1' substitutes an AR(1) series matching the source's mean, std, and lag-1 autocorrelation, and reports all substitutions in a single warning at the end of `augment`. | <code>'raise'</code>
 
 #### `SynAugment.analyze`
 
@@ -223,7 +224,8 @@ Type | Description
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code>| If DataFrame is missing required columns or n_augment < 1
+<code>[ValueError](#ValueError)</code>| If DataFrame is missing required columns, n_augment < 1, or generator_override names an unsupported generator
+<code>[RuntimeError](#RuntimeError)</code>| If a fitted generator fails for a series and the instance was created with on_error='raise' (the default)
 
 <details class="example" open markdown="1">
 <summary>Example</summary>
