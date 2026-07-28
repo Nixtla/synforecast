@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 from synforecast.generators import StateSpaceGenerator
 ```
 
-## 1. Basic Local Level Model (Random Walk with Noise)
+## 1. Basic local level model (random walk with noise)
 
 The simplest state space model: a hidden random walk observed with
 measurement noise.
@@ -78,7 +78,7 @@ plt.show()
 
 ![](./state_space_files/figure-markdown_strict/cell-4-output-1.png)
 
-## 2. 2D State Space Model (Level + Trend)
+## 2. 2D state space model (level + trend)
 
 A two-dimensional state captures both the level and its trend (rate of
 change).
@@ -133,7 +133,7 @@ plt.show()
 
 ![](./state_space_files/figure-markdown_strict/cell-6-output-1.png)
 
-## 3. Custom Transition Matrix (AR-like Behavior)
+## 3. Custom transition matrix (AR-like behavior)
 
 Specify a custom state transition matrix to create AR-like dynamics in
 the hidden state.
@@ -190,7 +190,7 @@ plt.show()
 
 ![](./state_space_files/figure-markdown_strict/cell-8-output-1.png)
 
-## 4. Custom Observation Matrix (Weighted State Observation)
+## 4. Custom observation matrix (weighted state observation)
 
 Observe a weighted combination of the hidden states.
 
@@ -246,7 +246,7 @@ plt.show()
 
 ![](./state_space_files/figure-markdown_strict/cell-10-output-1.png)
 
-## 5. High Process Noise (Volatile State Evolution)
+## 5. High process noise (volatile state evolution)
 
 Increase the process noise covariance to create more volatile hidden
 state dynamics.
@@ -303,7 +303,7 @@ plt.show()
 
 ![](./state_space_files/figure-markdown_strict/cell-12-output-1.png)
 
-## 6. High Observation Noise (Noisy Measurements)
+## 6. High observation noise (noisy measurements)
 
 Increase the observation noise to simulate noisy measurement conditions.
 
@@ -359,7 +359,7 @@ plt.show()
 
 ![](./state_space_files/figure-markdown_strict/cell-14-output-1.png)
 
-## 7. Generate with Hidden States
+## 7. Generate with hidden states
 
 Return both observations and hidden states to inspect the latent
 dynamics.
@@ -448,7 +448,7 @@ plt.show()
 
 ![](./state_space_files/figure-markdown_strict/cell-16-output-1.png)
 
-## 8. Multiple State Space Series
+## 8. Multiple state space series
 
 Generate multiple independent state space series.
 

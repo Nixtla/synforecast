@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 from synforecast.generators import SeasonalGenerator
 ```
 
-## Define Generator Parameters
+## Define generator parameters
 
 Configure a seasonal generator with daily seasonality (24-hour period),
 a slight upward trend, and a base level of 50.
@@ -69,7 +69,7 @@ The series have different lengths (`min_length` ≠ `max_length`) but
 share the same daily shape and trend — the seasonal structure a
 forecaster should learn.
 
-## Inspect the Generated Data
+## Inspect the generated data
 
 ```python
 print(f"Generated {df['unique_id'].n_unique()} time series")
@@ -96,7 +96,7 @@ Total observations: 721
 | "0"       | 2000-01-01 08:00:00 | 65.0017   |
 | "0"       | 2000-01-01 09:00:00 | 62.627031 |
 
-## Statistics by Series
+## Statistics by series
 
 ```python
 df.group_by("unique_id").agg(
@@ -117,7 +117,7 @@ df.group_by("unique_id").agg(
 | "0"       | 170   | 35.600282 | 75.837123 | 54.621329  | 10.619455 |
 | "1"       | 283   | 34.431384 | 79.936749 | 57.388507  | 11.255673 |
 
-## Sample of One Series
+## Sample of one series
 
 View the first 24 hours of a single series to see the seasonal pattern.
 

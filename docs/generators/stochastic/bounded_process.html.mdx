@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 from synforecast.generators import BoundedProcessGenerator
 ```
 
-## 1. Beta-AR Model (Proportions in \[0, 1\])
+## 1. Beta-AR model (proportions in \[0, 1\])
 
 The Beta-AR model uses a conditional Beta distribution where the mean
 depends on the previous value: `mu_t = omega + phi * x_{t-1}`.
@@ -78,7 +78,7 @@ plt.show()
 
 ![](./bounded_process_files/figure-markdown_strict/cell-4-output-1.png)
 
-## 2. Logit-Normal Model
+## 2. Logit-normal model
 
 The logit-normal model works in logit space:
 `z_t = phi * z_{t-1} + sigma * eps`, then `x_t = sigmoid(z_t)`. This
@@ -110,7 +110,7 @@ plt.show()
 
 ![](./bounded_process_files/figure-markdown_strict/cell-5-output-1.png)
 
-## 3. Custom Bounds
+## 3. Custom bounds
 
 Scale the output to any `[lower, upper]` interval, e.g., temperature in
 \[15, 35\].
@@ -150,7 +150,7 @@ Min=21.01, Max=34.23
 
 ![](./bounded_process_files/figure-markdown_strict/cell-6-output-2.png)
 
-## 4. Multiple Series
+## 4. Multiple series
 
 ```python
 multi_gen = BoundedProcessGenerator(engine="polars", 

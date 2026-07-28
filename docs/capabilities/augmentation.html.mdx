@@ -28,7 +28,7 @@ from synforecast import SynAugment
 from synforecast.generators import RandomWalkGenerator, SeasonalGenerator
 ```
 
-## Basic Augmentation
+## Basic augmentation
 
 Create a simple random walk series and augment it with 3 synthetic
 copies.
@@ -84,7 +84,7 @@ plt.show()
 
 ![](./augmentation_files/figure-markdown_strict/cell-4-output-1.png)
 
-## Analyzing Series Before Augmentation
+## Analyzing series before augmentation
 
 SynAugment analyzes each series to detect its properties and recommend
 the best generator.
@@ -171,7 +171,7 @@ plt.show()
 
 ![](./augmentation_files/figure-markdown_strict/cell-6-output-1.png)
 
-## Using Generator Overrides
+## Using generator overrides
 
 Override the auto-detected generator for specific series when you want
 to use a particular model.
@@ -196,7 +196,7 @@ Augmented with overrides: 6 series
 Series IDs: ['intermittent', 'intermittent_aug_0', 'random_walk', 'random_walk_aug_0', 'seasonal', 'seasonal_aug_0']
 ```
 
-## Comparing Original vs Synthetic Statistics
+## Comparing original vs synthetic statistics
 
 Verify that the augmented series preserve the statistical properties of
 the original.
@@ -251,7 +251,7 @@ plt.show()
 
 ![](./augmentation_files/figure-markdown_strict/cell-9-output-1.png)
 
-## Augmenting a Generated Dataset
+## Augmenting a generated dataset
 
 Generate a dataset using SynForecast generators, then augment the
 combined dataset.

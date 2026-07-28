@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 from synforecast.generators import VARGenerator
 ```
 
-## 1. VAR(1) with Auto-Generated Stable Coefficients
+## 1. VAR(1) with auto-generated stable coefficients
 
 Generate a 3-variable VAR(1) model with automatically generated stable
 coefficient matrices.
@@ -77,7 +77,7 @@ plt.show()
 
 ![](./var_files/figure-markdown_strict/cell-4-output-1.png)
 
-### Summary Statistics and Correlations
+### Summary statistics and correlations
 
 ```python
 stats = df_auto.group_by("unique_id").agg(
@@ -114,7 +114,7 @@ Variable correlations:
   0 vs 1: 0.218
 ```
 
-## 2. VAR(1) with Custom Coefficients (Strong Cross-Effects)
+## 2. VAR(1) with custom coefficients (strong cross-effects)
 
 Design a coefficient matrix where each variable depends strongly on the
 other’s lagged values.
@@ -198,7 +198,7 @@ Series correlation: 0.414
 Note: Strong cross-dependencies create correlation between variables
 ```
 
-## 3. Higher-Order VAR(3) Model
+## 3. Higher-order VAR(3) model
 
 A VAR(3) model uses three lags of each variable, capturing longer-range
 dependencies.
@@ -254,7 +254,7 @@ plt.show()
 
 ![](./var_files/figure-markdown_strict/cell-10-output-1.png)
 
-## 4. VAR with Correlated Innovations
+## 4. VAR with correlated innovations
 
 Specify a custom innovation covariance matrix to add contemporaneous
 correlation between variables.
@@ -312,7 +312,7 @@ plt.show()
 
 ![](./var_files/figure-markdown_strict/cell-12-output-1.png)
 
-## 5. Generating Multiple VAR Series
+## 5. Generating multiple VAR series
 
 Generate multiple independent draws of bivariate VAR series.
 

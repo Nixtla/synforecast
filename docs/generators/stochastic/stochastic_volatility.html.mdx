@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from synforecast.generators import StochasticVolatilityGenerator
 ```
 
-## 1. Heston Model (1 Year Daily)
+## 1. Heston model (1 year daily)
 
 The Heston model features mean-reverting stochastic variance with a
 leverage effect (negative correlation between price and volatility).
@@ -85,7 +85,7 @@ plt.show()
 
 ![](./stochastic_volatility_files/figure-markdown_strict/cell-4-output-1.png)
 
-## 2. Price and Volatility Paths
+## 2. Price and volatility paths
 
 Generate both the price and volatility paths to observe their joint
 dynamics.
@@ -117,7 +117,7 @@ plt.show()
 
 ![](./stochastic_volatility_files/figure-markdown_strict/cell-6-output-1.png)
 
-## 3. Leverage Effect (Price-Vol Correlation)
+## 3. Leverage effect (price-vol correlation)
 
 Verify that returns and volatility changes are negatively correlated
 (leverage effect).
@@ -135,7 +135,7 @@ Return-VolChange correlation: -0.666
 (Negative = leverage effect: vol rises when prices fall)
 ```
 
-## 4. SABR Model
+## 4. SABR model
 
 The SABR (Stochastic Alpha Beta Rho) model is widely used for interest
 rate derivatives and allows a CEV exponent (beta) to control the
@@ -177,7 +177,7 @@ plt.show()
 
 ![](./stochastic_volatility_files/figure-markdown_strict/cell-9-output-1.png)
 
-## 5. Model Information
+## 5. Model information
 
 Inspect the full model parameters.
 
@@ -203,7 +203,7 @@ feller_condition_satisfied: True
 feller_value: 0.07
 ```
 
-## 6. Implied Volatility Smile (SABR)
+## 6. Implied volatility smile (SABR)
 
 Compute the implied volatility smile from the SABR model for various
 strike prices.
@@ -243,7 +243,7 @@ plt.show()
 
 ![](./stochastic_volatility_files/figure-markdown_strict/cell-12-output-1.png)
 
-## 7. Output Types
+## 7. Output types
 
 The generator supports different output types: price, returns, and
 volatility.

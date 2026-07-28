@@ -24,7 +24,7 @@ import polars as pl
 from synforecast.generators import CopulaGenerator, VARGenerator
 ```
 
-## VAR Generator with Random Missing Data
+## VAR generator with random missing data
 
 Generate 3 correlated series from a VAR(1) model with 15% random missing
 data.
@@ -103,7 +103,7 @@ plt.show()
 
 ![](./multivariate_missingness_files/figure-markdown_strict/cell-5-output-1.png)
 
-## Copula Generator with Block Missing Data
+## Copula generator with block missing data
 
 Generate correlated series using a Gaussian copula with week-long
 missing blocks, simulating synchronized outages.
@@ -199,7 +199,7 @@ plt.show()
 
 ![](./multivariate_missingness_files/figure-markdown_strict/cell-8-output-1.png)
 
-## VAR with Seasonal Missing Data (Weekend Gaps)
+## VAR with seasonal missing data (weekend gaps)
 
 Simulate a year of VAR(2) data with weekly seasonal missing patterns,
 representing weekend reporting gaps.

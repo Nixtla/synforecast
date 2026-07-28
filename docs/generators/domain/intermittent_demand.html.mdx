@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 from synforecast.generators import IntermittentDemandGenerator
 ```
 
-## 1. Random Intermittent Pattern (Retail Demand)
+## 1. Random intermittent pattern (retail demand)
 
 Generate demand with a 20% probability of occurrence each day, using a
 Poisson distribution for demand sizes.
@@ -108,7 +108,7 @@ Demand statistics:
     Max:    11
 ```
 
-## 2. Clustered Intermittent Pattern (Lumpy Demand)
+## 2. Clustered intermittent pattern (lumpy demand)
 
 Demand occurs in clusters of consecutive days, simulating bulk ordering
 behavior.
@@ -179,7 +179,7 @@ plt.show()
 
 ![](./intermittent_demand_files/figure-markdown_strict/cell-7-output-1.png)
 
-## 3. Seasonal Intermittent Pattern (Seasonal Spare Parts)
+## 3. Seasonal intermittent pattern (seasonal spare parts)
 
 Demand probability varies seasonally, with peaks at regular intervals.
 
@@ -258,7 +258,7 @@ period_stats.head(12)
 | 10     | 11          | 129.047768   |
 | 11     | 5           | 31.955985    |
 
-## 4. Comparing Different Demand Distributions
+## 4. Comparing different demand distributions
 
 Compare Poisson, negative binomial, lognormal, and gamma distributions
 for demand sizes.
@@ -311,7 +311,7 @@ lognormal            86       6.55     2.62     2        18
 gamma                86       6.47     2.73     1        17      
 ```
 
-## 5. Bulk Orders with Minimum Demand
+## 5. Bulk orders with minimum demand
 
 Simulate rare but large orders with a minimum order quantity constraint.
 
@@ -386,7 +386,7 @@ plt.show()
 
 ![](./intermittent_demand_files/figure-markdown_strict/cell-13-output-1.png)
 
-## 6. Multiple Intermittent Demand Series
+## 6. Multiple intermittent demand series
 
 Generate multiple independent intermittent demand series and compare
 their statistics.

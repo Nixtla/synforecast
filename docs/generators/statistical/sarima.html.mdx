@@ -47,7 +47,7 @@ params = {
 generator = SARIMAGenerator(engine="polars", **params)
 ```
 
-### Model Information
+### Model information
 
 Inspect the auto-generated model parameters and polynomial structure.
 
@@ -77,7 +77,7 @@ Expanded AR polynomial lags: [1, 2, 3, 4, 5, 6, 7, 8, 9]
 Expanded AR polynomial coeffs: [0.2298813963661166, -0.04889724819835817, -0.0, -0.0, -0.0, -0.0, 0.15789442324749114, -0.036296990494555884, 0.007720602802669188]
 ```
 
-### Generate and Inspect Data
+### Generate and inspect data
 
 ```python
 df = generator.generate(n_series=3)
@@ -120,7 +120,7 @@ plt.show()
 
 ![](./sarima_files/figure-markdown_strict/cell-6-output-1.png)
 
-### Statistics by Series
+### Statistics by series
 
 ```python
 df.group_by("unique_id").agg(
@@ -141,7 +141,7 @@ df.group_by("unique_id").agg(
 | "1"       | 200   | 628.393    | 4135.85017  | 2221.617457 | 1020.787936 |
 | "2"       | 200   | 452.878919 | 3437.538082 | 1778.004889 | 857.699315  |
 
-## Example 2: Stationary ARMA(1,1) with Custom Parameters
+## Example 2: Stationary ARMA(1,1) with custom parameters
 
 A stationary model with no differencing and explicit AR/MA coefficients.
 
@@ -194,7 +194,7 @@ plt.show()
 
 ![](./sarima_files/figure-markdown_strict/cell-9-output-1.png)
 
-## Example 3: Pure Seasonal ARIMA(0,0,0)(1,1,1)\_12
+## Example 3: Pure seasonal ARIMA(0,0,0)(1,1,1)\_12
 
 A purely seasonal model with monthly frequency and 12-month seasonality.
 
