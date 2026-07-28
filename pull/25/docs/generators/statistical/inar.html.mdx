@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 from synforecast.generators import INARGenerator
 ```
 
-## 1. INAR(1) with Poisson Innovations
+## 1. INAR(1) with Poisson innovations
 
 A basic count process: each value depends on a thinned version of the
 previous value plus a Poisson-distributed innovation.
@@ -77,7 +77,7 @@ plt.show()
 
 ![](./inar_files/figure-markdown_strict/cell-4-output-1.png)
 
-## 2. INAR(1) with Negative Binomial Innovations
+## 2. INAR(1) with negative binomial innovations
 
 Negative binomial innovations produce overdispersed counts (variance \>
 mean), common in real-world event data.
@@ -107,7 +107,7 @@ plt.show()
 
 ![](./inar_files/figure-markdown_strict/cell-5-output-1.png)
 
-## 3. INAR(2) - Higher Order Dependence
+## 3. INAR(2) - higher order dependence
 
 INAR(2) models have memory over two lags, producing smoother count
 dynamics.
@@ -136,7 +136,7 @@ plt.show()
 
 ![](./inar_files/figure-markdown_strict/cell-6-output-1.png)
 
-## 4. Multiple Series
+## 4. Multiple series
 
 ```python
 multi_gen = INARGenerator(engine="polars", 

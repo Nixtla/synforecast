@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 from synforecast.generators import HawkesProcessGenerator
 ```
 
-## 1. Event Counts (Default Output)
+## 1. Event counts (default output)
 
 Generate event count time series with a baseline intensity and
 self-excitation.
@@ -83,7 +83,7 @@ plt.show()
 
 ![](./hawkes_process_files/figure-markdown_strict/cell-4-output-1.png)
 
-## 2. Intensity Process
+## 2. Intensity process
 
 Output the underlying intensity function instead of event counts.
 
@@ -126,7 +126,7 @@ plt.show()
 
 ![](./hawkes_process_files/figure-markdown_strict/cell-6-output-1.png)
 
-## 3. Model Information and Stability
+## 3. Model information and stability
 
 Inspect model parameters including the branching ratio which determines
 stability.
@@ -150,7 +150,7 @@ Expected cluster size: 1.333
 Process is stable: True
 ```
 
-## 4. Raw Event Simulation
+## 4. Raw event simulation
 
 Directly simulate event arrival times and their associated intensities.
 
@@ -182,7 +182,7 @@ plt.show()
 
 ![](./hawkes_process_files/figure-markdown_strict/cell-9-output-1.png)
 
-## 5. Power-Law Kernel
+## 5. Power-law kernel
 
 Use a power-law decay kernel instead of the default exponential kernel
 for longer memory effects.

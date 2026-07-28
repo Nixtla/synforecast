@@ -1,5 +1,5 @@
 ---
-title: Data Augmentation with Real Datasets
+title: Data augmentation with real datasets
 ---
 
 This example augments real M4 time series with `SynAugment` and shows
@@ -108,7 +108,7 @@ def correlation_to_source(original: np.ndarray, synthetic: np.ndarray) -> float:
     return float(np.corrcoef(o[mask], s[mask])[0, 1])
 ```
 
-## M4 Hourly Data
+## M4 hourly data
 
 Load hourly time series from the M4 competition and analyze their
 patterns before augmenting.
@@ -173,7 +173,7 @@ plt.show()
 
 ![](./augmentation_real_data_files/figure-markdown_strict/cell-5-output-1.png)
 
-### Analyzing Series Patterns
+### Analyzing series patterns
 
 SynAugment detects seasonality, trend, and stationarity to choose the
 best generator for each series.
@@ -233,7 +233,7 @@ for series_id in sample_ids:
     Is stationary: True
 ```
 
-### Augmenting the Data
+### Augmenting the data
 
 Generate 3 synthetic series per original series.
 
@@ -356,7 +356,7 @@ plt.show()
 
 ![](./augmentation_real_data_files/figure-markdown_strict/cell-10-output-1.png)
 
-## M4 Daily Data
+## M4 daily data
 
 Augment daily frequency data from the M4 competition.
 
@@ -537,7 +537,7 @@ plt.show()
 
 ![](./augmentation_real_data_files/figure-markdown_strict/cell-14-output-1.png)
 
-## Augmenting for ML Training
+## Augmenting for ML training
 
 A common use case: expand a small dataset to create a larger training
 set for ML models.
