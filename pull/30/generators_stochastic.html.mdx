@@ -54,7 +54,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values
 
 
 ### `OrnsteinUhlenbeckGenerator`
@@ -110,7 +110,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values.
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values.
 
 
 ### `GeometricBrownianMotionGenerator`
@@ -163,7 +163,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values.
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values.
 
 
 ### `JumpDiffusionGenerator`
@@ -222,7 +222,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values.
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values.
 
 
 ### `PoissonProcessGenerator`
@@ -266,7 +266,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values (counts per time period)
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values (counts per time period)
 
 
 ### `CyclicGenerator`
@@ -315,7 +315,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values
 
 
 ### `FractionalBrownianMotionGenerator`
@@ -386,7 +386,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: fBm path values (or fGn increments if return_increments=True).
+<code>[ndarray](#numpy.ndarray)</code> | fBm path values (or fGn increments if return_increments=True).
 
 #### `FractionalBrownianMotionGenerator.get_model_info`
 
@@ -413,9 +413,9 @@ Name | Type | Description | Default
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`float` | <code>[float](#float)</code> | Estimated Hurst exponent, clipped to [0.01, 0.99].
+Type | Description
+---- | -----------
+<code>[float](#float)</code> | Estimated Hurst exponent, clipped to [0.01, 0.99].
 
 
 ### `HawkesProcessGenerator`
@@ -494,7 +494,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of values (counts, intensity, or event indicator)
+<code>[ndarray](#numpy.ndarray)</code> | Array of values (counts, intensity, or event indicator)
 
 #### `HawkesProcessGenerator.simulate_with_events`
 
@@ -512,9 +512,9 @@ Name | Type | Description | Default
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`tuple` | <code>[tuple](#tuple)[[ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray)]</code> | (event_times, intensity_at_events)
+Type | Description
+---- | -----------
+<code>[tuple](#tuple)[[ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray)]</code> | (event_times, intensity_at_events)
 
 #### `HawkesProcessGenerator.get_model_info`
 
@@ -526,9 +526,9 @@ Get information about the Hawkes process model.
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`dict` | <code>[dict](#dict)</code> | Model parameters and characteristics
+Type | Description
+---- | -----------
+<code>[dict](#dict)</code> | Model parameters and characteristics
 
 #### `HawkesProcessGenerator.estimate_parameters`
 
@@ -552,9 +552,9 @@ Name | Type | Description | Default
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`dict` | <code>[dict](#dict)</code> | Estimated parameters
+Type | Description
+---- | -----------
+<code>[dict](#dict)</code> | Estimated parameters
 
 
 ### `StochasticVolatilityGenerator`
@@ -635,7 +635,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of values (price, returns, or volatility)
+<code>[ndarray](#numpy.ndarray)</code> | Array of values (price, returns, or volatility)
 
 #### `StochasticVolatilityGenerator.generate_with_volatility`
 
@@ -654,9 +654,9 @@ Name | Type | Description | Default
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`tuple` | <code>[tuple](#tuple)[[ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray)]</code> | (prices, volatilities, series_ids) arrays
+Type | Description
+---- | -----------
+<code>[tuple](#tuple)[[ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray)]</code> | (prices, volatilities, series_ids) arrays
 
 #### `StochasticVolatilityGenerator.get_model_info`
 
@@ -668,9 +668,9 @@ Get information about the stochastic volatility model.
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`dict` | <code>[dict](#dict)</code> | Model parameters and characteristics
+Type | Description
+---- | -----------
+<code>[dict](#dict)</code> | Model parameters and characteristics
 
 #### `StochasticVolatilityGenerator.implied_volatility_smile`
 
@@ -762,7 +762,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values
 
 #### `RegimeSwitchingGenerator.generate_with_regimes`
 
@@ -781,9 +781,9 @@ Name | Type | Description | Default
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`tuple` | <code>[tuple](#tuple)[[ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray)]</code> | (values, regimes, series_ids) arrays
+Type | Description
+---- | -----------
+<code>[tuple](#tuple)[[ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray)]</code> | (values, regimes, series_ids) arrays
 
 #### `RegimeSwitchingGenerator.get_model_info`
 
@@ -795,9 +795,9 @@ Get information about the regime-switching model.
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`dict` | <code>[dict](#dict)</code> | Model parameters and characteristics
+Type | Description
+---- | -----------
+<code>[dict](#dict)</code> | Model parameters and characteristics
 
 
 ### `ChaoticSystemGenerator`
@@ -862,7 +862,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values.
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values.
 
 #### `ChaoticSystemGenerator.get_model_info`
 
@@ -930,7 +930,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values in [lower, upper]
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values in [lower, upper]
 
 #### `BoundedProcessGenerator.get_model_info`
 
@@ -999,7 +999,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values.
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values.
 
 #### `LevyProcessGenerator.get_model_info`
 

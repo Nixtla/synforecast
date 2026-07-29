@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 from synforecast.generators import SARIMAGenerator
 ```
 
-## Example 1: Basic SARIMA(2,1,1)(1,1,1)\_7
+## 1. Basic SARIMA(2,1,1)(1,1,1)\_7
 
 A SARIMA model with weekly seasonality, suitable for daily data.
 
@@ -141,7 +141,7 @@ df.group_by("unique_id").agg(
 | "1"       | 200   | 628.393    | 4135.85017  | 2221.617457 | 1020.787936 |
 | "2"       | 200   | 452.878919 | 3437.538082 | 1778.004889 | 857.699315  |
 
-## Example 2: Stationary ARMA(1,1) with custom parameters
+## 2. Stationary ARMA(1,1) with custom parameters
 
 A stationary model with no differencing and explicit AR/MA coefficients.
 
@@ -194,7 +194,7 @@ plt.show()
 
 ![](./sarima_files/figure-markdown_strict/cell-9-output-1.png)
 
-## Example 3: Pure seasonal ARIMA(0,0,0)(1,1,1)\_12
+## 3. Pure seasonal ARIMA(0,0,0)(1,1,1)\_12
 
 A purely seasonal model with monthly frequency and 12-month seasonality.
 

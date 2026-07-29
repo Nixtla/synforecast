@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from synforecast.generators import ETSGenerator
 ```
 
-## Example 1: Damped additive Holt-Winters ETS(A,Ad,A)
+## 1. Damped additive Holt-Winters ETS(A,Ad,A)
 
 An additive model with weekly seasonality and a damped trend.
 
@@ -132,7 +132,7 @@ df.group_by("unique_id").agg(
 | "1"       | 200   | 40.87026  | 111.131822 | 66.927617  | 19.298572 |
 | "2"       | 200   | 95.571068 | 149.87852  | 126.124841 | 12.339277 |
 
-## Example 2: ETS(A,A,A) with state export
+## 2. ETS(A,A,A) with state export
 
 Generate data and extract the underlying level, trend, and seasonal
 state components.
@@ -221,7 +221,7 @@ States DataFrame (level, trend, seasonal components):
 | "0"       | 2000-01-09 00:00:00 | 108.69262  | 1.213188 | 1.18363    | -2.183953  | 1.929618   | 0.490563   | -5.551504  | 3.19177    | 1.153064   |
 | "0"       | 2000-01-10 00:00:00 | 109.64802  | 1.127259 | 1.18363    | -2.269882  | 1.929618   | 0.490563   | -5.551504  | 3.19177    | 1.153064   |
 
-## Example 3: Multiplicative Holt-Winters ETS(M,A,M)
+## 3. Multiplicative Holt-Winters ETS(M,A,M)
 
 A multiplicative error and seasonal model with monthly frequency. All
 values remain positive.
@@ -287,7 +287,7 @@ plt.show()
 
 ![](./ets_files/figure-markdown_strict/cell-13-output-1.png)
 
-## Example 4: Simple exponential smoothing ETS(A,N,N)
+## 4. Simple exponential smoothing ETS(A,N,N)
 
 A model with no trend and no seasonality — just level smoothing with
 additive errors.
@@ -339,7 +339,7 @@ plt.show()
 
 ![](./ets_files/figure-markdown_strict/cell-15-output-1.png)
 
-## Example 5: ETS with Box-Cox transformation
+## 5. ETS with Box-Cox transformation
 
 Apply a Box-Cox transformation (lambda=0.5, square root) to the
 generated series.

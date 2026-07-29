@@ -77,7 +77,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of values (mostly zeros with intermittent demand)
+<code>[ndarray](#numpy.ndarray)</code> | Array of values (mostly zeros with intermittent demand)
 
 
 ### `IoTSensorGenerator`
@@ -143,7 +143,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of sensor readings (NaN during failures).
+<code>[ndarray](#numpy.ndarray)</code> | Array of sensor readings (NaN during failures).
 
 #### `IoTSensorGenerator.generate`
 
@@ -241,7 +241,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of energy load values.
+<code>[ndarray](#numpy.ndarray)</code> | Array of energy load values.
 
 
 ### `StateSpaceGenerator`
@@ -304,7 +304,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Observed values (first observation dimension).
+<code>[ndarray](#numpy.ndarray)</code> | Observed values (first observation dimension).
 
 #### `StateSpaceGenerator.generate_with_states`
 
@@ -325,7 +325,7 @@ Name | Type | Description | Default
 `start_id` | <code>[int](#int)</code> | Starting ID for series numbering (default: 0). | <code>0</code>
 
 Returns:
-    tuple: (observations DataFrame in long format, states DataFrame
+    (observations DataFrame in long format, states DataFrame
         with one ``state_j`` column per state dimension).
 
 
@@ -389,7 +389,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of DAU values.
+<code>[ndarray](#numpy.ndarray)</code> | Array of DAU values.
 
 #### `DailyActiveUsersGenerator.generate`
 
@@ -484,7 +484,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of vital sign values.
+<code>[ndarray](#numpy.ndarray)</code> | Array of vital sign values.
 
 #### `VitalSignsGenerator.generate_all_vitals`
 
@@ -517,9 +517,9 @@ Get information about the vital signs model.
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`dict` | <code>[dict](#dict)</code> | Model parameters and patient characteristics.
+Type | Description
+---- | -----------
+<code>[dict](#dict)</code> | Model parameters and patient characteristics.
 
 
 ### `ClickstreamGenerator`
@@ -600,7 +600,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of metric values.
+<code>[ndarray](#numpy.ndarray)</code> | Array of metric values.
 
 #### `ClickstreamGenerator.generate_full_metrics`
 
@@ -619,9 +619,9 @@ Name | Type | Description | Default
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`dict` | <code>[dict](#dict)[[str](#str), [ndarray](#numpy.ndarray)]</code> | All metrics as flat arrays, keyed by metric name plus 'series_id'.
+Type | Description
+---- | -----------
+<code>[dict](#dict)[[str](#str), [ndarray](#numpy.ndarray)]</code> | All metrics as flat arrays, keyed by metric name plus 'series_id'.
 
 #### `ClickstreamGenerator.generate_funnel`
 
@@ -644,9 +644,9 @@ Name | Type | Description | Default
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`dict` | <code>[dict](#dict)[[str](#str), [int](#int)]</code> | Stage name -> session count at that stage.
+Type | Description
+---- | -----------
+<code>[dict](#dict)[[str](#str), [int](#int)]</code> | Stage name -> session count at that stage.
 
 #### `ClickstreamGenerator.get_model_info`
 
@@ -658,7 +658,7 @@ Get information about the clickstream model.
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`dict` | <code>[dict](#dict)</code> | Model parameters and traffic characteristics.
+Type | Description
+---- | -----------
+<code>[dict](#dict)</code> | Model parameters and traffic characteristics.
 
