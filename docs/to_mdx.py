@@ -1,5 +1,6 @@
 """Convert API docs from mkdocstrings format to MDX for Mintlify."""
 
+import re
 from pathlib import Path
 
 try:
@@ -14,6 +15,38 @@ DOCS_DIR = Path(__file__).parent
 MINTLIFY_DIR = DOCS_DIR / "mintlify"
 
 
+_CODE_SPAN = re.compile(r"<code>(.*?)</code>", re.DOTALL)
+
+
+def escape_mdx_hazards(text: str) -> str:
+    """Escape characters the generated MDX leaves in parser-hostile positions.
+
+    Two patterns come out of mkdocstrings-parser and fail Mintlify's MDX parse:
+
+    1. A union annotation such as ``str | int`` is emitted as
+       ``<code>[str](#str) | [int](#int)</code>`` inside a markdown table row.
+       The bare ``|`` closes the table cell, so ``<code>`` is left unclosed
+       ("Expected a closing tag for `<code>`").
+    2. ``>>>`` at the start of a docstring example line is markdown for a
+       triple-nested blockquote, so the example body is parsed as prose rather
+       than code and any ``{`` becomes a live MDX expression ("Could not parse
+       expression with acorn").
+
+    Both are escaped to HTML entities, which render as the original character.
+    """
+    text = _CODE_SPAN.sub(
+        lambda match: "<code>" + match.group(1).replace("|", "&#124;") + "</code>",
+        text,
+    )
+    lines = [
+        line.replace("{", "&#123;").replace("}", "&#125;")
+        if line.startswith(">")
+        else line
+        for line in text.split("\n")
+    ]
+    return "\n".join(lines)
+
+
 def process_api_docs():
     """Process all .html.md files with ::: directives into .mdx files."""
     parser = MkDocstringsParser()
@@ -22,6 +55,7 @@ def process_api_docs():
         print(f"Processing {md_file.name}...")
         output_file = MINTLIFY_DIR / md_file.name.replace(".html.md", ".html.mdx")
         parser.process_file(str(md_file), str(output_file))
+        output_file.write_text(escape_mdx_hazards(output_file.read_text()))
         print(f"  -> {output_file.name}")
 
 
