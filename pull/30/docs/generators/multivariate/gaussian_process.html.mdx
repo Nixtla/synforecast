@@ -10,6 +10,8 @@ smooth.
 
 > **Kernels**
 >
+> $$f \sim \mathcal{GP}(m, k), \qquad k_{\mathrm{rbf}}(r) = a^2 \exp\!\Big(\!-\frac{r^2}{2\ell^2}\Big), \qquad r = |t - t'|$$
+>
 > `kernel` selects the covariance function — `rbf` (infinitely smooth),
 > `matern_0.5` / `matern_1.5` / `matern_2.5` (increasingly smooth), or
 > `periodic` (exact periodicity). `length_scale` sets how quickly

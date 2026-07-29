@@ -10,6 +10,8 @@ systems.
 
 > **The model**
 >
+> $$x_t = F x_{t-1} + w_t, \quad w_t \sim (0, Q), \qquad y_t = H x_t + v_t, \quad v_t \sim \mathcal{N}(0, R)$$
+>
 > A latent state evolves by a linear transition with process noise, and
 > is mapped to the observed series by an observation equation with
 > measurement noise. Choosing these dynamics reproduces local-level,

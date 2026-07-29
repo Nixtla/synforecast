@@ -10,6 +10,8 @@ zero-inflated models.
 
 > **The model**
 >
+> $$y_t = b_t \cdot z_t, \qquad b_t \sim \mathrm{Bernoulli}(p), \qquad z_t \sim \text{size distribution}$$
+>
 > Nonzero demands are separated by random gaps, with order sizes drawn
 > independently. `intermittent_pattern` shapes *when* orders occur —
 > `random`, `clustered` (bursts of demand), or `seasonal` (periodic

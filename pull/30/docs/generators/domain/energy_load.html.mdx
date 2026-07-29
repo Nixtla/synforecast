@@ -9,6 +9,8 @@ profiles for grid-demand forecasting.
 
 > **The model**
 >
+> $$y_t = \text{base} + d(t) + w(t) + a(t) + \beta\,|T_t - T_{\text{base}}| + \varepsilon_t$$
+>
 > The series combines daily and weekly cycles with a load shape and
 > noise appropriate to `load_type` — `residential` (sharp morning and
 > evening peaks) or `industrial` (flatter, weekday-driven). The

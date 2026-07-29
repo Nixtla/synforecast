@@ -12,8 +12,10 @@ Generate return series from a GARCH(p, q) model.
 The model is ``r_t = mu + eps_t`` with ``eps_t = sigma_t * z_t`` and
 conditional variance
 
-    sigma2_t = omega + sum_i alpha_i * eps_&#123;t-i&#125;^2
-                     + sum_j beta_j * sigma2_&#123;t-j&#125;
+```
+sigma2_t = omega + sum_i alpha_i * eps_{t-i}^2
+                 + sum_j beta_j * sigma2_{t-j}
+```
 
 Stationarity requires ``sum(alpha) + sum(beta) < 1``, giving an
 unconditional variance of ``omega / (1 - sum(alpha) - sum(beta))``.
@@ -26,15 +28,15 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer time step. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer time step. | *required*
 `p` | <code>[int](#int)</code> | GARCH order (number of variance lags, default: 1). | *required*
 `q` | <code>[int](#int)</code> | ARCH order (number of squared-innovation lags, default: 1). | *required*
 `omega` | <code>[float](#float)</code> | Constant term in the variance equation (default: 0.1). | *required*
-`alpha` | <code>[list](#list)[[float](#float)] \&#124; None</code> | ARCH coefficients; auto-generated when None. | *required*
-`beta` | <code>[list](#list)[[float](#float)] \&#124; None</code> | GARCH coefficients; auto-generated when None. | *required*
+`alpha` | <code>[list](#list)[[float](#float)] \| None</code> | ARCH coefficients; auto-generated when None. | *required*
+`beta` | <code>[list](#list)[[float](#float)] \| None</code> | GARCH coefficients; auto-generated when None. | *required*
 `mu` | <code>[float](#float)</code> | Mean of returns (default: 0.0). | *required*
 `initial_variance` | <code>[float](#float)</code> | Variance used to start the recursion (default: 1.0). A 100-step burn-in removes its influence. | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `GARCHGenerator.generate_single_series`
 
@@ -66,7 +68,9 @@ Generate time series from an Ornstein-Uhlenbeck (mean-reverting) process.
 The OU process is commonly used to model interest rates, volatility, and
 other mean-reverting phenomena:
 
-    dX_t = theta * (mu - X_t) * dt + sigma * dW_t
+```
+dX_t = theta * (mu - X_t) * dt + sigma * dW_t
+```
 
 Simulated with the Euler-Maruyama scheme
 ``X_t = X_{t-1} + theta * (mu - X_{t-1}) * dt + sigma * sqrt(dt) * z_t``,
@@ -84,13 +88,13 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
 `theta` | <code>[float](#float)</code> | Speed of mean reversion, must satisfy ``theta * dt < 2`` (default: 0.5). | *required*
 `mu` | <code>[float](#float)</code> | Long-term mean (default: 0.0). | *required*
 `sigma` | <code>[float](#float)</code> | Volatility (default: 1.0). | *required*
 `initial_value` | <code>[float](#float)</code> | Initial value X_0 (default: 0.0). | *required*
 `dt` | <code>[float](#float)</code> | Model time step per observation (default: 1.0). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `OrnsteinUhlenbeckGenerator.generate_single_series`
 
@@ -121,7 +125,9 @@ Generate time series from Geometric Brownian Motion.
 
 GBM models strictly positive processes such as asset prices:
 
-    dS_t = mu * S_t * dt + sigma * S_t * dW_t
+```
+dS_t = mu * S_t * dt + sigma * S_t * dW_t
+```
 
 Simulated via the exact solution of the SDE,
 ``S_t = S_{t-1} * exp((mu - sigma^2/2) * dt + sigma * sqrt(dt) * z_t)``,
@@ -138,12 +144,12 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
 `mu` | <code>[float](#float)</code> | Drift per unit of model time (default: 0.05). | *required*
 `sigma` | <code>[float](#float)</code> | Volatility per sqrt unit of model time (default: 0.2). | *required*
 `initial_value` | <code>[float](#float)</code> | Initial value S_0, must be > 0 (default: 100.0). | *required*
 `dt` | <code>[float](#float)</code> | Model time step per observation (default: 1.0). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `GeometricBrownianMotionGenerator.generate_single_series`
 
@@ -176,7 +182,9 @@ Combines Geometric Brownian Motion with discontinuous jumps from a
 compound Poisson process, commonly used for asset prices with rare
 events:
 
-    dS_t = mu * S_t * dt + sigma * S_t * dW_t + S_&#123;t-&#125; * dJ_t
+```
+dS_t = mu * S_t * dt + sigma * S_t * dW_t + S_{t-} * dJ_t
+```
 
 Each step multiplies the price by
 ``exp((mu - sigma^2/2) * dt + sigma * sqrt(dt) * z_t + sum_k Y_k)`` with
@@ -194,7 +202,7 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
 `mu` | <code>[float](#float)</code> | Drift per unit of model time (default: 0.05). | *required*
 `sigma` | <code>[float](#float)</code> | Diffusion volatility (default: 0.2). | *required*
 `lambda_jump` | <code>[float](#float)</code> | Jump intensity, expected jumps per unit of model time (default: 0.1). | *required*
@@ -202,7 +210,7 @@ Name | Type | Description | Default
 `jump_std` | <code>[float](#float)</code> | Std of jump size in log-price (default: 0.1). | *required*
 `initial_value` | <code>[float](#float)</code> | Initial value S_0, must be > 0 (default: 100.0). | *required*
 `dt` | <code>[float](#float)</code> | Model time step per observation (default: 1.0). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `JumpDiffusionGenerator.generate_single_series`
 
@@ -243,10 +251,10 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency of the data (e.g. 'D', 'h', '5min') or int | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data (e.g. 'D', 'h', '5min') or int | *required*
 `lambda_rate` | <code>[float](#float)</code> | Expected events per time step (default: 5.0) | *required*
 `cumulative` | <code>[bool](#bool)</code> | Return cumulative counts (default: False) | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None) | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None) | *required*
 
 #### `PoissonProcessGenerator.generate_single_series`
 
@@ -329,7 +337,7 @@ controls long-range dependence:
 
 - H = 0.5: standard Brownian motion (independent increments)
 - H > 0.5: persistent/trending (positively correlated increments)
-- H < 0.5: anti-persistent/mean-reverting (negatively correlated)
+- H &lt; 0.5: anti-persistent/mean-reverting (negatively correlated)
 
 The increments (fractional Gaussian noise, fGn) are stationary with
 autocovariance ``gamma(k) = (sigma^2/2) * (|k+1|^&#123;2H&#125; - 2|k|^&#123;2H&#125; +
@@ -427,16 +435,20 @@ Generate time series using Hawkes (self-exciting) point processes.
 Hawkes processes model events where past occurrences increase the
 probability of future events. The conditional intensity at time t is:
 
-    lambda(t) = mu + sum_&#123;t_i <= t&#125; g(t - t_i)
+```
+lambda(t) = mu + sum_{t_i <= t} g(t - t_i)
+```
 
 with baseline intensity mu and excitation kernel g. Supported kernels:
 
-    - exponential: g(t) = alpha * exp(-beta * t), branching ratio
-      n = alpha / beta
-    - power_law: g(t) = alpha / (1 + beta * t)^p with p > 1, branching
-      ratio n = alpha / (beta * (p - 1))
+```
+- exponential: g(t) = alpha * exp(-beta * t), branching ratio
+  n = alpha / beta
+- power_law: g(t) = alpha / (1 + beta * t)^p with p > 1, branching
+  ratio n = alpha / (beta * (p - 1))
+```
 
-Stability requires n < 1; the long-run event rate is then mu / (1 - n)
+Stability requires n &lt; 1; the long-run event rate is then mu / (1 - n)
 events per time step, and each event spawns on average 1 / (1 - n)
 events (itself included) in its cluster. Time is measured in steps of
 `freq`, so mu and beta are per-step quantities.
@@ -450,7 +462,7 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency of the data (e.g. 'D', 'h', '5min') or int | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data (e.g. 'D', 'h', '5min') or int | *required*
 `baseline_intensity` | <code>[float](#float)</code> | Background event rate mu per time step (default: 1.0) | *required*
 `excitation_amplitude` | <code>[float](#float)</code> | Jump in intensity per event alpha (default: 0.5) | *required*
 `decay_rate` | <code>[float](#float)</code> | Rate of intensity decay beta (default: 1.0) | *required*
@@ -458,7 +470,7 @@ Name | Type | Description | Default
 `power_law_exponent` | <code>[float](#float)</code> | Exponent p for the power-law kernel, must be > 1 (default: 1.5) | *required*
 `output_type` | <code>[str](#str)</code> | 'counts' (events per bin), 'intensity' (lambda at bin midpoints), or 'events' (0/1 indicator per bin) (default: 'counts') | *required*
 `max_events` | <code>[int](#int)</code> | Maximum events to simulate per series (default: 10000) | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None) | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None) | *required*
 
 <details class="example" open markdown="1">
 <summary>Example</summary>
@@ -565,15 +577,19 @@ Generate time series where volatility itself follows a stochastic process.
 
 Heston model (variance is mean-reverting square-root/CIR):
 
-    dS = mu * S dt + sqrt(V) * S dW1
-    dV = kappa * (theta - V) dt + sigma_v * sqrt(V) dW2
-    Corr(dW1, dW2) = rho
+```
+dS = mu * S dt + sqrt(V) * S dW1
+dV = kappa * (theta - V) dt + sigma_v * sqrt(V) dW2
+Corr(dW1, dW2) = rho
+```
 
 SABR model (for rates/FX):
 
-    dF = sigma * F^beta dW1
-    dsigma = alpha * sigma dW2
-    Corr(dW1, dW2) = rho
+```
+dF = sigma * F^beta dW1
+dsigma = alpha * sigma dW2
+Corr(dW1, dW2) = rho
+```
 
 Both are simulated with Euler-Maruyama; the Heston variance uses a
 truncation scheme (floored at a small positive value) so the discretized
@@ -587,7 +603,7 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
 `model` | <code>[str](#str)</code> | 'heston' or 'sabr' (default: 'heston'). | *required*
 `initial_price` | <code>[float](#float)</code> | Starting price S0 (default: 100.0). | *required*
 `initial_vol` | <code>[float](#float)</code> | Starting variance V0; SABR uses sqrt(initial_vol) as its starting volatility sigma0 (default: 0.04). | *required*
@@ -599,7 +615,7 @@ Name | Type | Description | Default
 `beta` | <code>[float](#float)</code> | CEV exponent in [0, 1] (SABR only; 0=normal, 1=lognormal, default: 0.5). | *required*
 `dt` | <code>[float](#float)</code> | Time step for discretization (default: 1/252). | *required*
 `output_type` | <code>[str](#str)</code> | 'price', 'returns' (log returns), or 'volatility' (default: 'price'). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 <details class="example" open markdown="1">
 <summary>Example</summary>
@@ -707,7 +723,9 @@ A hidden regime s_t follows a first-order Markov chain with transition
 matrix P (rows sum to 1). Conditional on the regime, values follow an
 AR(1) around the regime mean:
 
-    y_t = mu_&#123;s_t&#125; + phi_&#123;s_t&#125; * (y_&#123;t-1&#125; - mu_&#123;s_t&#125;) + sigma_&#123;s_t&#125; * eps_t
+```
+y_t = mu_{s_t} + phi_{s_t} * (y_{t-1} - mu_{s_t}) + sigma_{s_t} * eps_t
+```
 
 When no initial regime is given, s_0 is drawn from the stationary
 distribution pi of P (pi = pi P), so long-run regime occupancy matches pi.
@@ -718,14 +736,14 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
 `n_regimes` | <code>[int](#int)</code> | Number of regimes/states (default: 2). | *required*
-`regime_means` | <code>[list](#list)[[float](#float)] \&#124; None</code> | Mean per regime (default: spread across levels). | *required*
-`regime_variances` | <code>[list](#list)[[float](#float)] \&#124; None</code> | Variance per regime (default: linspace(0.5, 2.0)). | *required*
-`regime_ar_coeffs` | <code>[list](#list)[[float](#float)] \&#124; None</code> | AR(1) coefficient per regime, each |phi| < 1 (default: 0). | *required*
-`transition_matrix` | <code>[list](#list)[[list](#list)[[float](#float)]] \&#124; None</code> | Row-stochastic regime transition matrix (default: 0.95 self-transition probability). | *required*
-`initial_regime` | <code>[int](#int) \&#124; None</code> | Starting regime, 0-indexed (default: drawn from the stationary distribution). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`regime_means` | <code>[list](#list)[[float](#float)] \| None</code> | Mean per regime (default: spread across levels). | *required*
+`regime_variances` | <code>[list](#list)[[float](#float)] \| None</code> | Variance per regime (default: linspace(0.5, 2.0)). | *required*
+`regime_ar_coeffs` | <code>[list](#list)[[float](#float)] \| None</code> | AR(1) coefficient per regime, each |phi| &lt; 1 (default: 0). | *required*
+`transition_matrix` | <code>[list](#list)[[list](#list)[[float](#float)]] \| None</code> | Row-stochastic regime transition matrix (default: 0.95 self-transition probability). | *required*
+`initial_regime` | <code>[int](#int) \| None</code> | Starting regime, 0-indexed (default: drawn from the stationary distribution). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 <details class="example" open markdown="1">
 <summary>Example</summary>
@@ -901,16 +919,16 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
 `model` | <code>[str](#str)</code> | 'beta_ar' or 'logit_normal' (default: 'beta_ar'). | *required*
 `phi` | <code>[float](#float)</code> | AR coefficient in [-1, 1] (default: 0.8). | *required*
-`omega` | <code>[float](#float)</code> | Intercept of the beta_ar conditional mean (default: 0.1). Must satisfy 0 < omega + phi * x < 1 for x in (0, 1). | *required*
+`omega` | <code>[float](#float)</code> | Intercept of the beta_ar conditional mean (default: 0.1). Must satisfy 0 &lt; omega + phi * x &lt; 1 for x in (0, 1). | *required*
 `kappa` | <code>[float](#float)</code> | Beta precision; larger = less noise (default: 20.0). | *required*
 `sigma` | <code>[float](#float)</code> | Logit-scale innovation std (logit_normal only, default: 0.3). | *required*
 `initial_value` | <code>[float](#float)</code> | Starting value on the unit scale, in (0, 1) (default: 0.5). | *required*
 `lower` | <code>[float](#float)</code> | Lower bound of the output interval (default: 0.0). | *required*
 `upper` | <code>[float](#float)</code> | Upper bound of the output interval (default: 1.0). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `BoundedProcessGenerator.generate_single_series`
 
@@ -972,14 +990,14 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
 `alpha` | <code>[float](#float)</code> | Stability index in (0, 2] (default: 1.5). | *required*
 `beta_skew` | <code>[float](#float)</code> | Skewness parameter in [-1, 1] (default: 0.0). | *required*
 `scale` | <code>[float](#float)</code> | Scale of each increment (default: 1.0). | *required*
 `location` | <code>[float](#float)</code> | Location shift of each increment (default: 0.0). | *required*
 `cumulative` | <code>[bool](#bool)</code> | Return the cumulative sum (Levy flight) instead of raw increments (default: True). | *required*
 `initial_value` | <code>[float](#float)</code> | Starting value for cumulative mode (default: 0.0). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `LevyProcessGenerator.generate_single_series`
 

@@ -7,6 +7,8 @@ variables are connected through randomly sampled lagged edges, then the
 system is rolled forward with nonlinear edge functions and stochastic
 innovations.
 
+$$x_i[t] = \sum_{e \in \mathrm{pa}(i)} f_e\big(x_{j_e}[t - \ell_e]\big) + \varepsilon_i[t]$$
+
 The temporal-SCM framing follows the overview in Runge et al. (2023),
 [Causal inference for time
 series](https://doi.org/10.1038/s43017-023-00431-y). SynForecast’s graph

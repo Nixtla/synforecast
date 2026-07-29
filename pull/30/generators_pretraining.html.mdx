@@ -24,8 +24,10 @@ incommensurate), and an irregular (noise) process from
 multiplicatively with probability `multiplicative_prob` when the trend
 base can be kept positive:
 
-    additive:        y_t = T_t + S_t + e_t
-    multiplicative:  y_t = T_t · (1 + S_t / c) + e_t,  min_t T_t > 0
+```
+additive:        y_t = T_t + S_t + e_t
+multiplicative:  y_t = T_t · (1 + S_t / c) + e_t,  min_t T_t > 0
+```
 
 where c caps the relative seasonal swing so the factor stays positive.
 Trend shapes are normalized so their total movement over the series is
@@ -43,7 +45,7 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
 `trend_types` | <code>[list](#list)[[str](#str)]</code> | Trend shapes sampled per series. Options: 'none', 'linear', 'exponential', 'logistic', 'piecewise_linear', 'damped' (default: all six). | *required*
 `trend_slope_range` | <code>[tuple](#tuple)[[float](#float), [float](#float)]</code> | Range of the signed total trend movement over the whole series (default: (-8.0, 8.0)). | *required*
 `trend_growth_range` | <code>[tuple](#tuple)[[float](#float), [float](#float)]</code> | Range of the exponential trend's total log-curvature (default: (1.0, 4.0)). | *required*
@@ -56,11 +58,11 @@ Name | Type | Description | Default
 `harmonics_prob` | <code>[float](#float)</code> | Probability a harmonic gets phase-locked 2f/3f overtones at decaying amplitude (default: 0.4). | *required*
 `irregular_types` | <code>[list](#list)[[str](#str)]</code> | Noise processes sampled per series. Options: 'gaussian', 'ar1', 'garch_like', 'student_t', 'laplace' (default: all five). | *required*
 `noise_scale_range` | <code>[tuple](#tuple)[[float](#float), [float](#float)]</code> | Log-uniform noise std as a fraction of the structural signal's std (default: (0.5, 12.0)). | *required*
-`ar1_phi_range` | <code>[tuple](#tuple)[[float](#float), [float](#float)]</code> | AR(1) coefficient range for 'ar1' noise, |phi| < 1 (default: (0.3, 0.95)). | *required*
+`ar1_phi_range` | <code>[tuple](#tuple)[[float](#float), [float](#float)]</code> | AR(1) coefficient range for 'ar1' noise, |phi| &lt; 1 (default: (0.3, 0.95)). | *required*
 `tail_df_range` | <code>[tuple](#tuple)[[float](#float), [float](#float)]</code> | Student-t degrees of freedom range for 'student_t' noise, > 2 (default: (2.5, 12.0)). | *required*
 `multiplicative_prob` | <code>[float](#float)</code> | Probability of multiplicative trend-season composition (default: 0.3). | *required*
 `scale_range` | <code>[tuple](#tuple)[[float](#float), [float](#float)]</code> | Log-uniform overall output scale (default: (0.1, 100.0)). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `TSIGenerator.generate_single_series`
 
@@ -94,11 +96,15 @@ a sparse dependency graph over the (variable x lag) space is drawn, each
 edge is assigned a random edge function, and the system is rolled out
 autoregressively. Node ``i`` evolves as
 
-    x_i[t] = sum_&#123;e in pa(i)&#125; f_e(x_&#123;j_e&#125;[t - l_e]) + eps_i[t]
+```
+x_i[t] = sum_{e in pa(i)} f_e(x_{j_e}[t - l_e]) + eps_i[t]
+```
 
 with per-edge functions ``f_e(x)`` in
 
-    c*x, c*tanh(x), c*relu(x), c*tanh(x)*tanh(x'), c*1[x > tau]
+```
+c*x, c*tanh(x), c*relu(x), c*tanh(x)*tanh(x'), c*1[x > tau]
+```
 
 The temporal-SCM framing follows the overview in Runge et al. (2023),
 "Causal inference for time series,"
@@ -153,19 +159,19 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency of the data. A pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer time index step. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data. A pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer time index step. | *required*
 `multivariate` | <code>[bool](#bool)</code> | When True, generate(n_series) returns n_series nodes of one shared SCM as correlated series sharing one length (default: False). | *required*
 `n_vars_range` | <code>[tuple](#tuple)[[int](#int), [int](#int)]</code> | Inclusive range for the number of latent variables per SCM (default: (1, 5)). | *required*
 `max_lag_range` | <code>[tuple](#tuple)[[int](#int), [int](#int)]</code> | Inclusive range for the maximum lag L of the dependency graph (default: (1, 24)). | *required*
 `edge_probability_range` | <code>[tuple](#tuple)[[float](#float), [float](#float)]</code> | Range for the per-slot edge probability over the (variable x lag) space (default: (0.05, 0.3)). | *required*
 `edge_kinds` | <code>[list](#list)[[str](#str)]</code> | Pool of edge function kinds, sampled per edge. Subset of ['linear', 'tanh', 'relu', 'product', 'threshold'] (default: all). | *required*
 `coef_range` | <code>[tuple](#tuple)[[float](#float), [float](#float)]</code> | Range for edge coefficient magnitudes before stability rescaling; signs are random (default: (0.1, 0.8)). | *required*
-`stability_margin` | <code>[float](#float)</code> | Upper bound (< 1) on the spectral radius of the linear-part companion matrix (default: 0.95). | *required*
+`stability_margin` | <code>[float](#float)</code> | Upper bound (&lt; 1) on the spectral radius of the linear-part companion matrix (default: 0.95). | *required*
 `clamp_threshold` | <code>[float](#float)</code> | Soft-clamp scale for states during rollout; generous relative to typical noise scales so it only engages on runaway feedback (default: 1e6). | *required*
 `noise_types` | <code>[list](#list)[[str](#str)]</code> | Pool of per-node innovation distributions. Subset of ['gaussian', 'student_t', 'laplace'] (default: all). | *required*
 `noise_scale_range` | <code>[tuple](#tuple)[[float](#float), [float](#float)]</code> | Range for per-node noise standard deviation (default: (0.5, 2.0)). | *required*
 `heteroscedastic_prob` | <code>[float](#float)</code> | Probability that a node's noise scale follows a slow random sinusoidal envelope (default: 0.2). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 `id_col` | <code>[str](#str)</code> | Name of the ID column (default: 'unique_id'). | *required*
 `time_col` | <code>[str](#str)</code> | Name of the timestamp column (default: 'ds'). | *required*
 `target_col` | <code>[str](#str)</code> | Name of the value column (default: 'y'). | *required*
@@ -288,7 +294,7 @@ Name | Type | Description | Default
 `include_constant` | <code>[bool](#bool)</code> | Include a constant kernel in the bank (default: True). | *required*
 `jitter` | <code>[float](#float)</code> | Diagonal jitter added before factorization for numerical stability (default: 1e-6). | *required*
 `standardize` | <code>[bool](#bool)</code> | Standardize each sampled series to zero mean and unit variance. Kernel compositions span extreme scales, so standardization keeps the pool comparable for pretraining (default: True). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `KernelSynthGenerator.generate_single_series`
 

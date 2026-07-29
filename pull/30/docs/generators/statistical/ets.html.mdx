@@ -10,6 +10,8 @@ family of realistic trend-plus-seasonality shapes.
 
 > **The model**
 >
+> $$y_t = \mu_t + \varepsilon_t, \qquad \mu_t = \ell_{t-1} + \phi\, b_{t-1} + s_{t-m} \quad \text{(ETS(A,A,A))}$$
+>
 > Each series is built from a level state plus optional trend and
 > seasonal states, combined additively or multiplicatively via
 > `error_type`, `trend_type`, `seasonal_type`, and `damped`. This is the

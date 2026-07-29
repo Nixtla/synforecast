@@ -33,12 +33,12 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency of the data. A pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer time index step. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data. A pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer time index step. | *required*
 `copula_type` | <code>[str](#str)</code> | 'gaussian' or 't' (default: 'gaussian'). | *required*
-`correlation_matrix` | <code>[list](#list)[[list](#list)[[float](#float)]] \&#124; None</code> | Correlation matrix. Must be symmetric positive definite with unit diagonal. When None, a random correlation matrix is generated. When smaller than n_series, it is padded with an identity block (extra variables are independent); when larger, the leading principal submatrix is used. | *required*
+`correlation_matrix` | <code>[list](#list)[[list](#list)[[float](#float)]] \| None</code> | Correlation matrix. Must be symmetric positive definite with unit diagonal. When None, a random correlation matrix is generated. When smaller than n_series, it is padded with an identity block (extra variables are independent); when larger, the leading principal submatrix is used. | *required*
 `df` | <code>[float](#float)</code> | Degrees of freedom for the t copula (default: 5.0). | *required*
 `marginal_distributions` | <code>[list](#list)[[dict](#dict)]</code> | Marginal specs, cycled over variables. Types: 'normal' (loc, scale), 'lognormal' (mean, sigma), 'exponential' (scale), 'uniform' (low, high), 'gamma' (shape, scale). Default: standard normal. | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 `id_col` | <code>[str](#str)</code> | Name of the ID column (default: 'unique_id'). | *required*
 `time_col` | <code>[str](#str)</code> | Name of the timestamp column (default: 'ds'). | *required*
 `target_col` | <code>[str](#str)</code> | Name of the value column (default: 'y'). | *required*
@@ -103,13 +103,17 @@ Generate correlated time series using a Vector Autoregression model.
 A VAR(p) process models each variable as a linear function of past
 values of all variables:
 
-    y[t] = c + A_1 y[t-1] + ... + A_p y[t-p] + e[t],  e[t] ~ (0, Sigma)
+```
+y[t] = c + A_1 y[t-1] + ... + A_p y[t-p] + e[t],  e[t] ~ (0, Sigma)
+```
 
 The process is stable (stationary) iff the companion matrix
 
-    [[A_1 ... A_p], [I 0 ... 0], ..., [0 ... I 0]]
+```
+[[A_1 ... A_p], [I 0 ... 0], ..., [0 ... I 0]]
+```
 
-has spectral radius < 1, in which case the stationary mean is
+has spectral radius &lt; 1, in which case the stationary mean is
 ``(I - A_1 - ... - A_p)^{-1} c``. Innovations are drawn from the
 configured innovation distribution and correlated via the Cholesky
 factor of Sigma. A burn-in of 100 steps is discarded.
@@ -123,12 +127,12 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency of the data. A pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer time index step. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data. A pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer time index step. | *required*
 `lag_order` | <code>[int](#int)</code> | VAR lag order p (default: 1). | *required*
-`coef_matrices` | <code>[list](#list)[[list](#list)[[list](#list)[[float](#float)]]] \&#124; None</code> | One square coefficient matrix per lag, all the same size. Must define a stable VAR. When None, random stable coefficients are generated. When sized differently from n_series, the leading principal submatrices are used (or zero-padded). | *required*
-`intercept` | <code>[list](#list)[[float](#float)] \&#124; None</code> | Intercept vector c (default: zeros). | *required*
-`innovation_covariance` | <code>[list](#list)[[list](#list)[[float](#float)]] \&#124; None</code> | Innovation covariance Sigma; symmetric positive definite (default: identity). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`coef_matrices` | <code>[list](#list)[[list](#list)[[list](#list)[[float](#float)]]] \| None</code> | One square coefficient matrix per lag, all the same size. Must define a stable VAR. When None, random stable coefficients are generated. When sized differently from n_series, the leading principal submatrices are used (or zero-padded). | *required*
+`intercept` | <code>[list](#list)[[float](#float)] \| None</code> | Intercept vector c (default: zeros). | *required*
+`innovation_covariance` | <code>[list](#list)[[list](#list)[[float](#float)]] \| None</code> | Innovation covariance Sigma; symmetric positive definite (default: identity). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 `id_col` | <code>[str](#str)</code> | Name of the ID column (default: 'unique_id'). | *required*
 `time_col` | <code>[str](#str)</code> | Name of the timestamp column (default: 'ds'). | *required*
 `target_col` | <code>[str](#str)</code> | Name of the value column (default: 'y'). | *required*

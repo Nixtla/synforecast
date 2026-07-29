@@ -35,7 +35,7 @@ retail, spare parts, and inventory contexts (Croston-style demand).
 Size distributions are moment-matched to (demand_mean, demand_std):
     - 'poisson': Poisson(demand_mean); demand_std is ignored.
     - 'negative_binomial': p = mean/var, n = mean*p/(1-p); falls back
-      to Poisson when demand_std**2 <= demand_mean.
+      to Poisson when demand_std**2 &lt;= demand_mean.
     - 'lognormal': mu = ln(mean^2 / sqrt(var + mean^2)),
       sigma^2 = ln(1 + var/mean^2).
     - 'gamma': shape = (mean/std)^2, scale = var/mean.
@@ -47,7 +47,7 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency of the data (e.g. 'D', 'h', '5min') or int | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data (e.g. 'D', 'h', '5min') or int | *required*
 `demand_probability` | <code>[float](#float)</code> | Probability of non-zero demand per period (occurrence-pattern dependent, see above) (default: 0.2) | *required*
 `demand_distribution` | <code>[str](#str)</code> | Distribution for non-zero demand sizes (default: 'poisson') | *required*
 `demand_mean` | <code>[float](#float)</code> | Mean of demand when non-zero (default: 5.0) | *required*
@@ -57,7 +57,7 @@ Name | Type | Description | Default
 `seasonal_period` | <code>[int](#int)</code> | Period for seasonal intermittency (default: 12) | *required*
 `seasonal_peak_prob` | <code>[float](#float)</code> | Peak occurrence probability at the start of each seasonal cycle (default: 0.4) | *required*
 `min_demand` | <code>[int](#int)</code> | Minimum non-zero demand value (default: 1) | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None) | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None) | *required*
 
 #### `IntermittentDemandGenerator.generate_single_series`
 
@@ -105,10 +105,10 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency of the data, e.g. 's', 'min', 'h'. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data, e.g. 's', 'min', 'h'. | *required*
 `n_sensors` | <code>[int](#int)</code> | Sensors per network (default: 1). | *required*
 `sensor_type` | <code>[str](#str)</code> | 'temperature', 'humidity', 'pressure', 'light', 'motion' or 'generic' (default: 'temperature'). | *required*
-`base_value` | <code>[float](#float) \&#124; None</code> | Base sensor reading (default: typical value for sensor_type). | *required*
+`base_value` | <code>[float](#float) \| None</code> | Base sensor reading (default: typical value for sensor_type). | *required*
 `trend` | <code>[float](#float)</code> | Linear trend per time step (default: 0.0). | *required*
 `seasonal_period` | <code>[int](#int)</code> | Seasonal cycle length in steps, 0 disables (default: 0). | *required*
 `seasonal_amplitude` | <code>[float](#float)</code> | Amplitude of seasonal variation (default: 0.0). | *required*
@@ -116,14 +116,14 @@ Name | Type | Description | Default
 `drift_rate` | <code>[float](#float)</code> | Deterministic sensor drift per step (default: 0.0). | *required*
 `drift_noise` | <code>[float](#float)</code> | Std of the random drift component (default: 0.01). | *required*
 `calibration_error` | <code>[float](#float)</code> | Constant calibration offset (default: 0.0). | *required*
-`battery_life` | <code>[int](#int) \&#124; None</code> | Steps until battery degradation starts, None disables (default: None). | *required*
+`battery_life` | <code>[int](#int) \| None</code> | Steps until battery degradation starts, None disables (default: None). | *required*
 `battery_degradation_rate` | <code>[float](#float)</code> | Rate of quality loss per step after battery_life (default: 0.001). | *required*
 `failure_probability` | <code>[float](#float)</code> | Probability of sensor failure (default: 0.0). For 'complete': probability the series fails at all; for 'intermittent'/'stuck': per-step probability of starting a failure episode. | *required*
 `failure_type` | <code>[str](#str)</code> | 'intermittent', 'complete' or 'stuck' (default: 'intermittent'). | *required*
 `failure_duration` | <code>[int](#int)</code> | Length of intermittent/stuck episodes (default: 10). | *required*
-`stuck_value` | <code>[float](#float) \&#124; None</code> | Reading during 'stuck' failures (default: the reading at episode start). | *required*
+`stuck_value` | <code>[float](#float) \| None</code> | Reading during 'stuck' failures (default: the reading at episode start). | *required*
 `spatial_correlation` | <code>[float](#float)</code> | Noise correlation between adjacent sensors in a network (default: 0.5). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `IoTSensorGenerator.generate_single_series`
 
@@ -201,7 +201,7 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency of the data, e.g. 'h', '15min', 'D'. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data, e.g. 'h', '15min', 'D'. | *required*
 `base_load` | <code>[float](#float)</code> | Base load in kW or MW (default: 100.0). | *required*
 `load_type` | <code>[str](#str)</code> | 'residential', 'commercial' or 'industrial' (default: 'residential'). | *required*
 `daily_pattern` | <code>[bool](#bool)</code> | Enable the daily cycle (default: True). | *required*
@@ -221,7 +221,7 @@ Name | Type | Description | Default
 `extreme_weather_prob` | <code>[float](#float)</code> | Per-step probability of extreme weather (default: 0.0). | *required*
 `extreme_weather_impact` | <code>[float](#float)</code> | Load multiplier during extreme weather (default: 1.5). | *required*
 `noise_std` | <code>[float](#float)</code> | Standard deviation of additive noise (default: 5.0). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `EnergyLoadGenerator.generate_single_series`
 
@@ -252,8 +252,10 @@ Generate time series from a (linear-Gaussian or custom) state space model.
 
 The linear model is:
 
-    x[t] = F x[t-1] + w[t],  w[t] ~ (0, Q)   (state equation)
-    y[t] = H x[t] + v[t],    v[t] ~ N(0, R)  (observation equation)
+```
+x[t] = F x[t-1] + w[t],  w[t] ~ (0, Q)   (state equation)
+y[t] = H x[t] + v[t],    v[t] ~ N(0, R)  (observation equation)
+```
 
 with ``x[0] ~ N(initial_state, initial_state_covariance)``. State noise
 ``w`` follows the configured innovation distribution (scaled by the
@@ -269,18 +271,18 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency of the data. A pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer time index step. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data. A pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer time index step. | *required*
 `state_dim` | <code>[int](#int)</code> | Dimension of the hidden state vector (default: 1). | *required*
 `obs_dim` | <code>[int](#int)</code> | Dimension of the observation vector (default: 1). | *required*
-`transition_matrix` | <code>[list](#list)[[list](#list)[[float](#float)]] \&#124; None</code> | State transition matrix F, shape (state_dim, state_dim). When None (and no transition_fn), a random stable matrix is generated. | *required*
-`observation_matrix` | <code>[list](#list)[[list](#list)[[float](#float)]] \&#124; None</code> | Observation matrix H, shape (obs_dim, state_dim). Default observes the first state. | *required*
-`state_covariance` | <code>[list](#list)[[list](#list)[[float](#float)]] \&#124; None</code> | State noise covariance Q, symmetric PSD (default: 0.1 * I). | *required*
-`obs_covariance` | <code>[list](#list)[[list](#list)[[float](#float)]] \&#124; None</code> | Observation noise covariance R, symmetric PSD (default: 0.1 * I). | *required*
-`transition_fn` | <code>[Callable](#collections.abc.Callable) \&#124; None</code> | Custom state transition function. | *required*
-`observation_fn` | <code>[Callable](#collections.abc.Callable) \&#124; None</code> | Custom observation function. | *required*
-`initial_state` | <code>[list](#list)[[float](#float)] \&#124; None</code> | Initial state mean (default: zeros). | *required*
-`initial_state_covariance` | <code>[list](#list)[[list](#list)[[float](#float)]] \&#124; None</code> | Initial state covariance, symmetric PSD (default: identity). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`transition_matrix` | <code>[list](#list)[[list](#list)[[float](#float)]] \| None</code> | State transition matrix F, shape (state_dim, state_dim). When None (and no transition_fn), a random stable matrix is generated. | *required*
+`observation_matrix` | <code>[list](#list)[[list](#list)[[float](#float)]] \| None</code> | Observation matrix H, shape (obs_dim, state_dim). Default observes the first state. | *required*
+`state_covariance` | <code>[list](#list)[[list](#list)[[float](#float)]] \| None</code> | State noise covariance Q, symmetric PSD (default: 0.1 * I). | *required*
+`obs_covariance` | <code>[list](#list)[[list](#list)[[float](#float)]] \| None</code> | Observation noise covariance R, symmetric PSD (default: 0.1 * I). | *required*
+`transition_fn` | <code>[Callable](#collections.abc.Callable) \| None</code> | Custom state transition function. | *required*
+`observation_fn` | <code>[Callable](#collections.abc.Callable) \| None</code> | Custom observation function. | *required*
+`initial_state` | <code>[list](#list)[[float](#float)] \| None</code> | Initial state mean (default: zeros). | *required*
+`initial_state_covariance` | <code>[list](#list)[[list](#list)[[float](#float)]] \| None</code> | Initial state covariance, symmetric PSD (default: identity). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 `id_col` | <code>[str](#str)</code> | Name of the ID column (default: 'unique_id'). | *required*
 `time_col` | <code>[str](#str)</code> | Name of the timestamp column (default: 'ds'). | *required*
 `target_col` | <code>[str](#str)</code> | Name of the value column (default: 'y'). | *required*
@@ -354,20 +356,20 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency of the data, e.g. 'D', 'h'. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data, e.g. 'D', 'h'. | *required*
 `base_users` | <code>[float](#float)</code> | Base number of daily active users (default: 10000.0). | *required*
 `growth_rate` | <code>[float](#float)</code> | Daily organic growth rate (default: 0.0005). | *required*
 `growth_rate_std` | <code>[float](#float)</code> | Std dev of a per-series perturbation of growth_rate (default: 0.0). | *required*
 `app_type` | <code>[str](#str)</code> | 'consumer', 'business' or 'gaming' (default: 'consumer'). | *required*
 `weekly_pattern` | <code>[bool](#bool)</code> | Enable weekly seasonality (default: True). | *required*
-`weekend_factor` | <code>[float](#float) \&#124; None</code> | Multiplier for weekend activity (default: 1.2 for gaming, 0.8 otherwise). | *required*
+`weekend_factor` | <code>[float](#float) \| None</code> | Multiplier for weekend activity (default: 1.2 for gaming, 0.8 otherwise). | *required*
 `event_probability` | <code>[float](#float)</code> | Per-step probability of an event (default: 0.02). | *required*
 `event_impact_min` | <code>[float](#float)</code> | Minimum event impact multiplier (default: 1.2). | *required*
 `event_impact_max` | <code>[float](#float)</code> | Maximum event impact multiplier (default: 2.0). | *required*
 `event_decay_rate` | <code>[float](#float)</code> | Per-step decay rate of the event boost (default: 0.1). | *required*
 `noise_std` | <code>[float](#float)</code> | Std of noise relative to the current level (default: 0.05). | *required*
 `event_col` | <code>[str](#str)</code> | Name of the event indicator column (default: 'event'). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `DailyActiveUsersGenerator.generate_single_series`
 
@@ -442,14 +444,14 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency of the data; use 'min' for correct circadian/HRV periods. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data; use 'min' for correct circadian/HRV periods. | *required*
 `patient_type` | <code>[str](#str)</code> | 'healthy', 'cardiac', 'sepsis', 'respiratory' or 'hypertensive' (default: 'healthy'). | *required*
 `vital_sign` | <code>[str](#str)</code> | Which vital sign to output (default: 'heart_rate'). | *required*
 `include_circadian` | <code>[bool](#bool)</code> | Include circadian rhythm effects (default: True). | *required*
 `include_hrv` | <code>[bool](#bool)</code> | Include heart rate variability (default: True). | *required*
 `include_events` | <code>[bool](#bool)</code> | Include random physiological events (default: True). | *required*
 `event_probability` | <code>[float](#float)</code> | Per-step probability of an event (default: 0.01). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 <details class="example" open markdown="1">
 <summary>Example</summary>
@@ -555,7 +557,7 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency of the data; use 'h' for correct seasonality patterns. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data; use 'h' for correct seasonality patterns. | *required*
 `base_sessions` | <code>[float](#float)</code> | Baseline sessions per time bin (default: 100). | *required*
 `traffic_source` | <code>[str](#str)</code> | 'organic', 'paid', 'direct', 'referral' or 'mixed' (default: 'mixed'). | *required*
 `conversion_rate` | <code>[float](#float)</code> | Base conversion rate for engaged sessions (default: 0.03). | *required*
@@ -563,9 +565,9 @@ Name | Type | Description | Default
 `avg_session_depth` | <code>[float](#float)</code> | Average pages per engaged session (default: 3.5). | *required*
 `include_seasonality` | <code>[bool](#bool)</code> | Include time-of-day and day-of-week patterns (default: True). | *required*
 `include_bots` | <code>[bool](#bool)</code> | Include bot traffic (default: True). | *required*
-`bot_fraction` | <code>[float](#float)</code> | Fraction of traffic from bots, < 1.0 (default: 0.15). | *required*
+`bot_fraction` | <code>[float](#float)</code> | Fraction of traffic from bots, &lt; 1.0 (default: 0.15). | *required*
 `output_type` | <code>[str](#str)</code> | Metric to output (default: 'sessions'). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 <details class="example" open markdown="1">
 <summary>Example</summary>
@@ -640,7 +642,7 @@ multiplier.
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `n_sessions` | <code>[int](#int)</code> | Number of sessions entering the funnel. | <code>1000</code>
-`stages` | <code>[list](#list)[[str](#str)] \&#124; None</code> | Funnel stage names (default: standard e-commerce funnel). | <code>None</code>
+`stages` | <code>[list](#list)[[str](#str)] \| None</code> | Funnel stage names (default: standard e-commerce funnel). | <code>None</code>
 
 **Returns:**
 

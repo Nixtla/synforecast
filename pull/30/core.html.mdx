@@ -15,16 +15,16 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency of the data. Either a pandas offset alias (e.g. 'D', 'h', '5min', 'MS', 'W-MON') or an integer for an integer time index | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data. Either a pandas offset alias (e.g. 'D', 'h', '5min', 'MS', 'W-MON') or an integer for an integer time index | *required*
 `engine` | <code>[str](#str)</code> | Output dataframe library (default: 'pandas'). Options are 'pandas', 'polars', 'cudf', 'modin', 'pyarrow' | *required*
-`alias` | <code>[str](#str) \&#124; None</code> | Name of the generator (default: class name) | *required*
+`alias` | <code>[str](#str) \| None</code> | Name of the generator (default: class name) | *required*
 `id_col` | <code>[str](#str)</code> | Name of the ID column (default: 'unique_id') | *required*
 `time_col` | <code>[str](#str)</code> | Name of the timestamp column (default: 'ds') | *required*
 `target_col` | <code>[str](#str)</code> | Name of the value column (default: 'y') | *required*
 `start_datetime` | <code>[str](#str)</code> | First timestamp of every series, in any format accepted by pandas.Timestamp (default: '2000-01-01'). Ignored when freq is an integer | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None) | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None) | *required*
 `Exogenous parameters` |  |  | *required*
-`exogenous` | <code>[ExogenousConfig](#synforecast.exogenous.ExogenousConfig) \&#124; None</code> | Configuration for exogenous variable generation. None = no exogenous columns (default: None) | *required*
+`exogenous` | <code>[ExogenousConfig](#synforecast.exogenous.ExogenousConfig) \| None</code> | Configuration for exogenous variable generation. None = no exogenous columns (default: None) | *required*
 `Missingness parameters` |  |  | *required*
 `missing_data` | <code>[bool](#bool)</code> | Enable missing data patterns (default: False) | *required*
 `missing_pattern` | <code>[str](#str)</code> | Pattern: 'random', 'block', 'seasonal' (default: 'random') | *required*
@@ -43,10 +43,10 @@ Name | Type | Description | Default
 `changepoints` | <code>[bool](#bool)</code> | Enable changepoint injection (default: False) | *required*
 `num_changepoints` | <code>[int](#int)</code> | Number of changepoints (default: 2) | *required*
 `changepoint_type` | <code>[str](#str)</code> | Type: 'level', 'trend', 'variance', 'mixed' (default: 'level') | *required*
-`changepoint_level_changes` | <code>[list](#list)[[float](#float)] \&#124; None</code> | Size of level changes (default: random) | *required*
-`changepoint_trend_changes` | <code>[list](#list)[[float](#float)] \&#124; None</code> | Size of trend changes (default: random) | *required*
-`changepoint_variance_changes` | <code>[list](#list)[[float](#float)] \&#124; None</code> | Size of variance changes (default: random) | *required*
-`changepoint_locations` | <code>[list](#list)[[float](#float)] \&#124; None</code> | Relative positions 0-1 (default: random) | *required*
+`changepoint_level_changes` | <code>[list](#list)[[float](#float)] \| None</code> | Size of level changes (default: random) | *required*
+`changepoint_trend_changes` | <code>[list](#list)[[float](#float)] \| None</code> | Size of trend changes (default: random) | *required*
+`changepoint_variance_changes` | <code>[list](#list)[[float](#float)] \| None</code> | Size of variance changes (default: random) | *required*
+`changepoint_locations` | <code>[list](#list)[[float](#float)] \| None</code> | Relative positions 0-1 (default: random) | *required*
 
 #### `BaseGenerator.generate`
 

@@ -26,7 +26,7 @@ the first 15 generators cover all 15 niches.
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `n_series` | <code>[int](#int)</code> | Number of series to generate. | *required*
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency of the data, as a pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. Defaults to 'D'. | <code>'D'</code>
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data, as a pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. Defaults to 'D'. | <code>'D'</code>
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. Defaults to 50. | <code>50</code>
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. Defaults to 500. | <code>500</code>
 `generators` | <code>[list](#list)[[BaseGenerator](#synforecast.base.BaseGenerator)]</code> | Generators to draw from. Defaults to `synforecast.balanced_pool`. Ignores min_length / max_length / freq / engine / seed when provided. | <code>None</code>
@@ -88,8 +88,8 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum time series length for all generators. | <code>200</code>
 `max_length` | <code>[int](#int)</code> | Maximum time series length for all generators. | <code>200</code>
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency for all generators, as a pandas offset alias or integer. | <code>'D'</code>
-`seed` | <code>[int](#int) \&#124; None</code> | Base random seed. Each generator gets seed + i for reproducibility. Set to None for random seeds. | <code>42</code>
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency for all generators, as a pandas offset alias or integer. | <code>'D'</code>
+`seed` | <code>[int](#int) \| None</code> | Base random seed. Each generator gets seed + i for reproducibility. Set to None for random seeds. | <code>42</code>
 `**base_kwargs` | <code>[Any](#typing.Any)</code> | Additional keyword arguments passed to all generators (e.g., engine, id_col, time_col, target_col). | <code>&#123;&#125;</code>
 
 **Returns:**
@@ -134,8 +134,8 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum series length for all generators. | <code>256</code>
 `max_length` | <code>[int](#int)</code> | Maximum series length for all generators. | <code>1024</code>
-`freq` | <code>[str](#str) \&#124; [int](#int)</code> | Frequency for all generators, as a pandas offset alias or integer. | <code>'D'</code>
-`seed` | <code>[int](#int) \&#124; None</code> | Base random seed. Each generator gets a distinct offset. Set to None for random seeds. | <code>42</code>
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency for all generators, as a pandas offset alias or integer. | <code>'D'</code>
+`seed` | <code>[int](#int) \| None</code> | Base random seed. Each generator gets a distinct offset. Set to None for random seeds. | <code>42</code>
 `include_balanced` | <code>[bool](#bool)</code> | When True (default), prepend the full :func:`balanced_pool`; when False, return only the meta-generators (a purely procedural pretraining corpus). | <code>True</code>
 `n_meta_variants` | <code>[int](#int)</code> | Number of independently-seeded instances of each meta-generator (default 3). More instances give the meta-generators a larger share when series are spread evenly across the pool, as in :func:`generate_series`. | <code>3</code>
 `**base_kwargs` | <code>[Any](#typing.Any)</code> | Additional keyword arguments passed to all generators (e.g., engine, id_col, time_col, target_col). | <code>&#123;&#125;</code>
@@ -212,7 +212,7 @@ Name | Type | Description | Default
 `mixing_strength_range` | <code>[tuple](#tuple)[[float](#float), [float](#float)]</code> | Range for the mixing strength s in [0, 1); s scales the induced cotemporaneous cross-correlations (default: (0.2, 0.9)). | *required*
 `lag_range` | <code>[tuple](#tuple)[[int](#int), [int](#int)]</code> | Inclusive range for lead-lag offsets in time steps (default: (1, 24)). | *required*
 `noise_scale_range` | <code>[tuple](#tuple)[[float](#float), [float](#float)]</code> | Range for the lead-lag perturbation noise std, relative to the unit-variance standardized channels (default: (0.02, 0.2)). | *required*
-`seed` | <code>[int](#int) \&#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 <details class="example" open markdown="1">
 <summary>Example</summary>
