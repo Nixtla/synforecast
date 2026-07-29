@@ -25,13 +25,16 @@ import matplotlib.pyplot as plt
 from synforecast.generators import INARGenerator
 ```
 
-## 1. INAR(1) with Poisson innovations
+## 1. Innovation distribution
 
-A basic count process: each value depends on a thinned version of the
-previous value plus a Poisson-distributed innovation.
+The innovation distribution sets the marginal spread. With the thinning
+parameter and innovation mean held fixed, negative binomial innovations
+produce overdispersion — variance above the mean — while Poisson
+innovations keep the two equal.
 
 ```python
-poisson_gen = INARGenerator(engine="polars", 
+poisson_df = INARGenerator(
+    engine="polars",
     min_length=200,
     max_length=200,
     freq="D",
@@ -40,76 +43,41 @@ poisson_gen = INARGenerator(engine="polars",
     innovation_type="poisson",
     innovation_mean=3.0,
     seed=42,
-)
-poisson_df = poisson_gen.generate(n_series=1)
+).generate(n_series=1)
 
-print(f"Generated {len(poisson_df)} count-valued observations")
-print(f"Statistics: Mean={poisson_df['y'].mean():.4f}, Std={poisson_df['y'].std():.4f}")
-poisson_df.head(10)
-```
-
-``` text
-Generated 200 count-valued observations
-Statistics: Mean=5.9300, Std=2.4092
-```
-
-| unique_id | ds                  | y    |
-|-----------|---------------------|------|
-| cat       | datetime\[ns\]      | f64  |
-| "0"       | 2000-01-01 00:00:00 | 8.0  |
-| "0"       | 2000-01-02 00:00:00 | 11.0 |
-| "0"       | 2000-01-03 00:00:00 | 7.0  |
-| "0"       | 2000-01-04 00:00:00 | 5.0  |
-| "0"       | 2000-01-05 00:00:00 | 2.0  |
-| "0"       | 2000-01-06 00:00:00 | 5.0  |
-| "0"       | 2000-01-07 00:00:00 | 6.0  |
-| "0"       | 2000-01-08 00:00:00 | 3.0  |
-| "0"       | 2000-01-09 00:00:00 | 5.0  |
-| "0"       | 2000-01-10 00:00:00 | 9.0  |
-
-```python
-fig, ax = plt.subplots(figsize=(12, 4))
-ax.step(poisson_df["ds"].to_list(), poisson_df["y"].to_list(), where="mid", alpha=0.8)
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Count")
-ax.set_title("INAR(1) with Poisson Innovations")
-plt.tight_layout()
-plt.show()
-```
-
-![](./inar_files/figure-markdown_strict/cell-4-output-1.png)
-
-## 2. INAR(1) with negative binomial innovations
-
-Negative binomial innovations produce overdispersed counts (variance \>
-mean), common in real-world event data.
-
-```python
-nb_gen = INARGenerator(engine="polars", 
+negative_binomial_df = INARGenerator(
+    engine="polars",
     min_length=200,
     max_length=200,
     freq="D",
     p=1,
-    alpha=[0.6],
+    alpha=[0.5],
     innovation_type="negative_binomial",
-    innovation_mean=5.0,
+    innovation_mean=3.0,
     innovation_dispersion=2.0,
     seed=42,
-)
-nb_df = nb_gen.generate(n_series=1)
+).generate(n_series=1)
 
-fig, ax = plt.subplots(figsize=(12, 4))
-ax.step(nb_df["ds"].to_list(), nb_df["y"].to_list(), where="mid", alpha=0.8)
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Count")
-ax.set_title("INAR(1) with Negative Binomial Innovations (overdispersed)")
+fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
+panels = [("poisson", poisson_df), ("negative binomial", negative_binomial_df)]
+for ax, (label, df) in zip(axes, panels):
+    counts = df["y"].to_list()
+    mean = sum(counts) / len(counts)
+    variance = sum((count - mean) ** 2 for count in counts) / len(counts)
+    ax.step(df["ds"].to_list(), counts, where="mid", alpha=0.85)
+    ax.set(
+        ylabel="Count",
+        title=f"{label} innovations (mean {mean:.2f}, variance {variance:.2f})",
+    )
+axes[-1].set_xlabel("Timestamp")
 plt.tight_layout()
 plt.show()
+
 ```
 
-![](./inar_files/figure-markdown_strict/cell-5-output-1.png)
+![](./inar_files/figure-markdown_strict/cell-3-output-1.png)
 
-## 3. INAR(2) - higher order dependence
+## 2. Higher-order dependence
 
 INAR(2) models have memory over two lags, producing smoother count
 dynamics.
@@ -131,14 +99,14 @@ fig, ax = plt.subplots(figsize=(12, 4))
 ax.step(inar2_df["ds"].to_list(), inar2_df["y"].to_list(), where="mid", alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Count")
-ax.set_title("INAR(2) with Two-Lag Dependence")
+ax.set_title("INAR(2) with two-lag dependence")
 plt.tight_layout()
 plt.show()
 ```
 
-![](./inar_files/figure-markdown_strict/cell-6-output-1.png)
+![](./inar_files/figure-markdown_strict/cell-4-output-1.png)
 
-## 4. Multiple series
+## 3. Multiple series
 
 ```python
 multi_gen = INARGenerator(engine="polars", 
@@ -153,13 +121,13 @@ for uid in multi_df["unique_id"].unique().to_list():
     ax.step(series["ds"].to_list(), series["y"].to_list(), where="mid", label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Count")
-ax.set_title("Multiple INAR(1) Series")
+ax.set_title("Multiple INAR(1) series")
 ax.legend()
 plt.tight_layout()
 plt.show()
 ```
 
-![](./inar_files/figure-markdown_strict/cell-7-output-1.png)
+![](./inar_files/figure-markdown_strict/cell-5-output-1.png)
 
 > **Related generators**
 >

@@ -44,6 +44,9 @@ from mlforecast import MLForecast
 from mlforecast.target_transforms import Differences, LocalStandardScaler
 from sklearn.linear_model import Ridge
 
+from utilsforecast.evaluation import evaluate
+from utilsforecast.losses import mae
+
 from synforecast import SynAugment, SynSet, generate_series
 from synforecast.generators import ETSGenerator, SARIMAGenerator, SeasonalGenerator
 
@@ -240,24 +243,20 @@ for label, forecast_df in forecast_sets.items():
         how="left",
     )
 
-metrics = pd.DataFrame(
-    {
-        "workflow": list(forecast_sets),
-        "MAE": [
-            (comparison[label] - comparison["y"]).abs().mean()
-            for label in forecast_sets
-        ],
-    }
-).sort_values("MAE")
+scores = evaluate(comparison, metrics=[mae], models=list(forecast_sets))
+metrics = (
+    scores.melt(id_vars=["unique_id", "metric"], var_name="workflow", value_name="MAE")
+    .loc[:, ["workflow", "MAE"]]
+    .sort_values("MAE", ignore_index=True)
+)
 metrics
-
 ```
 
 |     | workflow                | MAE       |
 |-----|-------------------------|-----------|
-| 2   | Zero-shot, matched pool | 12.507531 |
+| 0   | Zero-shot, matched pool | 12.507531 |
 | 1   | Observed + augmented    | 14.613678 |
-| 0   | Observed only           | 16.302282 |
+| 2   | Observed only           | 16.302282 |
 | 3   | Zero-shot, generic pool | 22.675395 |
 
 ```python

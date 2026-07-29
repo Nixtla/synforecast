@@ -56,7 +56,7 @@ for uid in df["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("Seasonal Time Series")
+ax.set_title("Seasonal series")
 ax.legend()
 plt.tight_layout()
 plt.show()

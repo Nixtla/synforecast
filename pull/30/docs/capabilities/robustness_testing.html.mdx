@@ -20,6 +20,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 
+from utilsforecast.losses import mase
+
 from synforecast.exogenous import ExogenousConfig
 from synforecast.generators import SeasonalGenerator
 
@@ -134,8 +136,9 @@ clean = SeasonalGenerator(
 ).generate(n_series=40)
 
 rng = np.random.default_rng(0)
-series = [clean.filter(pl.col('unique_id') == u)['y'].to_numpy()
-          for u in clean['unique_id'].unique(maintain_order=True)]
+ids = clean['unique_id'].unique(maintain_order=True).to_list()
+series = [clean.filter(pl.col('unique_id') == u)['y'].to_numpy() for u in ids]
+dates = clean.filter(pl.col('unique_id') == ids[0])['ds'].to_list()
 
 
 def trend_seasonal_forecast(train, h, season):
@@ -149,21 +152,43 @@ def trend_seasonal_forecast(train, h, season):
     return slope * fut + intercept + seasonal[fut % season]
 
 
+# `mase` takes its scale from train_df. Passing the CLEAN training frame, the
+# same one at every contamination level, is what keeps the denominator honest:
+# scaling by the contaminated series would inflate it and make error appear to
+# fall as noise is added.
+clean_train_df = pl.DataFrame(
+    {
+        'unique_id': [uid for uid in ids for _ in dates[:-H]],
+        'ds': [d for _ in ids for d in dates[:-H]],
+        'y': np.concatenate([y[:-H] for y in series]),
+    }
+)
+
 levels = [0.0, 0.02, 0.05, 0.08, 0.12, 0.16]
 curve = []
-for c in levels:
-    errs = []
+for contamination in levels:
+    forecasts = []
     for y in series:
         train, test = y[:-H].copy(), y[-H:]
-        # Fixed scale from the CLEAN training series — never contaminated.
-        denom = np.mean(np.abs(train[SEASON:] - train[:-SEASON])) + 1e-9
-        k = int(round(c * len(train)))
+        k = int(round(contamination * len(train)))
         if k:
             idx = rng.choice(len(train), size=k, replace=False)
             train[idx] += rng.choice([-1, 1], size=k) * rng.uniform(15, 35, size=k)
-        fc = trend_seasonal_forecast(train, H, SEASON)
-        errs.append(np.mean(np.abs(test - fc)) / denom)
-    curve.append(float(np.mean(errs)))
+        forecasts.append(trend_seasonal_forecast(train, H, SEASON))
+    scored = mase(
+        pl.DataFrame(
+            {
+                'unique_id': [uid for uid in ids for _ in range(H)],
+                'ds': [d for _ in ids for d in dates[-H:]],
+                'y': np.concatenate([y[-H:] for y in series]),
+                'forecast': np.concatenate(forecasts),
+            }
+        ),
+        models=['forecast'],
+        seasonality=SEASON,
+        train_df=clean_train_df,
+    )
+    curve.append(float(scored['forecast'].mean()))
 
 fig, ax = plt.subplots(figsize=(8, 4.5))
 ax.plot([c * 100 for c in levels], curve, marker='o', color='crimson')
@@ -173,6 +198,7 @@ ax.grid(alpha=0.3)
 plt.tight_layout(); plt.show()
 print('MASE at 0% / 16% contamination: '
       f'{curve[0]:.3f} / {curve[-1]:.3f}')
+
 ```
 
 ![](./robustness_testing_files/figure-markdown_strict/cell-5-output-1.png)

@@ -42,6 +42,9 @@ import pandas as pd
 from statsforecast import StatsForecast
 from statsforecast.models import AutoETS, SeasonalNaive
 
+from utilsforecast.evaluation import evaluate
+from utilsforecast.losses import mae
+
 from synforecast import SynAugment
 from synforecast.generators import ETSGenerator
 
@@ -176,15 +179,11 @@ for label, forecast_df in forecast_sets.items():
         how="left",
     )
 
-pd.DataFrame(
-    {
-        "workflow": list(forecast_sets),
-        "MAE": [
-            (comparison[label] - comparison["y"]).abs().mean()
-            for label in forecast_sets
-        ],
-    }
-)
+scores = evaluate(comparison, metrics=[mae], models=list(forecast_sets))
+metrics = scores.melt(
+    id_vars=["unique_id", "metric"], var_name="workflow", value_name="MAE"
+).loc[:, ["workflow", "MAE"]]
+metrics
 
 ```
 
@@ -258,15 +257,21 @@ known_forecast = known_models.predict(h=HORIZON).merge(
     known_test_df[["unique_id", "ds", "y"]], on=["unique_id", "ds"]
 )
 
-pd.DataFrame(
-    {
-        "model": ["AutoETS", "SeasonalNaive", "noise floor (generator)"],
-        "MAE": [
-            (known_forecast["AutoETS"] - known_forecast["y"]).abs().mean(),
-            (known_forecast["SeasonalNaive"] - known_forecast["y"]).abs().mean(),
-            NOISE_STD,
+known_scores = evaluate(
+    known_forecast,
+    metrics=[mae],
+    models=["AutoETS", "SeasonalNaive"],
+    agg_fn="mean",
+)
+
+pd.concat(
+    [
+        known_scores.melt(id_vars="metric", var_name="model", value_name="MAE").loc[
+            :, ["model", "MAE"]
         ],
-    }
+        pd.DataFrame({"model": ["noise floor (generator)"], "MAE": [NOISE_STD]}),
+    ],
+    ignore_index=True,
 ).round(2)
 
 ```

@@ -81,14 +81,14 @@ axes[0].plot(ts, y, linewidth=0.8, color="steelblue", label="y")
 axes[0].fill_between(ts, y.min(), y.max(), where=is_weekend,
                       alpha=0.15, color="salmon", label="Weekend")
 axes[0].set_ylabel("y")
-axes[0].set_title("Time Series with Weekend Shading")
+axes[0].set_title("Time series with weekend shading")
 axes[0].legend(loc="upper right")
 
 # Panel 2: hour-of-day cyclical encoding
 axes[1].plot(ts, df["hour_sin"].to_numpy(), label="hour_sin", color="darkorange")
 axes[1].plot(ts, df["hour_cos"].to_numpy(), label="hour_cos", color="purple")
 axes[1].set_ylabel("Encoding")
-axes[1].set_title("Cyclical Hour-of-Day Encoding")
+axes[1].set_title("Cyclical hour-of-day encoding")
 axes[1].legend(loc="upper right")
 axes[1].set_ylim(-1.15, 1.15)
 
@@ -96,7 +96,7 @@ axes[1].set_ylim(-1.15, 1.15)
 axes[2].plot(ts, df["dow_sin"].to_numpy(), label="dow_sin", color="teal")
 axes[2].plot(ts, df["dow_cos"].to_numpy(), label="dow_cos", color="crimson")
 axes[2].set_ylabel("Encoding")
-axes[2].set_title("Cyclical Day-of-Week Encoding")
+axes[2].set_title("Cyclical day-of-week encoding")
 axes[2].legend(loc="upper right")
 axes[2].set_ylim(-1.15, 1.15)
 
@@ -191,7 +191,7 @@ if miss.any():
                     np.full(miss.sum(), np.nanmin(y) - 2),
                     marker="|", color="orange", s=40, zorder=2, label="Missing")
 axes[0].set_ylabel("y")
-axes[0].set_title("Time Series with Pattern Injection Flags")
+axes[0].set_title("Time series with pattern injection flags")
 axes[0].legend(loc="upper left")
 
 # Panels 2-4: binary flag traces
@@ -316,7 +316,7 @@ ax.plot(ts, y, linewidth=0.8, color="steelblue", label="y")
 ax.plot(ts, df["lagged_y"].to_numpy(), linewidth=0.8,
         color="green", alpha=0.8, linestyle="--", label="lagged_y (lag=7)")
 ax.set_ylabel("Value")
-ax.set_title("Lagged Copy (lag=7 days, noise_std=0.3)")
+ax.set_title("Lagged copy (lag=7 days, noise_std=0.3)")
 ax.legend(loc="upper left")
 
 # Panel 3: trend following
@@ -325,7 +325,7 @@ ax.plot(ts, y, linewidth=0.8, color="steelblue", label="y")
 ax.plot(ts, df["trend"].to_numpy(), linewidth=1.5,
         color="crimson", alpha=0.9, label="trend (window=14)")
 ax.set_ylabel("Value")
-ax.set_title("Trend Following (smoothing_window=14)")
+ax.set_title("Trend following (smoothing_window=14)")
 ax.legend(loc="upper left")
 
 plt.tight_layout()
@@ -420,7 +420,7 @@ if cp.any():
         ax.axvline(t_cp, color="green", linewidth=1, alpha=0.6,
                    label="Changepoint" if i == 0 else None)
 ax.set_ylabel("y")
-ax.set_title("Combined Exogenous: Series + Trend + Flags")
+ax.set_title("Combined exogenous: series + trend + flags")
 ax.legend(loc="upper left", fontsize=8)
 
 # Panel 2: correlated price
@@ -434,7 +434,7 @@ ax2.set_ylabel("price", color="darkorange")
 lines1, labels1 = ax.get_legend_handles_labels()
 lines2, labels2 = ax2.get_legend_handles_labels()
 ax.legend(lines1 + lines2, labels1 + labels2, loc="upper left", fontsize=8)
-ax.set_title("Correlated Exogenous: price")
+ax.set_title("Correlated exogenous: price")
 
 # Panel 3: cyclical hour encoding
 ax = axes[2]
@@ -444,7 +444,7 @@ ax.plot(ts, df["hour_cos"].to_numpy(), linewidth=0.8,
         color="purple", label="hour_cos")
 ax.set_ylabel("Encoding")
 ax.set_ylim(-1.15, 1.15)
-ax.set_title("Cyclical Hour Encoding")
+ax.set_title("Cyclical hour encoding")
 ax.legend(loc="upper right", fontsize=8)
 
 # Panel 4: combined binary flags
@@ -459,7 +459,7 @@ ax.set_ylabel("Flags")
 ax.set_yticks([0.45, 1.45, 2.45])
 ax.set_yticklabels(["missing", "changepoint", "anomaly"], fontsize=8)
 ax.set_ylim(-0.1, 3.2)
-ax.set_title("Pattern Injection Flags")
+ax.set_title("Pattern injection flags")
 
 plt.tight_layout()
 plt.show()

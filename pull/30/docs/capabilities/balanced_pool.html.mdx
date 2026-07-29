@@ -128,7 +128,7 @@ for i, gen in enumerate(generators):
     axes[i].set_title(gen.alias, fontsize=7)
     axes[i].tick_params(labelsize=5)
 
-fig.suptitle("Balanced Pool: 42 Generators across 15 Behavioral Niches", fontsize=14)
+fig.suptitle("Balanced pool: 42 generators across 15 behavioral niches", fontsize=14)
 plt.tight_layout()
 plt.show()
 ```
@@ -320,6 +320,12 @@ print(f"  {len(meta_only)} meta-generator instances")
 print("  meta-generators:", dict(Counter(type(g).__name__ for g in meta_only)))
 ```
 
+``` text
+pretraining_pool: 51 generators
+  42 single-mechanism (from balanced_pool)
+  9 meta-generator instances
+  meta-generators: {'TSIGenerator': 3, 'TCMGenerator': 3, 'KernelSynthGenerator': 3}
+```
 
 ```python
 # Each meta-generator instance draws its own structure, so even nine series
@@ -337,6 +343,8 @@ fig.suptitle("Meta-generators: each instance resamples its own structure")
 plt.tight_layout()
 plt.show()
 ```
+
+![](./balanced_pool_files/figure-markdown_strict/cell-12-output-1.png)
 
 Whether pretraining on a synthetic corpus like this actually helps
 depends on the target data and the amount of real history available. See

@@ -101,7 +101,7 @@ for uid in unique_ids:
     # IDs 0, 1, 2 are RandomWalk; IDs 3, 4, 5 are Seasonal.
     gen_type = "RandomWalk" if int(uid) < 3 else "Seasonal"
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=f"{uid} ({gen_type})", alpha=0.8)
-ax.set_title("SynSet Dataset: RandomWalk and Seasonal Generators")
+ax.set_title("SynSet dataset: random-walk and seasonal generators")
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
 ax.legend(fontsize=8)

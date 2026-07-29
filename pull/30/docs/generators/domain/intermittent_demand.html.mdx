@@ -25,242 +25,48 @@ import matplotlib.pyplot as plt
 from synforecast.generators import IntermittentDemandGenerator
 ```
 
-## 1. Random intermittent pattern (retail demand)
+## 1. Occurrence pattern
 
-Generate demand with a 20% probability of occurrence each day, using a
-Poisson distribution for demand sizes.
-
-```python
-params_random = {
-    "min_length": 200,
-    "max_length": 200,
-    "freq": "D",
-    "intermittent_pattern": "random",
-    "demand_probability": 0.2,
-    "demand_distribution": "poisson",
-    "demand_mean": 5.0,
-    "seed": 42,
-}
-
-gen_random = IntermittentDemandGenerator(engine="polars", **params_random)
-df_random = gen_random.generate(n_series=1)
-
-print(f"Generated {len(df_random)} daily observations")
-df_random.head(20)
-```
-
-``` text
-Generated 200 daily observations
-```
-
-| unique_id | ds                  | y   |
-|-----------|---------------------|-----|
-| cat       | datetime\[ns\]      | f64 |
-| "0"       | 2000-01-01 00:00:00 | 7.0 |
-| "0"       | 2000-01-02 00:00:00 | 8.0 |
-| "0"       | 2000-01-03 00:00:00 | 0.0 |
-| "0"       | 2000-01-04 00:00:00 | 0.0 |
-| "0"       | 2000-01-05 00:00:00 | 6.0 |
-| …         | …                   | …   |
-| "0"       | 2000-01-16 00:00:00 | 4.0 |
-| "0"       | 2000-01-17 00:00:00 | 0.0 |
-| "0"       | 2000-01-18 00:00:00 | 0.0 |
-| "0"       | 2000-01-19 00:00:00 | 0.0 |
-| "0"       | 2000-01-20 00:00:00 | 0.0 |
+`intermittent_pattern` decides *when* demand happens, holding the size
+distribution fixed. Random gives i.i.d. Bernoulli periods, clustered
+groups them into runs, and seasonal concentrates them in recurring
+windows.
 
 ```python
-fig, ax = plt.subplots(figsize=(12, 4))
-series = df_random.filter(pl.col("unique_id") == "0")
-ax.stem(series["ds"].to_list(), series["y"].to_list(), linefmt="C0-", markerfmt="C0o", basefmt="k-")
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Demand")
-ax.set_title("Random Intermittent Demand")
+random_df = IntermittentDemandGenerator(
+    engine="polars", min_length=180, max_length=180, freq="D",
+    demand_probability=0.2, demand_distribution="poisson", demand_mean=10.0,
+    intermittent_pattern="random", seed=42,
+).generate(n_series=1)
+
+clustered_df = IntermittentDemandGenerator(
+    engine="polars", min_length=180, max_length=180, freq="D",
+    demand_probability=0.2, demand_distribution="poisson", demand_mean=10.0,
+    intermittent_pattern="clustered", cluster_size=5, seed=42,
+).generate(n_series=1)
+
+seasonal_df = IntermittentDemandGenerator(
+    engine="polars", min_length=180, max_length=180, freq="D",
+    demand_probability=0.2, demand_distribution="poisson", demand_mean=10.0,
+    intermittent_pattern="seasonal", seasonal_period=30, seed=42,
+).generate(n_series=1)
+
+fig, axes = plt.subplots(3, 1, figsize=(12, 7.5), sharex=True)
+panels = [("random", random_df), ("clustered", clustered_df), ("seasonal", seasonal_df)]
+for ax, (label, df) in zip(axes, panels):
+    values = df["y"].to_list()
+    nonzero = sum(1 for value in values if value > 0)
+    ax.stem(df["ds"].to_list(), values, linefmt="C0-", markerfmt="C0o", basefmt="k-")
+    ax.set(ylabel="Demand", title=f"{label} ({nonzero / len(values):.0%} of periods non-zero)")
+axes[-1].set_xlabel("Timestamp")
 plt.tight_layout()
 plt.show()
+
 ```
 
-![](./intermittent_demand_files/figure-markdown_strict/cell-4-output-1.png)
+![](./intermittent_demand_files/figure-markdown_strict/cell-3-output-1.png)
 
-```python
-non_zero_count = (df_random["y"] > 0).sum()
-zero_count = (df_random["y"] == 0).sum()
-zero_ratio = zero_count / len(df_random)
-
-print(f"Demand statistics:")
-print(f"  Zero demand days:     {zero_count} ({zero_ratio:.1%})")
-print(f"  Non-zero demand days: {non_zero_count} ({1-zero_ratio:.1%})")
-
-if non_zero_count > 0:
-    non_zero_demands = df_random.filter(pl.col("y") > 0)["y"].to_numpy()
-    print(f"  When demand occurs:")
-    print(f"    Mean:   {non_zero_demands.mean():.2f}")
-    print(f"    Std:    {non_zero_demands.std():.2f}")
-    print(f"    Min:    {non_zero_demands.min():.0f}")
-    print(f"    Max:    {non_zero_demands.max():.0f}")
-```
-
-``` text
-Demand statistics:
-  Zero demand days:     157 (78.5%)
-  Non-zero demand days: 43 (21.5%)
-  When demand occurs:
-    Mean:   4.93
-    Std:    2.10
-    Min:    1
-    Max:    11
-```
-
-## 2. Clustered intermittent pattern (lumpy demand)
-
-Demand occurs in clusters of consecutive days, simulating bulk ordering
-behavior.
-
-```python
-params_clustered = {
-    "min_length": 200,
-    "max_length": 200,
-    "freq": "D",
-    "intermittent_pattern": "clustered",
-    "demand_probability": 0.15,
-    "cluster_size": 5,
-    "demand_distribution": "negative_binomial",
-    "demand_mean": 8.0,
-    "demand_std": 4.0,
-    "seed": 123,
-}
-
-gen_clustered = IntermittentDemandGenerator(engine="polars", **params_clustered)
-df_clustered = gen_clustered.generate(n_series=1)
-
-print(f"Generated {len(df_clustered)} daily observations")
-print(f"Demand occurs in clusters of {params_clustered['cluster_size']} days")
-
-non_zero_count = (df_clustered["y"] > 0).sum()
-zero_ratio = (df_clustered["y"] == 0).sum() / len(df_clustered)
-print(f"\nCluster statistics:")
-print(f"  Zero demand days:     {(df_clustered['y'] == 0).sum()} ({zero_ratio:.1%})")
-print(f"  Non-zero demand days: {non_zero_count} ({1-zero_ratio:.1%})")
-
-df_clustered.head(30)
-```
-
-``` text
-Generated 200 daily observations
-Demand occurs in clusters of 5 days
-
-Cluster statistics:
-  Zero demand days:     117 (58.5%)
-  Non-zero demand days: 83 (41.5%)
-```
-
-| unique_id | ds                  | y   |
-|-----------|---------------------|-----|
-| cat       | datetime\[ns\]      | f64 |
-| "0"       | 2000-01-01 00:00:00 | 0.0 |
-| "0"       | 2000-01-02 00:00:00 | 0.0 |
-| "0"       | 2000-01-03 00:00:00 | 0.0 |
-| "0"       | 2000-01-04 00:00:00 | 0.0 |
-| "0"       | 2000-01-05 00:00:00 | 0.0 |
-| …         | …                   | …   |
-| "0"       | 2000-01-26 00:00:00 | 0.0 |
-| "0"       | 2000-01-27 00:00:00 | 0.0 |
-| "0"       | 2000-01-28 00:00:00 | 0.0 |
-| "0"       | 2000-01-29 00:00:00 | 0.0 |
-| "0"       | 2000-01-30 00:00:00 | 0.0 |
-
-```python
-fig, ax = plt.subplots(figsize=(12, 4))
-series = df_clustered.filter(pl.col("unique_id") == "0")
-ax.stem(series["ds"].to_list(), series["y"].to_list(), linefmt="C1-", markerfmt="C1o", basefmt="k-")
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Demand")
-ax.set_title("Clustered Intermittent Demand (Lumpy)")
-plt.tight_layout()
-plt.show()
-```
-
-![](./intermittent_demand_files/figure-markdown_strict/cell-7-output-1.png)
-
-## 3. Seasonal intermittent pattern (seasonal spare parts)
-
-Demand probability varies seasonally, with peaks at regular intervals.
-
-```python
-params_seasonal = {
-    "min_length": 365,
-    "max_length": 365,
-    "freq": "D",
-    "intermittent_pattern": "seasonal",
-    "demand_probability": 0.1,
-    "seasonal_period": 30,
-    "seasonal_peak_prob": 0.4,
-    "demand_distribution": "lognormal",
-    "demand_mean": 10.0,
-    "demand_std": 5.0,
-    "seed": 456,
-}
-
-gen_seasonal = IntermittentDemandGenerator(engine="polars", **params_seasonal)
-df_seasonal = gen_seasonal.generate(n_series=1)
-
-print(f"Generated {len(df_seasonal)} daily observations (1 year)")
-print(f"Seasonal period: {params_seasonal['seasonal_period']} days")
-```
-
-``` text
-Generated 365 daily observations (1 year)
-Seasonal period: 30 days
-```
-
-```python
-fig, ax = plt.subplots(figsize=(12, 4))
-series = df_seasonal.filter(pl.col("unique_id") == "0")
-ax.stem(series["ds"].to_list(), series["y"].to_list(), linefmt="C2-", markerfmt="C2o", basefmt="k-")
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Demand")
-ax.set_title("Seasonal Intermittent Demand")
-plt.tight_layout()
-plt.show()
-```
-
-![](./intermittent_demand_files/figure-markdown_strict/cell-9-output-1.png)
-
-```python
-df_seasonal_with_month = df_seasonal.with_columns(
-    (
-        (pl.col("ds").dt.ordinal_day() - 1) // params_seasonal["seasonal_period"]
-    ).alias("period")
-)
-
-period_stats = (
-    df_seasonal_with_month.group_by("period")
-    .agg(
-        [
-            (pl.col("y") > 0).sum().alias("demand_days"),
-            pl.col("y").sum().alias("total_demand"),
-        ]
-    )
-    .sort("period")
-)
-period_stats.head(12)
-```
-
-| period | demand_days | total_demand |
-|--------|-------------|--------------|
-| i16    | u32         | f64          |
-| 0      | 5           | 49.140826    |
-| 1      | 5           | 38.369604    |
-| 2      | 6           | 77.554187    |
-| 3      | 6           | 73.764635    |
-| 4      | 7           | 62.9634      |
-| …      | …           | …            |
-| 7      | 10          | 88.474966    |
-| 8      | 7           | 61.269519    |
-| 9      | 9           | 74.013587    |
-| 10     | 11          | 129.047768   |
-| 11     | 5           | 31.955985    |
-
-## 4. Comparing different demand distributions
+## 2. Demand size distributions
 
 Compare Poisson, negative binomial, lognormal, and gamma distributions
 for demand sizes.
@@ -313,7 +119,7 @@ lognormal            86       6.55     2.62     2        18
 gamma                86       6.47     2.73     1        17      
 ```
 
-## 5. Bulk orders with minimum demand
+## 3. Bulk orders
 
 Simulate rare but large orders with a minimum order quantity constraint.
 
@@ -381,14 +187,14 @@ series = df_bulk.filter(pl.col("unique_id") == "0")
 ax.stem(series["ds"].to_list(), series["y"].to_list(), linefmt="C3-", markerfmt="C3o", basefmt="k-")
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Demand")
-ax.set_title("Bulk Orders with Minimum Demand")
+ax.set_title("Bulk orders with minimum demand")
 plt.tight_layout()
 plt.show()
 ```
 
-![](./intermittent_demand_files/figure-markdown_strict/cell-13-output-1.png)
+![](./intermittent_demand_files/figure-markdown_strict/cell-6-output-1.png)
 
-## 6. Multiple intermittent demand series
+## 4. Multiple series
 
 Generate multiple independent intermittent demand series and compare
 their statistics.
@@ -450,12 +256,12 @@ for ax, uid in zip(axes, df_multi["unique_id"].unique().to_list()):
     ax.set_ylabel("Demand")
     ax.set_title(uid)
 axes[-1].set_xlabel("Timestamp")
-plt.suptitle("Multiple Intermittent Demand Series", fontsize=14)
+plt.suptitle("Multiple intermittent demand series", fontsize=14)
 plt.tight_layout()
 plt.show()
 ```
 
-![](./intermittent_demand_files/figure-markdown_strict/cell-15-output-1.png)
+![](./intermittent_demand_files/figure-markdown_strict/cell-8-output-1.png)
 
 > **Related generators**
 >
