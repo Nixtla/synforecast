@@ -160,8 +160,7 @@ To make a release:
 
 1. Create a release-preparation branch from the latest `main`. Update the
    version in `pyproject.toml` and `rust/Cargo.toml`, refresh `uv.lock` and
-   `rust/Cargo.lock`, and replace `(unreleased)` in `CHANGELOG.md` with the
-   release date.
+   `rust/Cargo.lock`.
 2. Open a pull request titled `Prepare vX.Y.Z release` and merge it after its
    required checks pass.
 3. On GitHub, choose **Releases → Draft a new release**. Create the matching
