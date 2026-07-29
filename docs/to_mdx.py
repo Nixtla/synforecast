@@ -76,32 +76,64 @@ def process_api_docs():
         print(f"  -> {output_file.name}")
 
 
+_ALERT = re.compile(r"^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$")
+_TAGLINE = re.compile(r"<h3>(.*?)</h3>")
+
+
+def readme_to_index(content: str) -> str:
+    """Turn the README into the docs landing page.
+
+    The README's header is GitHub chrome: the org heading, the Slack invite,
+    the centered ``<div>`` wrapper with its duplicate ``<h1>``/``<h3>``, and the
+    shield badges. Mintlify already renders a title and subtitle from the
+    frontmatter, and the PyPI shields show "package or version not found" until
+    a release exists, so all of it is dropped and the tagline is promoted to the
+    frontmatter description instead.
+
+    GitHub alert blockquotes (``> [!NOTE]``) have no Mintlify equivalent and
+    would render the literal ``[!NOTE]``, so the marker line becomes a bold
+    label -- the same shape Quarto emits for callouts on the other pages.
+    """
+    tagline_match = _TAGLINE.search(content)
+    description = (
+        tagline_match.group(1)
+        if tagline_match
+        else "Synthetic time series generation"
+    )
+
+    body = []
+    for line in content.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith(("[![", "<div", "</div>", "<h1>", "<h3>")):
+            continue
+        if stripped == "# Nixtla":
+            continue
+        alert = _ALERT.match(stripped)
+        if alert:
+            body.append(f"> **{alert.group(1).title()}**")
+            body.append(">")
+            continue
+        body.append(line)
+
+    # Collapse the blank lines left behind by the stripped header.
+    text = "\n".join(body).lstrip("\n")
+    text = re.sub(r"\n{3,}", "\n\n", text)
+
+    return (
+        f'---\ntitle: "Synthetic 🧬 Forecast"\n'
+        f"description: {description}\n---\n\n{text}"
+    )
+
+
 def process_readme():
-    """Copy README.md as the index page, skipping badge lines."""
+    """Generate the index page from README.md."""
     readme_path = DOCS_DIR.parent / "README.md"
     if not readme_path.exists():
         print("WARNING: README.md not found, skipping index generation")
         return
 
-    content = readme_path.read_text()
-    lines = content.split("\n")
-
-    # Skip badge/shield lines at the top
-    start_idx = 0
-    for i, line in enumerate(lines):
-        if line.strip() and not line.strip().startswith(
-            ("[![", "[!", "<a", "<p", "<div", "---")
-        ):
-            start_idx = i
-            break
-
-    cleaned = "\n".join(lines[start_idx:])
-
-    # Add frontmatter
-    output = f"---\ntitle: SynForecast\ndescription: Synthetic Time Series Generation\n---\n\n{cleaned}"
-
     output_file = MINTLIFY_DIR / "index.html.mdx"
-    output_file.write_text(output)
+    output_file.write_text(readme_to_index(readme_path.read_text()))
     print("Created index.html.mdx from README.md")
 
 
