@@ -22,9 +22,8 @@ logger = logging.getLogger(__name__)
 class SynSet:
     """Generate synthetic time series datasets from multiple generators.
 
-    This class allows you to combine multiple generators to create diverse
-    synthetic time series datasets. Each generator can produce its own
-    type of time series pattern.
+    Combine multiple generators into one long-format panel; each generator
+    contributes its own type of time series pattern.
 
     Args:
         generators (list[BaseGenerator]): List of instantiated generator objects to use for creating time series.
@@ -993,61 +992,28 @@ class SynAugment:
         Returns:
             dict with parameters in generator-expected format
         """
-        # Most generators accept parameters directly, but some need renaming
+        # Most generators accept the fitted parameters directly. Only the cases
+        # below need a rename or a derived field; everything else falls through.
         params = fitted_params.copy()
 
         if generator_name == "SeasonalGenerator":
-            # SeasonalGenerator uses 'seasonality_period' not 'period'
+            # SeasonalGenerator uses 'seasonality_period' rather than 'period'.
             if "period" in params:
                 params["seasonality_period"] = params.pop("period")
-            # Ensure required params exist
             if "seasonality_period" not in params:
                 params["seasonality_period"] = 24
             if "seasonality_amplitude" not in params:
                 params["seasonality_amplitude"] = params.get("amplitude", 1.0)
 
-        elif generator_name == "SARIMAGenerator":
-            # SARIMAGenerator has specific parameter names
-            # These are already handled by fit_sarima
-            pass
-
-        elif generator_name == "GARCHGenerator":
-            # GARCHGenerator params are already correct from fit_garch
-            pass
-
-        elif generator_name == "OrnsteinUhlenbeckGenerator":
-            # OrnsteinUhlenbeckGenerator params are already correct
-            pass
-
-        elif generator_name == "FractionalBrownianMotionGenerator":
-            # Already correct from fit_fbm
-            pass
-
         elif generator_name == "RegimeSwitchingGenerator":
-            # Need to set transition_matrix from persistence
+            # Derive the transition matrix from the fitted persistence, placing
+            # the persistence on the diagonal and spreading the remainder.
             if "persistence" in params and "n_regimes" in params:
                 n = params["n_regimes"]
                 p = params["persistence"]
-                # Create transition matrix with persistence on diagonal
                 transition_matrix = np.full((n, n), (1 - p) / (n - 1))
                 np.fill_diagonal(transition_matrix, p)
                 params["transition_matrix"] = transition_matrix.tolist()
-
-        elif generator_name == "IntermittentDemandGenerator":
-            # Map our params to generator params
-            if "demand_probability" in params:
-                # The generator might use different param names
-                # Check the actual generator interface
-                pass
-
-        elif generator_name == "GeometricBrownianMotionGenerator":
-            # fit_gbm already returns the generator's field names
-            # (mu, sigma, initial_value); no renaming needed.
-            pass
-
-        elif generator_name == "RandomWalkGenerator":
-            # RandomWalk params are already correct
-            pass
 
         return params
 

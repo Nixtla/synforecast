@@ -158,12 +158,14 @@ designed for:
 - Reproducible simulation with explicit, validated generator configurations
 
 Synthetic data reflects the assumptions of its generators. Validate those
-assumptions and downstream performance for your use case.
+assumptions and downstream performance for your use case. SynForecast is not an
+anonymization or differential-privacy tool: `SynAugment` is fitted to observed
+data and its output can resemble that data.
 
 ## Evidence and benchmarks
 
 SynForecast's native Rust batch path is designed for high-throughput data
-generation. Reproducible scripts and committed raw results are available in
+generation. Reproducible scripts and committed result summaries are available in
 [`benchmarks/`](https://github.com/Nixtla/synforecast/tree/main/benchmarks);
 performance depends on generator, series shape, thread count, and hardware.
 
