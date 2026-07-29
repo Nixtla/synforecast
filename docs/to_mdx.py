@@ -21,7 +21,9 @@ _CODE_SPAN = re.compile(r"<code>(.*?)</code>", re.DOTALL)
 def escape_mdx_hazards(text: str) -> str:
     """Escape characters the generated MDX leaves in parser-hostile positions.
 
-    Two patterns come out of mkdocstrings-parser and fail Mintlify's MDX parse:
+    Three patterns come out of mkdocstrings-parser and fail Mintlify's MDX
+    parse. Docstrings are written as plain text, but the generated pages are
+    MDX, where ``|``, ``{`` and ``<`` are all syntax.
 
     1. A union annotation such as ``str | int`` is emitted as
        ``<code>[str](#str) | [int](#int)</code>`` inside a markdown table row.
@@ -29,18 +31,25 @@ def escape_mdx_hazards(text: str) -> str:
        ("Expected a closing tag for `<code>`").
     2. A brace in running prose is a live MDX expression, which acorn then
        tries to parse as JavaScript ("Could not parse expression with acorn").
-       This reaches the output wherever a docstring puts a brace outside
-       backticks -- notably ``>>>`` example blocks, which markdown reads as a
-       triple-nested blockquote rather than code.
+    3. A ``<`` in running prose opens a JSX tag, so a comparison such as
+       ``demand_std**2 <= demand_mean`` fails on the following character
+       ("Unexpected character `=` before name"). Only a ``<`` that cannot begin
+       a tag is escaped, which leaves the ``<code>``/``<details>`` markup the
+       parser emits untouched.
 
-    Both are escaped to HTML entities, which render as the original character.
-    Braces inside fenced blocks and inline code spans are left alone: MDX does
-    not evaluate expressions there, and escaping them would show the entity.
+    All three are escaped to HTML entities, which render as the original
+    character. Fenced blocks and inline code spans are left alone: MDX does not
+    interpret syntax there, and escaping would show the entity itself.
     """
     text = _CODE_SPAN.sub(
         lambda match: "<code>" + match.group(1).replace("|", "&#124;") + "</code>",
         text,
     )
+
+    def escape_prose(segment: str) -> str:
+        segment = segment.replace("{", "&#123;").replace("}", "&#125;")
+        # A tag needs a name, a closing slash, or a declaration/comment bang.
+        return re.sub(r"<(?![A-Za-z/!])", "&lt;", segment)
 
     out, in_fence = [], False
     for line in text.split("\n"):
@@ -55,10 +64,7 @@ def escape_mdx_hazards(text: str) -> str:
         parts = re.split(r"(`+[^`]*`+)", line)
         out.append(
             "".join(
-                part
-                if part.startswith("`")
-                else part.replace("{", "&#123;").replace("}", "&#125;")
-                for part in parts
+                part if part.startswith("`") else escape_prose(part) for part in parts
             )
         )
     return "\n".join(out)
