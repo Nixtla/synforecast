@@ -3,68 +3,75 @@
 import re
 from pathlib import Path
 
-try:
-    from mkdocstrings_parser import MkDocstringsParser
-except ImportError as error:
-    raise ImportError(
-        "mkdocstrings-parser is required for building docs. "
-        "Install the project's documentation dependency group before building."
-    ) from error
-
 DOCS_DIR = Path(__file__).parent
 MINTLIFY_DIR = DOCS_DIR / "mintlify"
-
-
-_CODE_SPAN = re.compile(r"<code>(.*?)</code>", re.DOTALL)
 
 
 def escape_mdx_hazards(text: str) -> str:
     """Escape characters the generated MDX leaves in parser-hostile positions.
 
-    Three patterns come out of mkdocstrings-parser and fail Mintlify's MDX
-    parse. Docstrings are written as plain text, but the generated pages are
-    MDX, where ``|``, ``{`` and ``<`` are all syntax.
+    Docstrings are plain text, but the generated pages are MDX, where ``{`` and
+    ``<`` are syntax. Two patterns reach the output and fail Mintlify's parse:
 
-    1. A union annotation such as ``str | int`` is emitted as
-       ``<code>[str](#str) | [int](#int)</code>`` inside a markdown table row.
-       The bare ``|`` closes the table cell, so ``<code>`` is left unclosed
-       ("Expected a closing tag for `<code>`").
-    2. A brace in running prose is a live MDX expression, which acorn then
-       tries to parse as JavaScript ("Could not parse expression with acorn").
-    3. A ``<`` in running prose opens a JSX tag, so a comparison such as
+    1. A brace in running prose is a live MDX expression, which acorn then tries
+       to parse as JavaScript ("Could not parse expression with acorn").
+    2. A ``<`` in running prose opens a JSX tag, so a comparison such as
        ``demand_std**2 <= demand_mean`` fails on the following character
        ("Unexpected character `=` before name"). Only a ``<`` that cannot begin
        a tag is escaped, which leaves the ``<code>``/``<details>`` markup the
        parser emits untouched.
 
-    All three are escaped to HTML entities, which render as the original
-    character. Fenced blocks and inline code spans are left alone: MDX does not
-    interpret syntax there, and escaping would show the entity itself.
+    Both are escaped to HTML entities, which render as the original character.
+
+    Nothing is escaped inside code or math, because neither is interpreted as
+    MDX and the entity itself would be displayed. That covers fenced blocks,
+    inline spans, indented blocks -- docstrings write equations as four-space
+    indented blocks, which markdown reads as code -- and ``$...$`` / ``$$...$$``
+    LaTeX, which is how the rest of the Nixtlaverse writes equations.
+
+    Pipes need no handling: mkdocstrings-parser escapes them as ``\\|`` before a
+    table cell can be split.
     """
-    text = _CODE_SPAN.sub(
-        lambda match: "<code>" + match.group(1).replace("|", "&#124;") + "</code>",
-        text,
-    )
+    # Inline code spans and LaTeX are both verbatim; capture so re.split keeps them.
+    verbatim = re.compile(r"(`+[^`]*`+|\$\$[^$]*\$\$|\$[^$\n]+\$)")
 
     def escape_prose(segment: str) -> str:
         segment = segment.replace("{", "&#123;").replace("}", "&#125;")
         # A tag needs a name, a closing slash, or a declaration/comment bang.
         return re.sub(r"<(?![A-Za-z/!])", "&lt;", segment)
 
-    out, in_fence = [], False
+    out = []
+    in_fence = False
+    in_indented_block = False
+    previous_blank = True
+
     for line in text.split("\n"):
-        if line.lstrip().startswith("```"):
+        stripped = line.strip()
+
+        if stripped.startswith("```"):
             in_fence = not in_fence
             out.append(line)
+            previous_blank = False
             continue
         if in_fence:
             out.append(line)
             continue
-        # Escape only the segments outside inline code spans.
-        parts = re.split(r"(`+[^`]*`+)", line)
+
+        indented = line.startswith("    ") or line.startswith("\t")
+        if indented and (previous_blank or in_indented_block):
+            in_indented_block = True
+        elif stripped:
+            in_indented_block = False
+        previous_blank = not stripped
+
+        if in_indented_block:
+            out.append(line)
+            continue
+
         out.append(
             "".join(
-                part if part.startswith("`") else escape_prose(part) for part in parts
+                part if part.startswith(("`", "$")) else escape_prose(part)
+                for part in verbatim.split(line)
             )
         )
     return "\n".join(out)
@@ -72,6 +79,16 @@ def escape_mdx_hazards(text: str) -> str:
 
 def process_api_docs():
     """Process all .html.md files with ::: directives into .mdx files."""
+    # Imported here so the escaping helpers stay importable (and testable)
+    # without the documentation dependency group installed.
+    try:
+        from mkdocstrings_parser import MkDocstringsParser
+    except ImportError as error:
+        raise ImportError(
+            "mkdocstrings-parser is required for building docs. "
+            "Install the project's documentation dependency group before building."
+        ) from error
+
     parser = MkDocstringsParser()
 
     for md_file in sorted(DOCS_DIR.glob("*.html.md")):
