@@ -1,0 +1,202 @@
+---
+title: MLForecast with synthetic data
+---
+
+This guide compares an observed-data baseline, global training with
+observed and augmented series, and a model trained only on independent
+synthetic series and transferred zero-shot to the observed series.
+
+MLForecast trains a single global model over lagged and derived features
+pooled across every series in the panel. Because that fitted estimator
+is shared, two things follow. Adding synthetic series changes the model
+the observed series is scored by — unlike a local model fitted
+independently per series, where extra series leave the target fit
+untouched. And a model trained only on synthetic series can be applied
+to a previously unseen panel through `predict(new_df=...)`, which is
+zero-shot transfer rather than a per-series refit. Both workflows below
+rely on that shared-weight behavior.
+
+We use the classic [Box–Jenkins airline passenger
+series](https://search.r-project.org/R/refmans/datasets/html/AirPassengers.html),
+holding out its final 12 months before generating any augmented data.
+
+```python
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from mlforecast import MLForecast
+from sklearn.linear_model import Ridge
+
+from synforecast import SynAugment, generate_series
+```
+
+
+```python
+HORIZON = 12
+TARGET_ID = "AirPassengers"
+data_path = Path("nbs/data/air_passengers.csv")
+if not data_path.exists():
+    data_path = Path("../../data/air_passengers.csv")
+
+observed_df = pd.read_csv(data_path, parse_dates=["ds"])
+train_df = observed_df.iloc[:-HORIZON].copy()
+test_df = observed_df.iloc[-HORIZON:].copy()
+train_df.tail()
+```
+
+|     | unique_id     | ds         | y     |
+|-----|---------------|------------|-------|
+| 127 | AirPassengers | 1959-08-31 | 559.0 |
+| 128 | AirPassengers | 1959-09-30 | 463.0 |
+| 129 | AirPassengers | 1959-10-31 | 407.0 |
+| 130 | AirPassengers | 1959-11-30 | 362.0 |
+| 131 | AirPassengers | 1959-12-31 | 405.0 |
+
+The next cell builds the three training sets. The observed baseline is
+the single airline series. The augmented panel adds eight counterparts
+of that series, drawn with `SynAugment` under a SARIMA override so the
+generated histories match its seasonal structure; the 12-month holdout
+is removed first, so no future value reaches the augmenter. The
+pretraining panel is 32 independent series from `generate_series` with
+no connection to the airline data — the source for the zero-shot model.
+Non-finite synthetic series are dropped so the estimator trains on clean
+histories.
+
+```python
+augmented_train_df = SynAugment(seed=42).augment(
+    train_df,
+    n_augment=8,
+    generator_override={TARGET_ID: "SARIMAGenerator"},
+)
+synthetic_pretrain_df = generate_series(
+    n_series=32,
+    freq="ME",
+    min_length=len(train_df),
+    max_length=len(train_df),
+    seed=42,
+)
+valid_ids = synthetic_pretrain_df.groupby("unique_id", observed=True)["y"].apply(
+    lambda values: np.isfinite(values).all()
+)
+synthetic_pretrain_df = synthetic_pretrain_df.loc[
+    synthetic_pretrain_df["unique_id"].isin(valid_ids[valid_ids].index)
+].copy()
+
+pd.DataFrame(
+    {
+        "training set": ["observed only", "observed + augmented", "independent synthetic only"],
+        "series": [1, augmented_train_df["unique_id"].nunique(), synthetic_pretrain_df["unique_id"].nunique()],
+    }
+)
+```
+
+|     | training set               | series |
+|-----|----------------------------|--------|
+| 0   | observed only              | 1      |
+| 1   | observed + augmented       | 9      |
+| 2   | independent synthetic only | 32     |
+
+```python
+def make_forecaster() -> MLForecast:
+    return MLForecast(
+        models=Ridge(alpha=1.0),
+        freq="ME",
+        lags=[1, 2, 3, 6, 12],
+    )
+
+
+def target_forecast(forecast_df: pd.DataFrame) -> pd.DataFrame:
+    return forecast_df.loc[
+        forecast_df["unique_id"].astype(str) == TARGET_ID,
+        ["unique_id", "ds", "Ridge"],
+    ].copy()
+```
+
+
+```python
+real_only = make_forecaster()
+real_only.fit(train_df)
+real_only_forecast = target_forecast(real_only.predict(h=HORIZON))
+```
+
+
+```python
+with_augmentation = make_forecaster()
+with_augmentation.fit(augmented_train_df)
+augmented_forecast = target_forecast(with_augmentation.predict(h=HORIZON))
+```
+
+MLForecast can apply a fitted global estimator to unseen series through
+`predict(new_df=...)`. The estimator below is fitted only on independent
+SynForecast series; the observed history is supplied only when producing
+its recursive lag features and forecasts. This is zero-shot transfer,
+not fine-tuning.
+
+```python
+pretrained = make_forecaster()
+pretrained.fit(synthetic_pretrain_df)
+zero_shot_forecast = target_forecast(
+    pretrained.predict(h=HORIZON, new_df=train_df)
+)
+```
+
+We score each workflow by mean absolute error over the 12-month holdout
+for the airline series.
+
+```python
+forecast_sets = {
+    "Observed only": real_only_forecast,
+    "Observed + synthetic": augmented_forecast,
+    "Synthetic pretraining (zero-shot)": zero_shot_forecast,
+}
+comparison = test_df[["unique_id", "ds", "y"]].copy()
+for label, forecast_df in forecast_sets.items():
+    comparison = comparison.merge(
+        forecast_df.rename(columns={"Ridge": label}),
+        on=["unique_id", "ds"],
+        how="left",
+    )
+
+metrics = pd.DataFrame(
+    {
+        "workflow": list(forecast_sets),
+        "MAE": [
+            (comparison[label] - comparison["y"]).abs().mean()
+            for label in forecast_sets
+        ],
+    }
+).sort_values("MAE")
+metrics
+```
+
+|     | workflow                          | MAE       |
+|-----|-----------------------------------|-----------|
+| 0   | Observed only                     | 15.904738 |
+| 2   | Synthetic pretraining (zero-shot) | 71.346015 |
+| 1   | Observed + synthetic              | 97.735619 |
+
+```python
+fig, ax = plt.subplots(figsize=(11, 5))
+history = train_df.tail(48)
+ax.plot(history["ds"], history["y"], color="black", label="Training history")
+ax.plot(test_df["ds"], test_df["y"], color="black", linestyle="--", label="Holdout")
+for label in forecast_sets:
+    ax.plot(comparison["ds"], comparison[label], marker="o", label=label)
+ax.set(title="MLForecast workflows", ylabel="Passengers (thousands)")
+ax.legend(fontsize=8)
+fig.tight_layout()
+```
+
+![](./mlforecast_files/figure-markdown_strict/cell-10-output-1.png)
+
+Treat the table as a workflow demonstration rather than evidence that
+augmentation always improves accuracy. Evaluate multiple temporal folds,
+generator configurations, estimators, and random seeds for the
+production decision.
+
+For a rigorous, multi-seed look at whether augmentation actually
+improves accuracy — and an honest account of when it does not — see
+[When does synthetic data help?](../capabilities/when_synthetic_helps).
+
