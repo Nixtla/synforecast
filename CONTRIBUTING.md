@@ -170,11 +170,3 @@ To make a release:
 3. On GitHub, choose **Releases → Draft a new release**. Create the matching
    `vX.Y.Z` tag targeting `main`, generate or edit the release notes, and
    publish the release.
-
-Repository administrators should protect the `v*` tag pattern so only release
-maintainers can create or update version tags. The `release` environment should
-accept only `v*` tags but should not require a separate reviewer: publishing
-the GitHub Release is the release approval.
-
-The PyPI Trusted Publisher must be configured for owner `Nixtla`, repository
-`synforecast`, workflow `python-publish.yml`, and environment `release`.
