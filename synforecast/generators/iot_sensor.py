@@ -207,7 +207,7 @@ class IoTSensorGenerator(BaseGenerator):
             length (int): The length of the series to generate.
 
         Returns:
-            np.ndarray: Array of sensor readings (NaN during failures).
+            Array of sensor readings (NaN during failures).
         """
         seed = int(self.rng.integers(0, 2**63))
         failure_t = {"intermittent": 2, "complete": 1, "stuck": 3}[self.failure_type]
@@ -238,7 +238,7 @@ class IoTSensorGenerator(BaseGenerator):
         """Generate one sensor network with spatially correlated noise.
 
         Returns:
-            np.ndarray: Array of shape (length, n_sensors).
+            Array of shape (length, n_sensors).
         """
         # AR(1)-style correlation: decays exponentially with sensor distance
         corr_matrix = self.spatial_correlation ** np.abs(

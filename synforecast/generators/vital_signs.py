@@ -183,7 +183,7 @@ class VitalSignsGenerator(BaseGenerator):
             length (int): The length of the series to generate.
 
         Returns:
-            np.ndarray: Array of vital sign values.
+            Array of vital sign values.
         """
         params = self._baselines[self.vital_sign]
 
@@ -245,7 +245,7 @@ class VitalSignsGenerator(BaseGenerator):
         """Get information about the vital signs model.
 
         Returns:
-            dict: Model parameters and patient characteristics.
+            Model parameters and patient characteristics.
         """
         return {
             "patient_type": self.patient_type,

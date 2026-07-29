@@ -461,7 +461,7 @@ class BaseGenerator(BaseModel, ABC):
             scale: Desired standard deviation of the innovations.
 
         Returns:
-            np.ndarray: Innovation samples with the requested shape.
+            Innovation samples with the requested shape.
         """
         dist = self.innovation_distribution
         params = self.innovation_params or {}
@@ -939,6 +939,6 @@ class BaseGenerator(BaseModel, ABC):
             length (int): The length of the series to generate
 
         Returns:
-            np.ndarray: Array of time series values
+            Array of time series values
         """
         pass

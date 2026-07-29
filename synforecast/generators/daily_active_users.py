@@ -122,7 +122,7 @@ class DailyActiveUsersGenerator(BaseGenerator):
             length (int): The length of the series to generate.
 
         Returns:
-            np.ndarray: Array of DAU values.
+            Array of DAU values.
         """
         if self.growth_rate_std > 0:
             series_growth_rate = float(

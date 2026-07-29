@@ -521,7 +521,7 @@ class TCMGenerator(BaseGenerator):
             length (int): The length of the series to generate.
 
         Returns:
-            np.ndarray: Array of time series values.
+            Array of time series values.
         """
         for _ in range(_MAX_REDRAWS + 1):
             scm = self._sample_scm()
@@ -547,7 +547,7 @@ class TCMGenerator(BaseGenerator):
             n_series (int): Number of observed nodes.
 
         Returns:
-            np.ndarray: Array of shape (length, n_series).
+            Array of shape (length, n_series).
         """
         for _ in range(_MAX_REDRAWS + 1):
             scm = self._sample_scm(min_vars=n_series)
