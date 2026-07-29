@@ -4237,6 +4237,7 @@ docs = [
     { name = "mkdocstrings-parser" },
     { name = "nbclient" },
     { name = "nbformat" },
+    { name = "utilsforecast" },
 ]
 integration-docs = [
     { name = "ipywidgets" },
@@ -4283,6 +4284,7 @@ docs = [
     { name = "mkdocstrings-parser", git = "https://github.com/Nixtla/mkdocstrings-parser?rev=a6f375a052783c18f4ca2599c74814c05ee6d568" },
     { name = "nbclient", specifier = ">=0.10.0" },
     { name = "nbformat", specifier = ">=5.10.0" },
+    { name = "utilsforecast", specifier = ">=0.2.0" },
 ]
 integration-docs = [
     { name = "ipywidgets", specifier = ">=8.1.0" },
