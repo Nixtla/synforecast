@@ -18,6 +18,7 @@ _spec.loader.exec_module(to_mdx)
 
 escape_mdx_hazards = to_mdx.escape_mdx_hazards
 readme_to_index = to_mdx.readme_to_index
+fence_indented_blocks = to_mdx.fence_indented_blocks
 
 
 class TestEscapesProse:
@@ -72,17 +73,12 @@ class TestLeavesCodeAlone:
         assert "prose &#123;here&#125;" in result
         assert "after &#123;x&#125;" in result
 
-    def test_indented_block(self) -> None:
-        """Docstrings write equations as four-space blocks, which are code."""
-        text = (
-            "conditional variance\n\n    s2_t = w + sum_i a_i * e_{t-i}^2\n\nafter {x}"
-        )
-        result = escape_mdx_hazards(text)
-        assert "    s2_t = w + sum_i a_i * e_{t-i}^2" in result
-        assert "after &#123;x&#125;" in result
+    def test_indented_block_is_escaped_unless_fenced_first(self) -> None:
+        """MDX has no indented code blocks, so indentation alone is not exempt."""
+        text = "variance\n\n    s2_t = w + a * e_{t-i}^2\n"
+        assert "&#123;t-i&#125;" in escape_mdx_hazards(text)
 
     def test_indentation_inside_a_paragraph_is_not_code(self) -> None:
-        """Only a block that starts after a blank line is an indented code block."""
         text = "a wrapped sentence\n    continuing with {braces}"
         assert "&#123;braces&#125;" in escape_mdx_hazards(text)
 
@@ -132,3 +128,42 @@ class TestLeavesMathAlone:
     def test_prose_around_math_is_still_escaped(self) -> None:
         result = escape_mdx_hazards(r"when {x} then $y_{t}$ and {z}")
         assert result == r"when &#123;x&#125; then $y_{t}$ and &#123;z&#125;"
+
+
+class TestFenceIndentedBlocks:
+    """MDX has no indented code blocks, so they must become real fences."""
+
+    def test_equation_block_is_fenced_and_dedented(self) -> None:
+        text = (
+            "conditional variance\n"
+            "\n"
+            "    sigma2_t = omega + sum_i alpha_i * eps_{t-i}^2\n"
+            "                     + sum_j beta_j * sigma2_{t-j}\n"
+            "\n"
+            "Stationarity requires ...\n"
+        )
+        result = fence_indented_blocks(text)
+        assert "```\nsigma2_t = omega + sum_i alpha_i * eps_{t-i}^2\n" in result
+        # relative alignment of the continuation line is preserved
+        assert "\n                 + sum_j beta_j * sigma2_{t-j}\n```" in result
+        assert "Stationarity requires ..." in result
+
+    def test_fencing_then_escaping_leaves_the_equation_verbatim(self) -> None:
+        text = "the model is:\n\n    dS_t = mu * S_t * dt + S_{t-} * dJ_t\n"
+        result = escape_mdx_hazards(fence_indented_blocks(text))
+        assert "dS_t = mu * S_t * dt + S_{t-} * dJ_t" in result
+        assert "&#123;" not in result
+
+    def test_list_continuation_is_not_fenced(self) -> None:
+        """Indentation under a list item is continuation, not code."""
+        text = "- first item\n\n    continuation of the item\n"
+        assert "```" not in fence_indented_blocks(text)
+
+    def test_content_inside_an_existing_fence_is_untouched(self) -> None:
+        text = "```python\n    already_indented = 1\n```\n"
+        assert fence_indented_blocks(text) == text
+
+    def test_idempotent(self) -> None:
+        text = "model:\n\n    x = {y}\n\nafter\n"
+        once = fence_indented_blocks(text)
+        assert fence_indented_blocks(once) == once

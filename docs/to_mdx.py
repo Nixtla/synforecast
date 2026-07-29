@@ -7,6 +7,74 @@ DOCS_DIR = Path(__file__).parent
 MINTLIFY_DIR = DOCS_DIR / "mintlify"
 
 
+_LIST_ITEM = re.compile(r"^\s*([-*+]|\d+\.)\s")
+
+
+def fence_indented_blocks(text: str) -> str:
+    """Turn four-space indented blocks into fenced code blocks.
+
+    Docstrings write equations as indented blocks, which CommonMark reads as
+    code. MDX has no indented code blocks, so the same text is parsed as a
+    paragraph and a brace in it becomes a live expression -- a jump-diffusion
+    line such as ``S_{t-} * dJ_t`` then fails acorn.
+
+    Fencing the block instead keeps it verbatim and renders it as code, which is
+    what the docstring meant. A block indented under a list item is left alone:
+    there the indentation is list continuation, not code.
+    """
+    lines = text.split("\n")
+    out: list[str] = []
+    index = 0
+    in_fence = False
+    last_content = ""
+
+    while index < len(lines):
+        line = lines[index]
+        if line.strip().startswith("```"):
+            in_fence = not in_fence
+            out.append(line)
+            last_content = line.strip()
+            index += 1
+            continue
+
+        indented = (line.startswith("    ") or line.startswith("\t")) and line.strip()
+        starts_block = (
+            not in_fence
+            and indented
+            and (not out or not out[-1].strip())
+            and not _LIST_ITEM.match(last_content)
+        )
+        if not starts_block:
+            if line.strip():
+                last_content = line.strip()
+            out.append(line)
+            index += 1
+            continue
+
+        block: list[str] = []
+        while index < len(lines):
+            candidate = lines[index]
+            if candidate.strip() and not (
+                candidate.startswith("    ") or candidate.startswith("\t")
+            ):
+                break
+            block.append(candidate)
+            index += 1
+        while block and not block[-1].strip():
+            block.pop()
+            index -= 1
+
+        margin = min(
+            len(entry) - len(entry.lstrip()) for entry in block if entry.strip()
+        )
+        out.append("```")
+        out.extend(entry[margin:] if entry.strip() else entry for entry in block)
+        out.append("```")
+        last_content = "```"
+
+    return "\n".join(out)
+
+
 def escape_mdx_hazards(text: str) -> str:
     """Escape characters the generated MDX leaves in parser-hostile positions.
 
@@ -23,11 +91,11 @@ def escape_mdx_hazards(text: str) -> str:
 
     Both are escaped to HTML entities, which render as the original character.
 
-    Nothing is escaped inside code or math, because neither is interpreted as
-    MDX and the entity itself would be displayed. That covers fenced blocks,
-    inline spans, indented blocks -- docstrings write equations as four-space
-    indented blocks, which markdown reads as code -- and ``$...$`` / ``$$...$$``
-    LaTeX, which is how the rest of the Nixtlaverse writes equations.
+    Nothing is escaped inside fenced code, inline spans, or ``$...$`` /
+    ``$$...$$`` LaTeX: none of those is interpreted as MDX, and the entity
+    itself would be displayed. Indented blocks are *not* exempt -- MDX, unlike
+    CommonMark, has no indented code blocks, so `fence_indented_blocks` should
+    run first to turn them into real fences.
 
     Pipes need no handling: mkdocstrings-parser escapes them as ``\\|`` before a
     table cell can be split.
@@ -42,29 +110,13 @@ def escape_mdx_hazards(text: str) -> str:
 
     out = []
     in_fence = False
-    in_indented_block = False
-    previous_blank = True
 
     for line in text.split("\n"):
-        stripped = line.strip()
-
-        if stripped.startswith("```"):
+        if line.strip().startswith("```"):
             in_fence = not in_fence
             out.append(line)
-            previous_blank = False
             continue
         if in_fence:
-            out.append(line)
-            continue
-
-        indented = line.startswith("    ") or line.startswith("\t")
-        if indented and (previous_blank or in_indented_block):
-            in_indented_block = True
-        elif stripped:
-            in_indented_block = False
-        previous_blank = not stripped
-
-        if in_indented_block:
             out.append(line)
             continue
 
@@ -95,7 +147,10 @@ def process_api_docs():
         print(f"Processing {md_file.name}...")
         output_file = MINTLIFY_DIR / md_file.name.replace(".html.md", ".html.mdx")
         parser.process_file(str(md_file), str(output_file))
-        output_file.write_text(escape_mdx_hazards(output_file.read_text()))
+        # Fence first: escaping must see indented equation blocks as real code.
+        output_file.write_text(
+            escape_mdx_hazards(fence_indented_blocks(output_file.read_text()))
+        )
         print(f"  -> {output_file.name}")
 
 
