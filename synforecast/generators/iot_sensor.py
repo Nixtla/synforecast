@@ -280,8 +280,7 @@ class IoTSensorGenerator(BaseGenerator):
             n_jobs (int): Ignored; generation is sequential.
 
         Returns:
-            DataFrame in long format with columns [id_col, time_col,
-            target_col].
+            DataFrame in long format with columns [id_col, time_col, target_col].
         """
         all_metadata: list[SeriesMetadata] = []
         series_counter = start_id

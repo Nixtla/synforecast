@@ -320,8 +320,7 @@ class ClickstreamGenerator(BaseGenerator):
             start_id (int): Starting ID for series naming.
 
         Returns:
-            dict: All metrics as flat arrays, keyed by metric name plus
-            'series_id'.
+            dict: All metrics as flat arrays, keyed by metric name plus 'series_id'.
         """
         all_data: dict[str, list] = {
             "series_id": [],

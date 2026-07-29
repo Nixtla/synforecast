@@ -288,8 +288,7 @@ class VARGenerator(BaseGenerator):
             n_jobs (int): Unused (accepted for API compatibility).
 
         Returns:
-            DataFrame in long format with columns [id_col, time_col,
-            target_col]; each unique_id is one correlated variable.
+            DataFrame in long format with columns [id_col, time_col, target_col]; each unique_id is one correlated variable.
         """
         length = self.rng.integers(self.min_length, self.max_length + 1)
         samples = self._generate_multivariate(length, n_series)

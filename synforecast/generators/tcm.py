@@ -588,8 +588,7 @@ class TCMGenerator(BaseGenerator):
                 in multivariate mode.
 
         Returns:
-            DataFrame in long format with columns [id_col, time_col,
-            target_col].
+            DataFrame in long format with columns [id_col, time_col, target_col].
         """
         if not self.multivariate:
             return super().generate(n_series, start_id=start_id, n_jobs=n_jobs)

@@ -213,8 +213,7 @@ class VitalSignsGenerator(BaseGenerator):
             start_id (int): Starting ID for the series numbering.
 
         Returns:
-            DataFrame with columns [id_col, time_col] plus one column per
-            vital sign, aligned on the same timestamps per patient.
+            DataFrame with columns [id_col, time_col] plus one column per vital sign, aligned on the same timestamps per patient.
         """
         ids: list[np.ndarray] = []
         timestamps: list[np.ndarray] = []

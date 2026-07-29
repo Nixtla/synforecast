@@ -163,9 +163,7 @@ class DailyActiveUsersGenerator(BaseGenerator):
             n_jobs (int): Ignored; generation is sequential.
 
         Returns:
-            DataFrame in long format with columns [id_col, time_col,
-            target_col, event_col], where event_col is 1 at steps where an
-            event occurred.
+            DataFrame in long format with columns [id_col, time_col, target_col, event_col], where event_col is 1 at steps where an event occurred.
         """
         all_metadata: list[SeriesMetadata] = []
 
