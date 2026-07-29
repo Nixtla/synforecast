@@ -9,8 +9,8 @@ synthetic-history forecast ensemble.
 StatsForecast models such as `AutoETS` are fitted independently to each
 series. They do not share transferable weights. Adding synthetic series
 therefore does not change the model fitted to the observed series. The
-honest synthetic-only analogue is to fit local models to synthetic
-histories and aggregate their future paths—not to call that pretraining.
+synthetic-only analogue is to fit local models to synthetic histories
+and aggregate their future paths, not to call that pretraining.
 
 We use the classic [Box–Jenkins airline passenger
 series](https://search.r-project.org/R/refmans/datasets/html/AirPassengers.html).
