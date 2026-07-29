@@ -96,9 +96,7 @@ def readme_to_index(content: str) -> str:
     """
     tagline_match = _TAGLINE.search(content)
     description = (
-        tagline_match.group(1)
-        if tagline_match
-        else "Synthetic time series generation"
+        tagline_match.group(1) if tagline_match else "Synthetic time series generation"
     )
 
     body = []
