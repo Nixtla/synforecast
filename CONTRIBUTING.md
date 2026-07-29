@@ -2,14 +2,16 @@
 
 ## Development setup
 
-Requirements: Python 3.10+, [uv](https://github.com/astral-sh/uv), Git, and a
-[Rust toolchain](https://rustup.rs/).
+Requirements: Python 3.10+, [uv](https://github.com/astral-sh/uv), Git, a
+[Rust toolchain](https://rustup.rs/), and
+[cargo-about](https://github.com/EmbarkStudios/cargo-about).
 
 ```bash
 git clone https://github.com/Nixtla/synforecast.git
 cd synforecast
+cargo install cargo-about --version 0.9.1 --locked --features cli
 uv sync --all-groups
-uv run pre-commit install  # optional: run ruff on every commit
+uv run pre-commit install  # optional: run repository checks on every commit
 ```
 
 `uv sync` builds and installs the Rust extension. After changing Rust code,
@@ -125,8 +127,10 @@ uv run pytest tests/ --cov=synforecast --cov-report=term-missing
 ## Code style
 
 Ruff handles linting and formatting (88-character lines). Pre-commit runs both
-Ruff hooks. Static typing is being tightened incrementally; mypy is not yet a
-release gate for the whole package.
+Ruff hooks and regenerates the bundled Rust license notices when Rust dependency
+or license configuration files change. If the generated notice changes, stage
+it and run pre-commit again. Static typing is being tightened incrementally;
+mypy is not yet a release gate for the whole package.
 
 ```bash
 uv run pre-commit run --all-files
