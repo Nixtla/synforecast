@@ -27,24 +27,41 @@ def escape_mdx_hazards(text: str) -> str:
        ``<code>[str](#str) | [int](#int)</code>`` inside a markdown table row.
        The bare ``|`` closes the table cell, so ``<code>`` is left unclosed
        ("Expected a closing tag for `<code>`").
-    2. ``>>>`` at the start of a docstring example line is markdown for a
-       triple-nested blockquote, so the example body is parsed as prose rather
-       than code and any ``{`` becomes a live MDX expression ("Could not parse
-       expression with acorn").
+    2. A brace in running prose is a live MDX expression, which acorn then
+       tries to parse as JavaScript ("Could not parse expression with acorn").
+       This reaches the output wherever a docstring puts a brace outside
+       backticks -- notably ``>>>`` example blocks, which markdown reads as a
+       triple-nested blockquote rather than code.
 
     Both are escaped to HTML entities, which render as the original character.
+    Braces inside fenced blocks and inline code spans are left alone: MDX does
+    not evaluate expressions there, and escaping them would show the entity.
     """
     text = _CODE_SPAN.sub(
         lambda match: "<code>" + match.group(1).replace("|", "&#124;") + "</code>",
         text,
     )
-    lines = [
-        line.replace("{", "&#123;").replace("}", "&#125;")
-        if line.startswith(">")
-        else line
-        for line in text.split("\n")
-    ]
-    return "\n".join(lines)
+
+    out, in_fence = [], False
+    for line in text.split("\n"):
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            out.append(line)
+            continue
+        if in_fence:
+            out.append(line)
+            continue
+        # Escape only the segments outside inline code spans.
+        parts = re.split(r"(`+[^`]*`+)", line)
+        out.append(
+            "".join(
+                part
+                if part.startswith("`")
+                else part.replace("{", "&#123;").replace("}", "&#125;")
+                for part in parts
+            )
+        )
+    return "\n".join(out)
 
 
 def process_api_docs():
