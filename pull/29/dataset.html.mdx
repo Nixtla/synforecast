@@ -109,7 +109,7 @@ The augmentation process:
 1. Generate n_augment synthetic series that preserve these properties
 1. Return combined DataFrame with original and synthetic series
 
-Synthetic series IDs follow the pattern: "{original_id}_aug_{i}"
+Synthetic series IDs follow the pattern `"{original_id}_aug_{i}"`
 
 **Parameters:**
 
@@ -182,9 +182,10 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[dict](#dict)\[[str](#str), [dict](#dict)\]</code> | dict mapping unique_id to analysis results:
-<code>[dict](#dict)\[[str](#str), [dict](#dict)\]</code> | { 'series_0': { 'recommended_generator': 'SeasonalGenerator', 'properties': {...}, # All detected properties 'fitted_params': {...} # Estimated generator parameters }, ...
-<code>[dict](#dict)\[[str](#str), [dict](#dict)\]</code> | }
+<code>[dict](#dict)\[[str](#str), [dict](#dict)\]</code> | Mapping of each `unique_id` to its analysis results. Every entry
+<code>[dict](#dict)\[[str](#str), [dict](#dict)\]</code> | holds `recommended_generator` (the chosen generator name),
+<code>[dict](#dict)\[[str](#str), [dict](#dict)\]</code> | `properties` (all detected statistical properties), and
+<code>[dict](#dict)\[[str](#str), [dict](#dict)\]</code> | `fitted_params` (the estimated generator parameters).
 
 **Raises:**
 
@@ -209,7 +210,7 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `df` | <code>[IntoFrameT](#narwhals.stable.v2.typing.IntoFrameT)</code> | Input DataFrame with time series (must have id_col, time_col, target_col) | *required*
 `n_augment` | <code>[int](#int)</code> | Number of synthetic series to generate per original series | <code>1</code>
-`generator_override` | <code>[dict](#dict)\[[str](#str), [str](#str)\] &#124; None</code> | Optional dict mapping unique_id to generator name. Overrides automatic generator selection for specified series. Example: {"series_0": "SARIMAGenerator"} | <code>None</code>
+`generator_override` | <code>[dict](#dict)\[[str](#str), [str](#str)\] &#124; None</code> | Optional dict mapping unique_id to generator name. Overrides automatic generator selection for specified series. Example: &#123;"series_0": "SARIMAGenerator"&#125; | <code>None</code>
 `preserve_timestamps` | <code>[bool](#bool)</code> | If True, synthetic series use the same timestamps as the original series | <code>True</code>
 
 **Returns:**
@@ -217,7 +218,7 @@ Name | Type | Description | Default
 Type | Description
 ---- | -----------
 <code>[IntoFrameT](#narwhals.stable.v2.typing.IntoFrameT)</code> | Combined DataFrame with original and synthetic series.
-<code>[IntoFrameT](#narwhals.stable.v2.typing.IntoFrameT)</code> | Synthetic series IDs follow pattern: "{original_id}_aug_{i}"
+<code>[IntoFrameT](#narwhals.stable.v2.typing.IntoFrameT)</code> | Synthetic series IDs follow the pattern `"{original_id}_aug_{i}"`
 
 **Raises:**
 

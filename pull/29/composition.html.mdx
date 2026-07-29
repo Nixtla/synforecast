@@ -90,7 +90,7 @@ Name | Type | Description | Default
 `max_length` | <code>[int](#int)</code> | Maximum time series length for all generators. | <code>200</code>
 `freq` | <code>[str](#str) &#124; [int](#int)</code> | Frequency for all generators, as a pandas offset alias or integer. | <code>'D'</code>
 `seed` | <code>[int](#int) &#124; None</code> | Base random seed. Each generator gets seed + i for reproducibility. Set to None for random seeds. | <code>42</code>
-`**base_kwargs` | <code>[Any](#typing.Any)</code> | Additional keyword arguments passed to all generators (e.g., engine, id_col, time_col, target_col). | <code>{}</code>
+`**base_kwargs` | <code>[Any](#typing.Any)</code> | Additional keyword arguments passed to all generators (e.g., engine, id_col, time_col, target_col). | <code>&#123;&#125;</code>
 
 **Returns:**
 
@@ -137,7 +137,7 @@ Name | Type | Description | Default
 `seed` | <code>[int](#int) &#124; None</code> | Base random seed. Each generator gets a distinct offset. Set to None for random seeds. | <code>42</code>
 `include_balanced` | <code>[bool](#bool)</code> | When True (default), prepend the full :func:`balanced_pool`; when False, return only the meta-generators (a purely procedural pretraining corpus). | <code>True</code>
 `n_meta_variants` | <code>[int](#int)</code> | Number of independently-seeded instances of each meta-generator (default 3). More instances give the meta-generators a larger share when series are spread evenly across the pool, as in :func:`generate_series`. | <code>3</code>
-`**base_kwargs` | <code>[Any](#typing.Any)</code> | Additional keyword arguments passed to all generators (e.g., engine, id_col, time_col, target_col). | <code>{}</code>
+`**base_kwargs` | <code>[Any](#typing.Any)</code> | Additional keyword arguments passed to all generators (e.g., engine, id_col, time_col, target_col). | <code>&#123;&#125;</code>
 
 **Returns:**
 

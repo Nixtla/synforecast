@@ -9,7 +9,7 @@ Bases: <code>[BaseGenerator](#synforecast.base.BaseGenerator)</code>
 
 Generate random walk time series.
 
-y_t = y\_{t-1} + drift + ε_t, where ε_t has standard deviation
+y_t = y\_&#123;t-1&#125; + drift + ε_t, where ε_t has standard deviation
 `volatility` and is drawn from `innovation_distribution`. The first
 output value already includes one step: y_1 = start_value + drift + ε_1.
 
@@ -201,10 +201,10 @@ additive (A), multiplicative (M), or absent (N):
 
 - y_t = μ_t + ε_t (additive error) or y_t = μ_t (1 + ε_t) (multiplicative)
 - μ_t combines level l, trend b (optionally damped by φ), and seasonal s,
-  e.g. ETS(A,A,A): μ_t = l\_{t-1} + φ b\_{t-1} + s\_{t-m}
+  e.g. ETS(A,A,A): μ_t = l\_&#123;t-1&#125; + φ b\_&#123;t-1&#125; + s\_&#123;t-m&#125;
 - States update per the standard taxonomy, e.g. ETS(A,A,A):
-  l_t = l\_{t-1} + φ b\_{t-1} + α ε_t; b_t = φ b\_{t-1} + β ε_t;
-  s_t = s\_{t-m} + γ ε_t
+  l_t = l\_&#123;t-1&#125; + φ b\_&#123;t-1&#125; + α ε_t; b_t = φ b\_&#123;t-1&#125; + β ε_t;
+  s_t = s\_&#123;t-m&#125; + γ ε_t
 
 Common models: ETS(A,N,N) simple exponential smoothing, ETS(A,A,N) Holt,
 ETS(A,A,A) additive Holt-Winters, ETS(M,A,M) multiplicative Holt-Winters,
@@ -307,7 +307,7 @@ preserving autoregressive dynamics:
 X_t = alpha_1 o X_{t-1} + ... + alpha_p o X_{t-p} + epsilon_t
 ```
 
-where 'o' is binomial thinning, alpha o X = sum\_{i=1}^{X} Bernoulli(alpha),
+where 'o' is binomial thinning, alpha o X = sum\_&#123;i=1&#125;^&#123;X&#125; Bernoulli(alpha),
 and epsilon_t are i.i.d. count innovations (Poisson or negative binomial).
 
 Stationarity requires sum(alpha) < 1, giving unconditional mean

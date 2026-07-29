@@ -892,11 +892,11 @@ probabilities, and other bounded quantities.
 <summary>Models</summary>
 
 - beta_ar: Beta AR(1) via conditional mean parameterization.
-  mu_t = omega + phi * x\_{t-1}, x_t ~ Beta(mu_t * kappa,
-  (1 - mu_t) * kappa), so E[x_t | x\_{t-1}] = mu_t and the stationary
+  mu_t = omega + phi * x\_&#123;t-1&#125;, x_t ~ Beta(mu_t * kappa,
+  (1 - mu_t) * kappa), so E[x_t | x\_&#123;t-1&#125;] = mu_t and the stationary
   mean is omega / (1 - phi).
 - logit_normal: AR(1) on the logit scale, sigmoid-transformed back:
-  z_t = phi * z\_{t-1} + sigma * eps_t, x_t = sigmoid(z_t).
+  z_t = phi * z\_&#123;t-1&#125; + sigma * eps_t, x_t = sigmoid(z_t).
 
 </details>
 
