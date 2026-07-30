@@ -2,31 +2,14 @@
 title: StatsForecast with synthetic data
 ---
 
-`AutoETS` and the other StatsForecast models are fitted independently
-per series, so the two workflows that matter for synthetic data are
-different from the global-model case. This guide shows that augmenting a
-panel cannot change a local fit, and uses synthetic series with a known
-data-generating process to check that the forecasting pipeline recovers
-what was put into it.
+StatsForecast fits each series independently, so synthetic data plays a
+different role here than it does for global models. This guide
+establishes three things in order: augmenting a panel cannot change a
+local fit, there is no local-model equivalent of pretraining, and a
+generated series with a known process makes a good pipeline check.
 
-StatsForecast models are fitted independently to each series and share
-no transferable weights. Two consequences follow, and they set up the
-rest of this guide.
-
-Adding synthetic series to the panel leaves the model fitted to the
-observed series bit-for-bit identical — there is no pooled parameter for
-the extra series to influence. And because nothing is shared, fitting
-local models to synthetic histories transfers nothing to the observed
-series: there is no local-model analogue of synthetic pretraining. The
-section below measures both claims.
-
-> **Where synthetic data does help here**
->
-> Generating from a process you configured yourself gives a holdout
-> whose truth you know, including the irreducible noise floor. That
-> turns a forecast comparison into a pipeline check: if `AutoETS` cannot
-> recover a clean seasonal process, the problem is the setup rather than
-> the data.
+`AutoETS` and its siblings share no parameters across series. Everything
+below follows from that.
 
 We use the classic [Box–Jenkins airline passenger
 series](https://search.r-project.org/R/refmans/datasets/html/AirPassengers.html).
@@ -72,29 +55,34 @@ train_df.tail()
 | 130 | AirPassengers | 1959-11-30 | 362.0 |
 | 131 | AirPassengers | 1959-12-31 | 405.0 |
 
+## 1. Augmentation cannot change a local fit
+
+Adding synthetic series gives `AutoETS` more series to fit, but no
+pooled parameter for them to influence, so the model fitted to the
+airline series is untouched. Sixteen `SynAugment` counterparts are added
+under a SARIMA override; the 12-month holdout is removed first, so no
+future value reaches the augmenter.
+
 ```python
 augmented_train_df = SynAugment(seed=42).augment(
     train_df,
     n_augment=16,
     generator_override={TARGET_ID: "SARIMAGenerator"},
 )
-synthetic_history_df = augmented_train_df.loc[
-    augmented_train_df["unique_id"].astype(str) != TARGET_ID
-].copy()
 
 pd.DataFrame(
     {
-        "training set": ["observed only", "observed + augmented", "matched synthetic only"],
-        "series": [1, augmented_train_df["unique_id"].nunique(), synthetic_history_df["unique_id"].nunique()],
+        "training set": ["observed only", "observed + augmented"],
+        "series": [1, augmented_train_df["unique_id"].nunique()],
     }
 )
+
 ```
 
-|     | training set           | series |
-|-----|------------------------|--------|
-| 0   | observed only          | 1      |
-| 1   | observed + augmented   | 17     |
-| 2   | matched synthetic only | 16     |
+|     | training set         | series |
+|-----|----------------------|--------|
+| 0   | observed only        | 1      |
+| 1   | observed + augmented | 17     |
 
 ```python
 def make_forecaster() -> StatsForecast:
@@ -125,46 +113,16 @@ with_augmentation = make_forecaster()
 with_augmentation.fit(augmented_train_df)
 augmented_forecast = target_forecast(with_augmentation.predict(h=HORIZON))
 
-np.allclose(real_only_forecast["AutoETS"], augmented_forecast["AutoETS"])
+identical = np.allclose(
+    real_only_forecast["AutoETS"], augmented_forecast["AutoETS"]
+)
+print(f"the two forecasts are identical: {identical}")
+
 ```
 
 ``` text
-True
+the two forecasts are identical: True
 ```
-
-Averaging forecasts from those synthetic histories would not give a
-usable forecast, and the reason is worth measuring rather than
-asserting. `SynAugment` matches each synthetic series to the **mean of
-the training window**, not to its final level. On a strongly trending
-series those are far apart, so the synthetic histories end at levels
-scattered around the observed endpoint.
-
-```python
-levels = synthetic_history_df.groupby("unique_id", observed=True)["y"].agg(
-    window_mean="mean",
-    final_year_mean=lambda values: values.tail(12).mean(),
-)
-
-pd.DataFrame(
-    {
-        "series": ["observed", "synthetic (16 draws)"],
-        "window mean": [
-            round(train_df["y"].mean(), 1),
-            f"{levels['window_mean'].min():.0f} - {levels['window_mean'].max():.0f}",
-        ],
-        "final-year mean": [
-            round(train_df["y"].tail(12).mean(), 1),
-            f"{levels['final_year_mean'].min():.0f} - {levels['final_year_mean'].max():.0f}",
-        ],
-    }
-)
-
-```
-
-|     | series               | window mean | final-year mean |
-|-----|----------------------|-------------|-----------------|
-| 0   | observed             | 262.5       | 428.3           |
-| 1   | synthetic (16 draws) | 262 - 263   | 191 - 506       |
 
 ```python
 forecast_sets = {
@@ -192,6 +150,11 @@ metrics
 | 0   | Observed only              | 35.612471 |
 | 1   | Observed + synthetic panel | 35.612471 |
 
+Both workflows score the same because they *are* the same fit. In the
+chart the augmented forecast is drawn as a thick translucent band with
+the observed-only line on top of it — one visible line means the two
+coincide exactly.
+
 ```python
 fig, ax = plt.subplots(figsize=(11, 5))
 history = train_df.tail(48)
@@ -212,16 +175,62 @@ fig.tight_layout()
 
 ```
 
-![](./statsforecast_files/figure-markdown_strict/cell-10-output-1.png)
+![](./statsforecast_files/figure-markdown_strict/cell-9-output-1.png)
 
-## Validate the pipeline on a known process
+## 2. There is no local-model pretraining
 
-The airline series has no ground truth beyond its holdout. A generated
-series does: the process, its seasonal period, and its noise scale are
-all inputs. Below, twelve series come from an additive ETS process with
-a 12-period season and a fixed noise standard deviation, the last 12
-points of each are held out, and `AutoETS` is scored against
-`SeasonalNaive` and against the generator’s noise floor.
+Because nothing is shared, fitting `AutoETS` to synthetic histories
+produces forecasts *for those histories*, not for the airline series.
+Averaging them is not a shortcut either, and the table below shows why:
+`SynAugment` matches each draw to the **mean of the training window**,
+which leaves the final level free. On a strongly trending series the two
+are far apart, so the draws end scattered around the observed endpoint.
+
+```python
+synthetic_history_df = augmented_train_df.loc[
+    augmented_train_df["unique_id"].astype(str) != TARGET_ID
+].copy()
+
+levels = synthetic_history_df.groupby("unique_id", observed=True)["y"].agg(
+    window_mean="mean",
+    final_year_mean=lambda values: values.tail(12).mean(),
+)
+
+pd.DataFrame(
+    {
+        "series": ["observed", "synthetic (16 draws)"],
+        "window mean": [
+            round(train_df["y"].mean(), 1),
+            f"{levels['window_mean'].min():.0f} - {levels['window_mean'].max():.0f}",
+        ],
+        "final-year mean": [
+            round(train_df["y"].tail(12).mean(), 1),
+            f"{levels['final_year_mean'].min():.0f} - {levels['final_year_mean'].max():.0f}",
+        ],
+    }
+)
+
+```
+
+|     | series               | window mean | final-year mean |
+|-----|----------------------|-------------|-----------------|
+| 0   | observed             | 262.5       | 428.3           |
+| 1   | synthetic (16 draws) | 262 - 263   | 191 - 506       |
+
+## 3. Validate the pipeline on a known process
+
+The two sections above used the airline series, whose true process
+nobody knows. A generated series is different: you chose the process,
+the seasonal period, and the noise scale, so you know in advance what a
+correctly configured pipeline should be able to do.
+
+That makes it a check with a known answer. The twelve series below come
+from an additive ETS process with a 12-period season, and the last 12
+points of each are held out. `AutoETS` should beat `SeasonalNaive` by a
+wide margin, because the data really does contain the smooth
+trend-plus-season structure `AutoETS` fits and `SeasonalNaive` ignores.
+If it does not, the pipeline is misconfigured — and you have learned
+that without touching real data.
 
 ```python
 NOISE_STD = 6.0
@@ -264,23 +273,41 @@ known_scores = evaluate(
     agg_fn="mean",
 )
 
-pd.concat(
-    [
-        known_scores.melt(id_vars="metric", var_name="model", value_name="MAE").loc[
-            :, ["model", "MAE"]
-        ],
-        pd.DataFrame({"model": ["noise floor (generator)"], "MAE": [NOISE_STD]}),
-    ],
-    ignore_index=True,
-).round(2)
+known_scores.melt(id_vars="metric", var_name="model", value_name="MAE").loc[
+    :, ["model", "MAE"]
+].round(2)
 
 ```
 
-|     | model                   | MAE   |
-|-----|-------------------------|-------|
-| 0   | AutoETS                 | 11.52 |
-| 1   | SeasonalNaive           | 49.54 |
-| 2   | noise floor (generator) | 6.00  |
+|     | model         | MAE   |
+|-----|---------------|-------|
+| 0   | AutoETS       | 11.52 |
+| 1   | SeasonalNaive | 49.54 |
+
+`AutoETS` comes in around four times more accurate than `SeasonalNaive`,
+which is the outcome the generated structure predicts. That is the whole
+check: a known-answer test that fails loudly when the frequency, the
+season length, or the model family is set up wrongly.
+
+For a sense of how much of the remaining error is irreducible, the noise
+is Gaussian with standard deviation `NOISE_STD`, so the best any
+forecaster could do one step ahead is a mean absolute error of
+`NOISE_STD * sqrt(2 / pi)`. Forecasting twelve steps ahead must do worse
+than that, since an additive-error ETS accumulates innovations into its
+state as the horizon grows — so treat the number below as a lower bound
+to sit above, not a target to reach.
+
+```python
+best_one_step_mae = NOISE_STD * np.sqrt(2 / np.pi)
+print(f"generator noise standard deviation: {NOISE_STD:.2f}")
+print(f"best possible one-step MAE:         {best_one_step_mae:.2f}")
+
+```
+
+``` text
+generator noise standard deviation: 6.00
+best possible one-step MAE:         4.79
+```
 
 ```python
 example_id = known_panel["unique_id"].iloc[0]
@@ -297,36 +324,27 @@ ax.plot(example_forecast["ds"], example_forecast["AutoETS"], color="steelblue",
         marker="o", markersize=4, label="AutoETS")
 ax.plot(example_forecast["ds"], example_forecast["SeasonalNaive"], color="goldenrod",
         marker="o", markersize=4, label="SeasonalNaive")
-ax.set(title="Recovering a generated ETS process", ylabel="value")
+ax.set(
+    title="AutoETS follows the generated trend and season; SeasonalNaive repeats last year",
+    ylabel="Value",
+)
 ax.legend(fontsize=8)
 fig.tight_layout()
 
 ```
 
-![](./statsforecast_files/figure-markdown_strict/cell-12-output-1.png)
+![](./statsforecast_files/figure-markdown_strict/cell-13-output-1.png)
 
 For local models, synthetic data is a test instrument rather than extra
-training signal.
+training signal. Augmentation is inert, aggregating synthetic fits is
+not a substitute for pretraining, and generating from a process you
+configured yourself gives you a check whose answer you already know.
 
--   **Augmentation is inert.** The observed-only and augmented forecasts
-    agree to floating-point precision, because `AutoETS` fits each
-    series on its own. Panel augmentation only helps model families that
-    pool parameters across series — see the [MLForecast](mlforecast) and
-    [NeuralForecast](neuralforecast) guides for that case.
--   **There is no local-model pretraining.** Fitting `AutoETS` to
-    synthetic histories produces forecasts for those histories, not for
-    the observed series. The level table above shows why aggregating
-    them is not a shortcut: matching the window mean leaves the
-    final-year level free, so the draws end far from the observed
-    endpoint.
--   **A known process validates the pipeline.** On data generated from a
-    configured `ETSGenerator`, `AutoETS` lands within about twice the
-    generator’s own noise floor and well ahead of `SeasonalNaive`.
-    Running that check before pointing a pipeline at real data separates
-    model problems from data problems.
-
-Synthetic panels are also useful here for simulation and stress testing:
-inject [anomalies](../capabilities/anomalies) or
+Panel augmentation does help model families that pool parameters across
+series — see the [MLForecast](mlforecast) and
+[NeuralForecast](neuralforecast) guides. Synthetic panels are also
+useful here for stress testing: inject
+[anomalies](../capabilities/anomalies) or
 [changepoints](../capabilities/changepoints) with known positions and
 measure how far the fitted model moves.
 
