@@ -9,6 +9,8 @@ reversion, unlike an unbounded random walk that would eventually escape.
 
 > **The model**
 >
+> $$\mu_t = \omega + \phi\, x_{t-1}, \qquad x_t \sim \mathrm{Beta}\!\big(\mu_t \kappa,\, (1-\mu_t)\kappa\big)$$
+>
 > Pick `model="beta_ar"` (a Beta-distributed autoregression that
 > mean-reverts inside the interval) or `model="logit_normal"` (a random
 > walk in logit space mapped back to (0, 1)). Both guarantee valid
@@ -21,13 +23,16 @@ import matplotlib.pyplot as plt
 from synforecast.generators import BoundedProcessGenerator
 ```
 
-## 1. Beta-AR model (proportions in \[0, 1\])
+## 1. Model choice
 
-The Beta-AR model uses a conditional Beta distribution where the mean
-depends on the previous value: `mu_t = omega + phi * x_{t-1}`.
+Both models stay inside the interval, by different routes: `beta_ar`
+mean-reverts through a conditional Beta draw, while `logit_normal` runs
+an AR(1) in logit space and maps back. The dashed lines mark the bounds
+neither can cross.
 
 ```python
-beta_gen = BoundedProcessGenerator(engine="polars", 
+beta_df = BoundedProcessGenerator(
+    engine="polars",
     min_length=200,
     max_length=200,
     freq="D",
@@ -36,56 +41,10 @@ beta_gen = BoundedProcessGenerator(engine="polars",
     omega=0.1,
     kappa=20.0,
     seed=42,
-)
-beta_df = beta_gen.generate(n_series=1)
+).generate(n_series=1)
 
-print(f"Generated {len(beta_df)} observations in [0, 1]")
-print(f"Min={beta_df['y'].min():.4f}, Max={beta_df['y'].max():.4f}")
-beta_df.head(10)
-```
-
-``` text
-Generated 200 observations in [0, 1]
-Min=0.1017, Max=0.8915
-```
-
-| unique_id | ds                  | y        |
-|-----------|---------------------|----------|
-| cat       | datetime\[ns\]      | f64      |
-| "0"       | 2000-01-01 00:00:00 | 0.314116 |
-| "0"       | 2000-01-02 00:00:00 | 0.268915 |
-| "0"       | 2000-01-03 00:00:00 | 0.226411 |
-| "0"       | 2000-01-04 00:00:00 | 0.396161 |
-| "0"       | 2000-01-05 00:00:00 | 0.349861 |
-| "0"       | 2000-01-06 00:00:00 | 0.397705 |
-| "0"       | 2000-01-07 00:00:00 | 0.464456 |
-| "0"       | 2000-01-08 00:00:00 | 0.416668 |
-| "0"       | 2000-01-09 00:00:00 | 0.336088 |
-| "0"       | 2000-01-10 00:00:00 | 0.543143 |
-
-```python
-fig, ax = plt.subplots(figsize=(12, 4))
-ax.plot(beta_df["ds"].to_list(), beta_df["y"].to_list(), alpha=0.8)
-ax.axhline(y=0, color="gray", linestyle="--", alpha=0.3)
-ax.axhline(y=1, color="gray", linestyle="--", alpha=0.3)
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Value")
-ax.set_title("Beta-AR Process (proportions in [0, 1])")
-ax.set_ylim(-0.05, 1.05)
-plt.tight_layout()
-plt.show()
-```
-
-![](./bounded_process_files/figure-markdown_strict/cell-4-output-1.png)
-
-## 2. Logit-normal model
-
-The logit-normal model works in logit space:
-`z_t = phi * z_{t-1} + sigma * eps`, then `x_t = sigmoid(z_t)`. This
-naturally stays in (0, 1).
-
-```python
-logit_gen = BoundedProcessGenerator(engine="polars", 
+logit_df = BoundedProcessGenerator(
+    engine="polars",
     min_length=200,
     max_length=200,
     freq="D",
@@ -93,24 +52,24 @@ logit_gen = BoundedProcessGenerator(engine="polars",
     phi=0.9,
     sigma=0.5,
     seed=42,
-)
-logit_df = logit_gen.generate(n_series=1)
+).generate(n_series=1)
 
-fig, ax = plt.subplots(figsize=(12, 4))
-ax.plot(logit_df["ds"].to_list(), logit_df["y"].to_list(), alpha=0.8)
-ax.axhline(y=0, color="gray", linestyle="--", alpha=0.3)
-ax.axhline(y=1, color="gray", linestyle="--", alpha=0.3)
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Value")
-ax.set_title("Logit-Normal Process")
-ax.set_ylim(-0.05, 1.05)
+fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
+panels = [("beta_ar", beta_df), ("logit_normal", logit_df)]
+for ax, (label, df) in zip(axes, panels):
+    ax.plot(df["ds"].to_list(), df["y"].to_list(), alpha=0.85)
+    ax.axhline(0, color="gray", linestyle="--", alpha=0.4)
+    ax.axhline(1, color="gray", linestyle="--", alpha=0.4)
+    ax.set(ylim=(-0.05, 1.05), ylabel="Value", title=f'model="{label}"')
+axes[-1].set_xlabel("Timestamp")
 plt.tight_layout()
 plt.show()
+
 ```
 
-![](./bounded_process_files/figure-markdown_strict/cell-5-output-1.png)
+![](./bounded_process_files/figure-markdown_strict/cell-3-output-1.png)
 
-## 3. Custom bounds
+## 2. Custom bounds
 
 Scale the output to any `[lower, upper]` interval, e.g., temperature in
 \[15, 35\].
@@ -138,7 +97,7 @@ ax.axhline(y=15, color="blue", linestyle="--", alpha=0.3, label="lower bound")
 ax.axhline(y=35, color="red", linestyle="--", alpha=0.3, label="upper bound")
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Temperature")
-ax.set_title("Bounded Process with Custom Bounds [15, 35]")
+ax.set_title("Bounded process with custom bounds [15, 35]")
 ax.legend()
 plt.tight_layout()
 plt.show()
@@ -148,9 +107,9 @@ plt.show()
 Min=21.01, Max=34.23
 ```
 
-![](./bounded_process_files/figure-markdown_strict/cell-6-output-2.png)
+![](./bounded_process_files/figure-markdown_strict/cell-4-output-2.png)
 
-## 4. Multiple series
+## 3. Multiple series
 
 ```python
 multi_gen = BoundedProcessGenerator(engine="polars", 
@@ -165,14 +124,14 @@ for uid in multi_df["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("Multiple Bounded Process Series")
+ax.set_title("Multiple bounded process series")
 ax.set_ylim(-0.05, 1.05)
 ax.legend()
 plt.tight_layout()
 plt.show()
 ```
 
-![](./bounded_process_files/figure-markdown_strict/cell-7-output-1.png)
+![](./bounded_process_files/figure-markdown_strict/cell-5-output-1.png)
 
 > **Related generators**
 >

@@ -10,6 +10,8 @@ family of realistic trend-plus-seasonality shapes.
 
 > **The model**
 >
+> $$y_t = \mu_t + \varepsilon_t, \qquad \mu_t = \ell_{t-1} + \phi\, b_{t-1} + s_{t-m} \quad \text{(ETS(A,A,A))}$$
+>
 > Each series is built from a level state plus optional trend and
 > seasonal states, combined additively or multiplicatively via
 > `error_type`, `trend_type`, `seasonal_type`, and `damped`. This is the
@@ -22,117 +24,51 @@ import matplotlib.pyplot as plt
 from synforecast.generators import ETSGenerator
 ```
 
-## Example 1: Damped additive Holt-Winters ETS(A,Ad,A)
+## 1. Taxonomy variants
 
-An additive model with weekly seasonality and a damped trend.
-
-```python
-params = {
-    "min_length": 200,
-    "max_length": 200,
-    "freq": "D",
-    "error_type": "add",
-    "trend_type": "add",
-    "seasonal_type": "add",
-    "seasonal_period": 7,
-    "level": 100.0,
-    "trend": 0.5,
-    "alpha": 0.3,
-    "beta": 0.1,
-    "gamma": 0.1,
-    "damped": True,
-    "phi": 0.95,
-    "noise_std": 2.0,
-    "seed": 123,
-}
-
-generator = ETSGenerator(engine="polars", **params)
-```
-
-### Model information
+The error/trend/season triple selects the model. All three draws share a
+seed, a starting level, and a seasonal period, so the shapes differ only
+by taxonomy: a damped additive trend flattens out, a multiplicative
+season grows with the level, and no trend or season leaves pure level
+smoothing.
 
 ```python
-model_info = generator.get_model_info()
-print(f"Model: {model_info['model']}")
-print(f"Initial level: {model_info['level']}")
-print(f"Initial trend: {model_info['trend']}")
-print(f"Smoothing parameters: alpha={model_info['alpha']}, beta={model_info['beta']}, gamma={model_info['gamma']}")
-print(f"Damping parameter: phi={model_info['phi']}")
-```
+damped_df = ETSGenerator(
+    engine="polars", min_length=120, max_length=120, freq="ME",
+    error_type="add", trend_type="add", seasonal_type="add", damped=True, phi=0.9,
+    seasonal_period=12, level=100.0, trend=1.0, noise_std=2.0, seed=42,
+).generate(n_series=1)
 
-``` text
-Model: ETS(A,Ad,A)
-Initial level: 100.0
-Initial trend: 0.5
-Smoothing parameters: alpha=0.3, beta=0.1, gamma=0.1
-Damping parameter: phi=0.95
-```
+multiplicative_df = ETSGenerator(
+    engine="polars", min_length=120, max_length=120, freq="ME",
+    error_type="mul", trend_type="add", seasonal_type="mul",
+    seasonal_period=12, level=100.0, trend=1.0, noise_std=0.02, seed=42,
+).generate(n_series=1)
 
-### Generate and inspect data
+level_only_df = ETSGenerator(
+    engine="polars", min_length=120, max_length=120, freq="ME",
+    error_type="add", trend_type=None, seasonal_type=None,
+    level=100.0, noise_std=2.0, seed=42,
+).generate(n_series=1)
 
-```python
-df = generator.generate(n_series=3)
-print(f"Generated {df['unique_id'].n_unique()} time series")
-print(f"Total observations: {len(df)}")
-df.head(10)
-```
-
-``` text
-Generated 3 time series
-Total observations: 600
-```
-
-| unique_id | ds                  | y          |
-|-----------|---------------------|------------|
-| cat       | datetime\[ns\]      | f64        |
-| "0"       | 2000-01-01 00:00:00 | 100.240791 |
-| "0"       | 2000-01-02 00:00:00 | 95.591069  |
-| "0"       | 2000-01-03 00:00:00 | 97.083479  |
-| "0"       | 2000-01-04 00:00:00 | 99.609554  |
-| "0"       | 2000-01-05 00:00:00 | 98.526403  |
-| "0"       | 2000-01-06 00:00:00 | 103.635379 |
-| "0"       | 2000-01-07 00:00:00 | 107.23276  |
-| "0"       | 2000-01-08 00:00:00 | 103.376507 |
-| "0"       | 2000-01-09 00:00:00 | 94.880221  |
-| "0"       | 2000-01-10 00:00:00 | 99.409027  |
-
-```python
-fig, ax = plt.subplots(figsize=(12, 4))
-for uid in df["unique_id"].unique().to_list():
-    series = df.filter(pl.col("unique_id") == uid)
-    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Value")
-ax.set_title("ETS(A,Ad,A) Damped Additive Holt-Winters")
-ax.legend()
+panels = [
+    ("ETS(A,Ad,A) damped additive Holt-Winters", damped_df),
+    ("ETS(M,A,M) multiplicative Holt-Winters", multiplicative_df),
+    ("ETS(A,N,N) simple exponential smoothing", level_only_df),
+]
+fig, axes = plt.subplots(3, 1, figsize=(12, 7.5), sharex=True)
+for ax, (label, df) in zip(axes, panels):
+    ax.plot(df["ds"].to_list(), df["y"].to_list(), alpha=0.85, linewidth=1)
+    ax.set(ylabel="Value", title=label)
+axes[-1].set_xlabel("Timestamp")
 plt.tight_layout()
 plt.show()
+
 ```
 
-![](./ets_files/figure-markdown_strict/cell-6-output-1.png)
+![](./ets_files/figure-markdown_strict/cell-3-output-1.png)
 
-### Statistics by series
-
-```python
-df.group_by("unique_id").agg(
-    [
-        pl.col("y").count().alias("count"),
-        pl.col("y").min().alias("min_value"),
-        pl.col("y").max().alias("max_value"),
-        pl.col("y").mean().alias("mean_value"),
-        pl.col("y").std().alias("std_value"),
-    ]
-).sort("unique_id")
-```
-
-| unique_id | count | min_value | max_value  | mean_value | std_value |
-|-----------|-------|-----------|------------|------------|-----------|
-| cat       | u32   | f64       | f64        | f64        | f64       |
-| "0"       | 200   | 89.114448 | 123.364807 | 105.517095 | 8.448336  |
-| "1"       | 200   | 40.87026  | 111.131822 | 66.927617  | 19.298572 |
-| "2"       | 200   | 95.571068 | 149.87852  | 126.124841 | 12.339277 |
-
-## Example 2: ETS(A,A,A) with state export
+## 2. State export
 
 Generate data and extract the underlying level, trend, and seasonal
 state components.
@@ -167,13 +103,13 @@ for uid in obs_df["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("ETS(A,A,A) with State Export")
+ax.set_title("ETS(A,A,A) with state export")
 ax.legend()
 plt.tight_layout()
 plt.show()
 ```
 
-![](./ets_files/figure-markdown_strict/cell-9-output-1.png)
+![](./ets_files/figure-markdown_strict/cell-5-output-1.png)
 
 ```python
 print("Observations DataFrame:")
@@ -221,125 +157,7 @@ States DataFrame (level, trend, seasonal components):
 | "0"       | 2000-01-09 00:00:00 | 108.69262  | 1.213188 | 1.18363    | -2.183953  | 1.929618   | 0.490563   | -5.551504  | 3.19177    | 1.153064   |
 | "0"       | 2000-01-10 00:00:00 | 109.64802  | 1.127259 | 1.18363    | -2.269882  | 1.929618   | 0.490563   | -5.551504  | 3.19177    | 1.153064   |
 
-## Example 3: Multiplicative Holt-Winters ETS(M,A,M)
-
-A multiplicative error and seasonal model with monthly frequency. All
-values remain positive.
-
-```python
-params_mul = {
-    "min_length": 200,
-    "max_length": 200,
-    "freq": "MS",
-    "error_type": "mul",
-    "trend_type": "add",
-    "seasonal_type": "mul",
-    "seasonal_period": 12,
-    "level": 100.0,
-    "trend": 1.0,
-    "alpha": 0.3,
-    "beta": 0.1,
-    "gamma": 0.1,
-    "noise_std": 0.1,
-    "seed": 456,
-}
-
-generator_mul = ETSGenerator(engine="polars", **params_mul)
-df_mul = generator_mul.generate(n_series=1)
-
-print(f"Model: {generator_mul.get_model_info()['model']}")
-print(f"All values positive: {(df_mul['y'] > 0).all()}")
-df_mul.head(12)
-```
-
-``` text
-Model: ETS(M,A,M)
-All values positive: True
-```
-
-| unique_id | ds                  | y          |
-|-----------|---------------------|------------|
-| cat       | datetime\[ns\]      | f64        |
-| "0"       | 2000-01-01 00:00:00 | 111.065496 |
-| "0"       | 2000-02-01 00:00:00 | 114.629555 |
-| "0"       | 2000-03-01 00:00:00 | 89.217158  |
-| "0"       | 2000-04-01 00:00:00 | 128.916366 |
-| "0"       | 2000-05-01 00:00:00 | 147.608714 |
-| …         | …                   | …          |
-| "0"       | 2000-08-01 00:00:00 | 146.908144 |
-| "0"       | 2000-09-01 00:00:00 | 108.879508 |
-| "0"       | 2000-10-01 00:00:00 | 159.118308 |
-| "0"       | 2000-11-01 00:00:00 | 118.266366 |
-| "0"       | 2000-12-01 00:00:00 | 119.364213 |
-
-```python
-fig, ax = plt.subplots(figsize=(12, 4))
-for uid in df_mul["unique_id"].unique().to_list():
-    series = df_mul.filter(pl.col("unique_id") == uid)
-    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Value")
-ax.set_title("ETS(M,A,M) Multiplicative Holt-Winters")
-ax.legend()
-plt.tight_layout()
-plt.show()
-```
-
-![](./ets_files/figure-markdown_strict/cell-13-output-1.png)
-
-## Example 4: Simple exponential smoothing ETS(A,N,N)
-
-A model with no trend and no seasonality — just level smoothing with
-additive errors.
-
-```python
-params_ses = {
-    "min_length": 100,
-    "max_length": 100,
-    "freq": "D",
-    "error_type": "add",
-    "trend_type": None,
-    "seasonal_type": None,
-    "level": 50.0,
-    "alpha": 0.2,
-    "noise_std": 5.0,
-    "seed": 789,
-}
-
-generator_ses = ETSGenerator(engine="polars", **params_ses)
-df_ses = generator_ses.generate(n_series=1)
-
-print(f"Model: {generator_ses.get_model_info()['model']}")
-print(f"Mean: {df_ses['y'].mean():.2f}")
-print(f"Std: {df_ses['y'].std():.2f}")
-print(f"Min: {df_ses['y'].min():.2f}")
-print(f"Max: {df_ses['y'].max():.2f}")
-```
-
-``` text
-Model: ETS(A,N,N)
-Mean: 55.54
-Std: 6.25
-Min: 39.97
-Max: 69.52
-```
-
-```python
-fig, ax = plt.subplots(figsize=(12, 4))
-for uid in df_ses["unique_id"].unique().to_list():
-    series = df_ses.filter(pl.col("unique_id") == uid)
-    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Value")
-ax.set_title("ETS(A,N,N) Simple Exponential Smoothing")
-ax.legend()
-plt.tight_layout()
-plt.show()
-```
-
-![](./ets_files/figure-markdown_strict/cell-15-output-1.png)
-
-## Example 5: ETS with Box-Cox transformation
+## 3. Box-Cox transformation
 
 Apply a Box-Cox transformation (lambda=0.5, square root) to the
 generated series.
@@ -384,13 +202,13 @@ for uid in df_boxcox["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("ETS with Box-Cox Transformation")
+ax.set_title("ETS with Box-Cox transformation")
 ax.legend()
 plt.tight_layout()
 plt.show()
 ```
 
-![](./ets_files/figure-markdown_strict/cell-17-output-1.png)
+![](./ets_files/figure-markdown_strict/cell-9-output-1.png)
 
 > **Related generators**
 >

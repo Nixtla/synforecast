@@ -65,7 +65,7 @@ fig, ax = plt.subplots(figsize=(12, 4))
 ax.plot(df["ds"].to_list(), df["y"].to_list(), alpha=0.8, linewidth=0.5)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Heart Rate (bpm)")
-ax.set_title("Heart Rate - Healthy Patient (24 Hours)")
+ax.set_title("Heart rate — healthy patient (24 hours)")
 plt.tight_layout()
 plt.show()
 ```
@@ -114,7 +114,7 @@ for ax, ptype in zip(axes, patient_types):
     ax.set_ylabel("HR (bpm)")
     ax.set_title(ptype)
 plt.xlabel("Timestamp")
-plt.suptitle("Heart Rate by Patient Type")
+plt.suptitle("Heart rate by patient type")
 plt.tight_layout()
 plt.show()
 ```
@@ -173,7 +173,7 @@ for ax, col in zip(axes.flat, vital_cols):
     ax.set_title(col.replace("_", " ").title())
     ax.set_xlabel("Timestamp")
     ax.tick_params(axis="x", rotation=45)
-plt.suptitle("All Vital Signs - Sepsis Patient (8 Hours)", fontsize=14)
+plt.suptitle("All vital signs — sepsis patient (8 hours)", fontsize=14)
 plt.tight_layout()
 plt.show()
 ```

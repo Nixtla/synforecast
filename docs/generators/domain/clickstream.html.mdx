@@ -73,8 +73,8 @@ Total hourly observations: 504
 | unique_id | total_sessions | avg_per_hour | peak_hour |
 |-----------|----------------|--------------|-----------|
 | cat       | f64            | f64          | f64       |
-| "1"       | 97112.0        | 578.047619   | 1149.0    |
 | "0"       | 97521.0        | 580.482143   | 1246.0    |
+| "1"       | 97112.0        | 578.047619   | 1149.0    |
 | "2"       | 100944.0       | 600.857143   | 1218.0    |
 
 ```python
@@ -84,7 +84,7 @@ for uid in df["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Sessions")
-ax.set_title("Clickstream Sessions (1 Week Hourly)")
+ax.set_title("Clickstream sessions (1 week hourly)")
 ax.legend()
 plt.tight_layout()
 plt.show()
@@ -177,7 +177,7 @@ for ax, (col, title) in zip(axes.flat, metrics):
     ax.set_ylabel(title)
     ax.set_title(title)
     ax.tick_params(axis="x", rotation=45)
-plt.suptitle("Full Web Analytics Metrics", fontsize=14)
+plt.suptitle("Full web analytics metrics", fontsize=14)
 plt.tight_layout()
 plt.show()
 ```
@@ -229,7 +229,7 @@ bars = ax.barh(stages[::-1], counts[::-1], color=plt.cm.Blues(
 for bar, count in zip(bars, counts[::-1]):
     ax.text(bar.get_width() + 50, bar.get_y() + bar.get_height() / 2, f"{count:,}", va="center")
 ax.set_xlabel("Count")
-ax.set_title("Conversion Funnel")
+ax.set_title("Conversion funnel")
 plt.tight_layout()
 plt.show()
 ```

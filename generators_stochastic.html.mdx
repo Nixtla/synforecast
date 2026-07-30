@@ -9,7 +9,7 @@ Bases: <code>[BaseGenerator](#synforecast.base.BaseGenerator)</code>
 
 Generate return series from a GARCH(p, q) model.
 
-The model is `r_t = mu + eps_t` with `eps_t = sigma_t * z_t` and
+The model is ``r_t = mu + eps_t`` with ``eps_t = sigma_t * z_t`` and
 conditional variance
 
 ```
@@ -17,8 +17,8 @@ sigma2_t = omega + sum_i alpha_i * eps_{t-i}^2
                  + sum_j beta_j * sigma2_{t-j}
 ```
 
-Stationarity requires `sum(alpha) + sum(beta) < 1`, giving an
-unconditional variance of `omega / (1 - sum(alpha) - sum(beta))`.
+Stationarity requires ``sum(alpha) + sum(beta) < 1``, giving an
+unconditional variance of ``omega / (1 - sum(alpha) - sum(beta))``.
 Squared returns are positively autocorrelated (volatility clustering)
 while the returns themselves are serially uncorrelated.
 
@@ -28,15 +28,15 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) &#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer time step. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer time step. | *required*
 `p` | <code>[int](#int)</code> | GARCH order (number of variance lags, default: 1). | *required*
 `q` | <code>[int](#int)</code> | ARCH order (number of squared-innovation lags, default: 1). | *required*
 `omega` | <code>[float](#float)</code> | Constant term in the variance equation (default: 0.1). | *required*
-`alpha` | <code>[list](#list)\[[float](#float)\] &#124; None</code> | ARCH coefficients; auto-generated when None. | *required*
-`beta` | <code>[list](#list)\[[float](#float)\] &#124; None</code> | GARCH coefficients; auto-generated when None. | *required*
+`alpha` | <code>[list](#list)[[float](#float)] \| None</code> | ARCH coefficients; auto-generated when None. | *required*
+`beta` | <code>[list](#list)[[float](#float)] \| None</code> | GARCH coefficients; auto-generated when None. | *required*
 `mu` | <code>[float](#float)</code> | Mean of returns (default: 0.0). | *required*
 `initial_variance` | <code>[float](#float)</code> | Variance used to start the recursion (default: 1.0). A 100-step burn-in removes its influence. | *required*
-`seed` | <code>[int](#int) &#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `GARCHGenerator.generate_single_series`
 
@@ -56,7 +56,8 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values
+
 
 ### `OrnsteinUhlenbeckGenerator`
 
@@ -72,14 +73,14 @@ dX_t = theta * (mu - X_t) * dt + sigma * dW_t
 ```
 
 Simulated with the Euler-Maruyama scheme
-`X_t = X_{t-1} + theta * (mu - X_{t-1}) * dt + sigma * sqrt(dt) * z_t`,
-where `z_t` are unit-variance draws from `innovation_distribution`.
-This is an AR(1) process with coefficient `phi = 1 - theta * dt`,
-stationary mean `mu`, stationary variance
-`sigma^2 * dt / (1 - phi^2)` (which approaches the continuous-time
-`sigma^2 / (2 * theta)` as dt -> 0), and lag-1 autocorrelation `phi`.
-Stability requires `theta * dt < 2`. `dt` is the model time per
-observation and is independent of `freq`.
+``X_t = X_{t-1} + theta * (mu - X_{t-1}) * dt + sigma * sqrt(dt) * z_t``,
+where ``z_t`` are unit-variance draws from ``innovation_distribution``.
+This is an AR(1) process with coefficient ``phi = 1 - theta * dt``,
+stationary mean ``mu``, stationary variance
+``sigma^2 * dt / (1 - phi^2)`` (which approaches the continuous-time
+``sigma^2 / (2 * theta)`` as dt -> 0), and lag-1 autocorrelation ``phi``.
+Stability requires ``theta * dt < 2``. ``dt`` is the model time per
+observation and is independent of ``freq``.
 
 **Parameters:**
 
@@ -87,13 +88,13 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) &#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
-`theta` | <code>[float](#float)</code> | Speed of mean reversion, must satisfy `theta * dt < 2` (default: 0.5). | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
+`theta` | <code>[float](#float)</code> | Speed of mean reversion, must satisfy ``theta * dt < 2`` (default: 0.5). | *required*
 `mu` | <code>[float](#float)</code> | Long-term mean (default: 0.0). | *required*
 `sigma` | <code>[float](#float)</code> | Volatility (default: 1.0). | *required*
 `initial_value` | <code>[float](#float)</code> | Initial value X_0 (default: 0.0). | *required*
 `dt` | <code>[float](#float)</code> | Model time step per observation (default: 1.0). | *required*
-`seed` | <code>[int](#int) &#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `OrnsteinUhlenbeckGenerator.generate_single_series`
 
@@ -113,7 +114,8 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values.
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values.
+
 
 ### `GeometricBrownianMotionGenerator`
 
@@ -128,13 +130,13 @@ dS_t = mu * S_t * dt + sigma * S_t * dW_t
 ```
 
 Simulated via the exact solution of the SDE,
-`S_t = S_{t-1} * exp((mu - sigma^2/2) * dt + sigma * sqrt(dt) * z_t)`,
-where `z_t` are unit-variance draws from `innovation_distribution`
-(exact for normal innovations). `dt` is the model time per observation
-and is independent of `freq`: with annualized `mu`/`sigma`, daily
-observations correspond to `dt=1/252`. Note that the default
-`dt=1.0` treats `mu` and `sigma` as per-step rates; long series
-with a large `mu * dt` grow explosively.
+``S_t = S_{t-1} * exp((mu - sigma^2/2) * dt + sigma * sqrt(dt) * z_t)``,
+where ``z_t`` are unit-variance draws from ``innovation_distribution``
+(exact for normal innovations). ``dt`` is the model time per observation
+and is independent of ``freq``: with annualized ``mu``/``sigma``, daily
+observations correspond to ``dt=1/252``. Note that the default
+``dt=1.0`` treats ``mu`` and ``sigma`` as per-step rates; long series
+with a large ``mu * dt`` grow explosively.
 
 **Parameters:**
 
@@ -142,12 +144,12 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) &#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
 `mu` | <code>[float](#float)</code> | Drift per unit of model time (default: 0.05). | *required*
 `sigma` | <code>[float](#float)</code> | Volatility per sqrt unit of model time (default: 0.2). | *required*
 `initial_value` | <code>[float](#float)</code> | Initial value S_0, must be > 0 (default: 100.0). | *required*
 `dt` | <code>[float](#float)</code> | Model time step per observation (default: 1.0). | *required*
-`seed` | <code>[int](#int) &#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `GeometricBrownianMotionGenerator.generate_single_series`
 
@@ -167,7 +169,8 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values.
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values.
+
 
 ### `JumpDiffusionGenerator`
 
@@ -184,14 +187,14 @@ dS_t = mu * S_t * dt + sigma * S_t * dW_t + S_{t-} * dJ_t
 ```
 
 Each step multiplies the price by
-`exp((mu - sigma^2/2) * dt + sigma * sqrt(dt) * z_t + sum_k Y_k)` with
-`N_t ~ Poisson(lambda_jump * dt)` jumps of log-size
-`Y_k = jump_mean + jump_std * eps_k`. Both `z_t` and `eps_k` are
-unit-variance draws from `innovation_distribution` (normal by default,
+``exp((mu - sigma^2/2) * dt + sigma * sqrt(dt) * z_t + sum_k Y_k)`` with
+``N_t ~ Poisson(lambda_jump * dt)`` jumps of log-size
+``Y_k = jump_mean + jump_std * eps_k``. Both ``z_t`` and ``eps_k`` are
+unit-variance draws from ``innovation_distribution`` (normal by default,
 giving Merton's log-normal jumps). The drift is not compensated for
 jumps, so the expected log-return per step is
-`(mu - sigma^2/2) * dt + lambda_jump * dt * jump_mean`. `dt` is the
-model time per observation and is independent of `freq`.
+``(mu - sigma^2/2) * dt + lambda_jump * dt * jump_mean``. ``dt`` is the
+model time per observation and is independent of ``freq``.
 
 **Parameters:**
 
@@ -199,7 +202,7 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) &#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
 `mu` | <code>[float](#float)</code> | Drift per unit of model time (default: 0.05). | *required*
 `sigma` | <code>[float](#float)</code> | Diffusion volatility (default: 0.2). | *required*
 `lambda_jump` | <code>[float](#float)</code> | Jump intensity, expected jumps per unit of model time (default: 0.1). | *required*
@@ -207,7 +210,7 @@ Name | Type | Description | Default
 `jump_std` | <code>[float](#float)</code> | Std of jump size in log-price (default: 0.1). | *required*
 `initial_value` | <code>[float](#float)</code> | Initial value S_0, must be > 0 (default: 100.0). | *required*
 `dt` | <code>[float](#float)</code> | Model time step per observation (default: 1.0). | *required*
-`seed` | <code>[int](#int) &#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `JumpDiffusionGenerator.generate_single_series`
 
@@ -227,7 +230,8 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values.
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values.
+
 
 ### `PoissonProcessGenerator`
 
@@ -247,10 +251,10 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series | *required*
-`freq` | <code>[str](#str) &#124; [int](#int)</code> | Frequency of the data (e.g. 'D', 'h', '5min') or int | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data (e.g. 'D', 'h', '5min') or int | *required*
 `lambda_rate` | <code>[float](#float)</code> | Expected events per time step (default: 5.0) | *required*
 `cumulative` | <code>[bool](#bool)</code> | Return cumulative counts (default: False) | *required*
-`seed` | <code>[int](#int) &#124; None</code> | Random seed for reproducibility (default: None) | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None) | *required*
 
 #### `PoissonProcessGenerator.generate_single_series`
 
@@ -270,7 +274,8 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values (counts per time period)
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values (counts per time period)
+
 
 ### `CyclicGenerator`
 
@@ -279,12 +284,12 @@ Bases: <code>[BaseGenerator](#synforecast.base.BaseGenerator)</code>
 Generate time series with irregular cyclic patterns.
 
 Models business cycles and economic indicators: a linear trend plus
-`num_cycles` superposed sinusoids whose periods and amplitudes are
+``num_cycles`` superposed sinusoids whose periods and amplitudes are
 drawn once per series (period ~ |N(period_mean, period_std)|,
 amplitude ~ N(amplitude_mean, amplitude_std)), plus additive noise drawn
-from the configured `innovation_distribution`.
+from the configured ``innovation_distribution``.
 Each sinusoid's instantaneous frequency is slowly modulated (+-20%
-around 2\*pi/period, integrated as a cumulative phase), so cycle
+around 2*pi/period, integrated as a cumulative phase), so cycle
 lengths vary within a series, unlike regular seasonal patterns.
 
 **Parameters:**
@@ -318,7 +323,8 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values
+
 
 ### `FractionalBrownianMotionGenerator`
 
@@ -331,10 +337,11 @@ controls long-range dependence:
 
 - H = 0.5: standard Brownian motion (independent increments)
 - H > 0.5: persistent/trending (positively correlated increments)
-- H < 0.5: anti-persistent/mean-reverting (negatively correlated)
+- H &lt; 0.5: anti-persistent/mean-reverting (negatively correlated)
 
 The increments (fractional Gaussian noise, fGn) are stationary with
-autocovariance `gamma(k) = (sigma^2/2) * (|k+1|^{2H} - 2|k|^{2H} + |k-1|^{2H})`, and the path satisfies `Var(B_H(t)) = sigma^2 * t^{2H}`.
+autocovariance ``gamma(k) = (sigma^2/2) * (|k+1|^&#123;2H&#125; - 2|k|^&#123;2H&#125; +
+|k-1|^&#123;2H&#125;)``, and the path satisfies ``Var(B_H(t)) = sigma^2 * t^&#123;2H&#125;``.
 
 <details class="warning" open markdown="1">
 <summary>Warning</summary>
@@ -358,14 +365,14 @@ Name | Type | Description | Default
 <details class="example" open markdown="1">
 <summary>Example</summary>
 
-> > > gen = FractionalBrownianMotionGenerator(
-> > > ... min_length=100,
-> > > ... max_length=200,
-> > > ... freq="D",
-> > > ... hurst=0.8, # H > 0.5: trending
-> > > ... seed=42,
-> > > ... )
-> > > df = gen.generate(n_series=10)
+>>> gen = FractionalBrownianMotionGenerator(
+...     min_length=100,
+...     max_length=200,
+...     freq="D",
+...     hurst=0.8,  # H > 0.5: trending
+...     seed=42,
+... )
+>>> df = gen.generate(n_series=10)
 
 </details>
 
@@ -387,7 +394,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: fBm path values (or fGn increments if return_increments=True).
+<code>[ndarray](#numpy.ndarray)</code> | fBm path values (or fGn increments if return_increments=True).
 
 #### `FractionalBrownianMotionGenerator.get_model_info`
 
@@ -414,9 +421,10 @@ Name | Type | Description | Default
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`float` | <code>[float](#float)</code> | Estimated Hurst exponent, clipped to [0.01, 0.99].
+Type | Description
+---- | -----------
+<code>[float](#float)</code> | Estimated Hurst exponent, clipped to [0.01, 0.99].
+
 
 ### `HawkesProcessGenerator`
 
@@ -440,7 +448,7 @@ with baseline intensity mu and excitation kernel g. Supported kernels:
   ratio n = alpha / (beta * (p - 1))
 ```
 
-Stability requires n < 1; the long-run event rate is then mu / (1 - n)
+Stability requires n &lt; 1; the long-run event rate is then mu / (1 - n)
 events per time step, and each event spawns on average 1 / (1 - n)
 events (itself included) in its cluster. Time is measured in steps of
 `freq`, so mu and beta are per-step quantities.
@@ -454,7 +462,7 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series | *required*
-`freq` | <code>[str](#str) &#124; [int](#int)</code> | Frequency of the data (e.g. 'D', 'h', '5min') or int | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Frequency of the data (e.g. 'D', 'h', '5min') or int | *required*
 `baseline_intensity` | <code>[float](#float)</code> | Background event rate mu per time step (default: 1.0) | *required*
 `excitation_amplitude` | <code>[float](#float)</code> | Jump in intensity per event alpha (default: 0.5) | *required*
 `decay_rate` | <code>[float](#float)</code> | Rate of intensity decay beta (default: 1.0) | *required*
@@ -462,21 +470,21 @@ Name | Type | Description | Default
 `power_law_exponent` | <code>[float](#float)</code> | Exponent p for the power-law kernel, must be > 1 (default: 1.5) | *required*
 `output_type` | <code>[str](#str)</code> | 'counts' (events per bin), 'intensity' (lambda at bin midpoints), or 'events' (0/1 indicator per bin) (default: 'counts') | *required*
 `max_events` | <code>[int](#int)</code> | Maximum events to simulate per series (default: 10000) | *required*
-`seed` | <code>[int](#int) &#124; None</code> | Random seed for reproducibility (default: None) | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None) | *required*
 
 <details class="example" open markdown="1">
 <summary>Example</summary>
 
-> > > gen = HawkesProcessGenerator(
-> > > ... min_length=100,
-> > > ... max_length=200,
-> > > ... freq="h",
-> > > ... baseline_intensity=0.5,
-> > > ... excitation_amplitude=0.3,
-> > > ... decay_rate=2.0,
-> > > ... seed=42,
-> > > ... )
-> > > df = gen.generate(n_series=10)
+>>> gen = HawkesProcessGenerator(
+...     min_length=100,
+...     max_length=200,
+...     freq="h",
+...     baseline_intensity=0.5,
+...     excitation_amplitude=0.3,
+...     decay_rate=2.0,
+...     seed=42,
+... )
+>>> df = gen.generate(n_series=10)
 
 </details>
 
@@ -498,7 +506,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of values (counts, intensity, or event indicator)
+<code>[ndarray](#numpy.ndarray)</code> | Array of values (counts, intensity, or event indicator)
 
 #### `HawkesProcessGenerator.simulate_with_events`
 
@@ -516,9 +524,9 @@ Name | Type | Description | Default
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`tuple` | <code>[tuple](#tuple)\[[ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray)\]</code> | (event_times, intensity_at_events)
+Type | Description
+---- | -----------
+<code>[tuple](#tuple)[[ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray)]</code> | (event_times, intensity_at_events)
 
 #### `HawkesProcessGenerator.get_model_info`
 
@@ -530,9 +538,9 @@ Get information about the Hawkes process model.
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`dict` | <code>[dict](#dict)</code> | Model parameters and characteristics
+Type | Description
+---- | -----------
+<code>[dict](#dict)</code> | Model parameters and characteristics
 
 #### `HawkesProcessGenerator.estimate_parameters`
 
@@ -556,9 +564,10 @@ Name | Type | Description | Default
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`dict` | <code>[dict](#dict)</code> | Estimated parameters
+Type | Description
+---- | -----------
+<code>[dict](#dict)</code> | Estimated parameters
+
 
 ### `StochasticVolatilityGenerator`
 
@@ -585,7 +594,7 @@ Corr(dW1, dW2) = rho
 Both are simulated with Euler-Maruyama; the Heston variance uses a
 truncation scheme (floored at a small positive value) so the discretized
 variance stays positive even when the Feller condition
-`2 * kappa * theta > sigma_v^2` is violated. Negative `rho` produces
+``2 * kappa * theta > sigma_v^2`` is violated. Negative ``rho`` produces
 the leverage effect (volatility rises when prices fall).
 
 **Parameters:**
@@ -594,7 +603,7 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) &#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
 `model` | <code>[str](#str)</code> | 'heston' or 'sabr' (default: 'heston'). | *required*
 `initial_price` | <code>[float](#float)</code> | Starting price S0 (default: 100.0). | *required*
 `initial_vol` | <code>[float](#float)</code> | Starting variance V0; SABR uses sqrt(initial_vol) as its starting volatility sigma0 (default: 0.04). | *required*
@@ -606,21 +615,21 @@ Name | Type | Description | Default
 `beta` | <code>[float](#float)</code> | CEV exponent in [0, 1] (SABR only; 0=normal, 1=lognormal, default: 0.5). | *required*
 `dt` | <code>[float](#float)</code> | Time step for discretization (default: 1/252). | *required*
 `output_type` | <code>[str](#str)</code> | 'price', 'returns' (log returns), or 'volatility' (default: 'price'). | *required*
-`seed` | <code>[int](#int) &#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 <details class="example" open markdown="1">
 <summary>Example</summary>
 
-> > > gen = StochasticVolatilityGenerator(
-> > > ... min_length=252,
-> > > ... max_length=252,
-> > > ... freq="D",
-> > > ... model="heston",
-> > > ... initial_price=100.0,
-> > > ... correlation=-0.7, # Leverage effect
-> > > ... seed=42,
-> > > ... )
-> > > df = gen.generate(n_series=10)
+>>> gen = StochasticVolatilityGenerator(
+...     min_length=252,
+...     max_length=252,
+...     freq="D",
+...     model="heston",
+...     initial_price=100.0,
+...     correlation=-0.7,  # Leverage effect
+...     seed=42,
+... )
+>>> df = gen.generate(n_series=10)
 
 </details>
 
@@ -642,7 +651,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of values (price, returns, or volatility)
+<code>[ndarray](#numpy.ndarray)</code> | Array of values (price, returns, or volatility)
 
 #### `StochasticVolatilityGenerator.generate_with_volatility`
 
@@ -661,9 +670,9 @@ Name | Type | Description | Default
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`tuple` | <code>[tuple](#tuple)\[[ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray)\]</code> | (prices, volatilities, series_ids) arrays
+Type | Description
+---- | -----------
+<code>[tuple](#tuple)[[ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray)]</code> | (prices, volatilities, series_ids) arrays
 
 #### `StochasticVolatilityGenerator.get_model_info`
 
@@ -675,9 +684,9 @@ Get information about the stochastic volatility model.
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`dict` | <code>[dict](#dict)</code> | Model parameters and characteristics
+Type | Description
+---- | -----------
+<code>[dict](#dict)</code> | Model parameters and characteristics
 
 #### `StochasticVolatilityGenerator.implied_volatility_smile`
 
@@ -703,6 +712,7 @@ Type | Description
 ---- | -----------
 <code>[ndarray](#numpy.ndarray)</code> | Array of implied volatilities
 
+
 ### `RegimeSwitchingGenerator`
 
 Bases: <code>[BaseGenerator](#synforecast.base.BaseGenerator)</code>
@@ -726,29 +736,29 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) &#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
 `n_regimes` | <code>[int](#int)</code> | Number of regimes/states (default: 2). | *required*
-`regime_means` | <code>[list](#list)\[[float](#float)\] &#124; None</code> | Mean per regime (default: spread across levels). | *required*
-`regime_variances` | <code>[list](#list)\[[float](#float)\] &#124; None</code> | Variance per regime (default: linspace(0.5, 2.0)). | *required*
-`regime_ar_coeffs` | <code>[list](#list)\[[float](#float)\] &#124; None</code> | AR(1) coefficient per regime, each |phi| < 1 (default: 0). | *required*
-`transition_matrix` | <code>[list](#list)\[[list](#list)\[[float](#float)\]\] &#124; None</code> | Row-stochastic regime transition matrix (default: 0.95 self-transition probability). | *required*
-`initial_regime` | <code>[int](#int) &#124; None</code> | Starting regime, 0-indexed (default: drawn from the stationary distribution). | *required*
-`seed` | <code>[int](#int) &#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`regime_means` | <code>[list](#list)[[float](#float)] \| None</code> | Mean per regime (default: spread across levels). | *required*
+`regime_variances` | <code>[list](#list)[[float](#float)] \| None</code> | Variance per regime (default: linspace(0.5, 2.0)). | *required*
+`regime_ar_coeffs` | <code>[list](#list)[[float](#float)] \| None</code> | AR(1) coefficient per regime, each |phi| &lt; 1 (default: 0). | *required*
+`transition_matrix` | <code>[list](#list)[[list](#list)[[float](#float)]] \| None</code> | Row-stochastic regime transition matrix (default: 0.95 self-transition probability). | *required*
+`initial_regime` | <code>[int](#int) \| None</code> | Starting regime, 0-indexed (default: drawn from the stationary distribution). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 <details class="example" open markdown="1">
 <summary>Example</summary>
 
-> > > gen = RegimeSwitchingGenerator(
-> > > ... min_length=100,
-> > > ... max_length=200,
-> > > ... freq="D",
-> > > ... n_regimes=2,
-> > > ... regime_means=[0.0, 5.0],
-> > > ... regime_variances=[1.0, 4.0],
-> > > ... transition_matrix=\[[0.95, 0.05], [0.10, 0.90]\],
-> > > ... seed=42,
-> > > ... )
-> > > df = gen.generate(n_series=10)
+>>> gen = RegimeSwitchingGenerator(
+...     min_length=100,
+...     max_length=200,
+...     freq="D",
+...     n_regimes=2,
+...     regime_means=[0.0, 5.0],
+...     regime_variances=[1.0, 4.0],
+...     transition_matrix=[[0.95, 0.05], [0.10, 0.90]],
+...     seed=42,
+... )
+>>> df = gen.generate(n_series=10)
 
 </details>
 
@@ -770,7 +780,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values
 
 #### `RegimeSwitchingGenerator.generate_with_regimes`
 
@@ -789,9 +799,9 @@ Name | Type | Description | Default
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`tuple` | <code>[tuple](#tuple)\[[ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray)\]</code> | (values, regimes, series_ids) arrays
+Type | Description
+---- | -----------
+<code>[tuple](#tuple)[[ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray)]</code> | (values, regimes, series_ids) arrays
 
 #### `RegimeSwitchingGenerator.get_model_info`
 
@@ -803,9 +813,10 @@ Get information about the regime-switching model.
 
 **Returns:**
 
-Name | Type | Description
----- | ---- | -----------
-`dict` | <code>[dict](#dict)</code> | Model parameters and characteristics
+Type | Description
+---- | -----------
+<code>[dict](#dict)</code> | Model parameters and characteristics
+
 
 ### `ChaoticSystemGenerator`
 
@@ -820,14 +831,15 @@ perturbation of the initial condition and optional observation noise.
 <details class="systems" open markdown="1">
 <summary>Systems</summary>
 
-- lorenz: Lorenz attractor `x' = sigma(y-x), y' = x(rho-z) - y, z' = xy - beta*z`, integrated with RK4 and sampled every
+- lorenz: Lorenz attractor ``x' = sigma(y-x), y' = x(rho-z) - y,
+  z' = xy - beta*z``, integrated with RK4 and sampled every
   1/dt steps (one time unit per observation); the x-component is
   returned.
-- logistic: Logistic map `x_{n+1} = r * x_n * (1 - x_n)`
+- logistic: Logistic map ``x_{n+1} = r * x_n * (1 - x_n)``
   (chaotic for r ~ 3.57..4; for r=4 the invariant density is
   Beta(1/2, 1/2)).
 - mackey_glass: Mackey-Glass delay differential equation
-  `x' = beta * x(t-tau) / (1 + x(t-tau)^n) - gamma * x`,
+  ``x' = beta * x(t-tau) / (1 + x(t-tau)^n) - gamma * x``,
   Euler-integrated with unit step (chaotic for tau >= 17 at the
   default parameters).
 
@@ -868,7 +880,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values.
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values.
 
 #### `ChaoticSystemGenerator.get_model_info`
 
@@ -877,6 +889,7 @@ get_model_info()
 ```
 
 Return information about the chaotic system configuration.
+
 
 ### `BoundedProcessGenerator`
 
@@ -892,11 +905,11 @@ probabilities, and other bounded quantities.
 <summary>Models</summary>
 
 - beta_ar: Beta AR(1) via conditional mean parameterization.
-  mu_t = omega + phi * x\_&#123;t-1&#125;, x_t ~ Beta(mu_t * kappa,
-  (1 - mu_t) * kappa), so E[x_t | x\_&#123;t-1&#125;] = mu_t and the stationary
+  mu_t = omega + phi * x_&#123;t-1&#125;, x_t ~ Beta(mu_t * kappa,
+  (1 - mu_t) * kappa), so E[x_t | x_&#123;t-1&#125;] = mu_t and the stationary
   mean is omega / (1 - phi).
 - logit_normal: AR(1) on the logit scale, sigmoid-transformed back:
-  z_t = phi * z\_&#123;t-1&#125; + sigma * eps_t, x_t = sigmoid(z_t).
+  z_t = phi * z_&#123;t-1&#125; + sigma * eps_t, x_t = sigmoid(z_t).
 
 </details>
 
@@ -906,16 +919,16 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) &#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min') or an integer time step. | *required*
 `model` | <code>[str](#str)</code> | 'beta_ar' or 'logit_normal' (default: 'beta_ar'). | *required*
 `phi` | <code>[float](#float)</code> | AR coefficient in [-1, 1] (default: 0.8). | *required*
-`omega` | <code>[float](#float)</code> | Intercept of the beta_ar conditional mean (default: 0.1). Must satisfy 0 < omega + phi * x < 1 for x in (0, 1). | *required*
+`omega` | <code>[float](#float)</code> | Intercept of the beta_ar conditional mean (default: 0.1). Must satisfy 0 &lt; omega + phi * x &lt; 1 for x in (0, 1). | *required*
 `kappa` | <code>[float](#float)</code> | Beta precision; larger = less noise (default: 20.0). | *required*
 `sigma` | <code>[float](#float)</code> | Logit-scale innovation std (logit_normal only, default: 0.3). | *required*
 `initial_value` | <code>[float](#float)</code> | Starting value on the unit scale, in (0, 1) (default: 0.5). | *required*
 `lower` | <code>[float](#float)</code> | Lower bound of the output interval (default: 0.0). | *required*
 `upper` | <code>[float](#float)</code> | Upper bound of the output interval (default: 1.0). | *required*
-`seed` | <code>[int](#int) &#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `BoundedProcessGenerator.generate_single_series`
 
@@ -935,7 +948,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values in [lower, upper]
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values in [lower, upper]
 
 #### `BoundedProcessGenerator.get_model_info`
 
@@ -945,6 +958,7 @@ get_model_info()
 
 Return information about the bounded process configuration.
 
+
 ### `LevyProcessGenerator`
 
 Bases: <code>[BaseGenerator](#synforecast.base.BaseGenerator)</code>
@@ -952,21 +966,21 @@ Bases: <code>[BaseGenerator](#synforecast.base.BaseGenerator)</code>
 Generate time series with alpha-stable (Levy) increments.
 
 Each observation step adds an independent increment
-`scale * X + location` where `X ~ S(alpha, beta_skew; 1)` is a
+``scale * X + location`` where ``X ~ S(alpha, beta_skew; 1)`` is a
 standard alpha-stable random variable in the S1 parameterization
-(matching `scipy.stats.levy_stable`), sampled with the
-Chambers-Mallows-Stuck algorithm. For `alpha < 2` the increments have
+(matching ``scipy.stats.levy_stable``), sampled with the
+Chambers-Mallows-Stuck algorithm. For ``alpha < 2`` the increments have
 infinite variance, producing extreme jumps far beyond Gaussian or
-t-distributed innovations. There is no separate `dt`: `scale` is the
-per-step scale (a step of duration `dt` in model time corresponds to
-`scale ~ dt**(1/alpha)` by self-similarity).
+t-distributed innovations. There is no separate ``dt``: ``scale`` is the
+per-step scale (a step of duration ``dt`` in model time corresponds to
+``scale ~ dt**(1/alpha)`` by self-similarity).
 
 <details class="special-cases" open markdown="1">
 <summary>Special cases</summary>
 
-- `alpha=2`: Gaussian with standard deviation `scale * sqrt(2)`
-- `alpha=1, beta_skew=0`: Cauchy
-- `alpha=0.5, beta_skew=1`: Levy distribution
+- ``alpha=2``: Gaussian with standard deviation ``scale * sqrt(2)``
+- ``alpha=1, beta_skew=0``: Cauchy
+- ``alpha=0.5, beta_skew=1``: Levy distribution
 
 </details>
 
@@ -976,14 +990,14 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `min_length` | <code>[int](#int)</code> | Minimum length of each series. | *required*
 `max_length` | <code>[int](#int)</code> | Maximum length of each series. | *required*
-`freq` | <code>[str](#str) &#124; [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
-`alpha` | <code>[float](#float)</code> | Stability index in (0, 2\] (default: 1.5). | *required*
+`freq` | <code>[str](#str) \| [int](#int)</code> | Pandas offset alias (e.g. 'D', 'h', '5min', 'MS') or an integer for an integer time index. | *required*
+`alpha` | <code>[float](#float)</code> | Stability index in (0, 2] (default: 1.5). | *required*
 `beta_skew` | <code>[float](#float)</code> | Skewness parameter in [-1, 1] (default: 0.0). | *required*
 `scale` | <code>[float](#float)</code> | Scale of each increment (default: 1.0). | *required*
 `location` | <code>[float](#float)</code> | Location shift of each increment (default: 0.0). | *required*
 `cumulative` | <code>[bool](#bool)</code> | Return the cumulative sum (Levy flight) instead of raw increments (default: True). | *required*
 `initial_value` | <code>[float](#float)</code> | Starting value for cumulative mode (default: 0.0). | *required*
-`seed` | <code>[int](#int) &#124; None</code> | Random seed for reproducibility (default: None). | *required*
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None). | *required*
 
 #### `LevyProcessGenerator.generate_single_series`
 
@@ -1003,7 +1017,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[ndarray](#numpy.ndarray)</code> | np.ndarray: Array of time series values.
+<code>[ndarray](#numpy.ndarray)</code> | Array of time series values.
 
 #### `LevyProcessGenerator.get_model_info`
 
@@ -1012,3 +1026,4 @@ get_model_info()
 ```
 
 Return information about the Levy process configuration.
+

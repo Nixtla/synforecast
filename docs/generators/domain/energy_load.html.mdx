@@ -9,6 +9,8 @@ profiles for grid-demand forecasting.
 
 > **The model**
 >
+> $$y_t = \text{base} + d(t) + w(t) + a(t) + \beta\,|T_t - T_{\text{base}}| + \varepsilon_t$$
+>
 > The series combines daily and weekly cycles with a load shape and
 > noise appropriate to `load_type` — `residential` (sharp morning and
 > evening peaks) or `industrial` (flatter, weekday-driven). The
@@ -21,178 +23,47 @@ import matplotlib.pyplot as plt
 from synforecast.generators import EnergyLoadGenerator
 ```
 
-## 1. Residential energy load
+## 1. Load type
 
-Generate one week of hourly residential electricity demand with typical
-morning/evening peaks.
-
-```python
-residential_params = {
-    "min_length": 168,
-    "max_length": 168,
-    "freq": "h",
-    "load_type": "residential",
-    "base_load": 2.0,
-    "temperature_sensitivity": 0.05,
-    "seed": 42,
-}
-residential_gen = EnergyLoadGenerator(engine="polars", **residential_params)
-residential_df = residential_gen.generate(n_series=1)
-print(f"Generated {len(residential_df)} hourly observations")
-print(
-    f"Statistics: Mean={residential_df['y'].mean():.2f} kW, "
-    f"Min={residential_df['y'].min():.2f} kW, Max={residential_df['y'].max():.2f} kW"
-)
-residential_df.head(24)
-```
-
-``` text
-Generated 168 hourly observations
-Statistics: Mean=54.94 kW, Min=18.48 kW, Max=97.52 kW
-```
-
-| unique_id | ds                  | y         |
-|-----------|---------------------|-----------|
-| cat       | datetime\[ns\]      | f64       |
-| "0"       | 2000-01-01 00:00:00 | 37.475594 |
-| "0"       | 2000-01-01 01:00:00 | 44.225126 |
-| "0"       | 2000-01-01 02:00:00 | 46.264535 |
-| "0"       | 2000-01-01 03:00:00 | 48.94903  |
-| "0"       | 2000-01-01 04:00:00 | 48.662387 |
-| …         | …                   | …         |
-| "0"       | 2000-01-01 19:00:00 | 82.212299 |
-| "0"       | 2000-01-01 20:00:00 | 79.205961 |
-| "0"       | 2000-01-01 21:00:00 | 61.051004 |
-| "0"       | 2000-01-01 22:00:00 | 55.973929 |
-| "0"       | 2000-01-01 23:00:00 | 59.225813 |
+`load_type` selects the daily profile: residential peaks morning and
+evening, commercial has one broad midday peak, and industrial is nearly
+flat with a night dip. One week of hourly data makes the daily and
+weekly shapes visible at once.
 
 ```python
-fig, ax = plt.subplots(figsize=(12, 4))
-ax.plot(residential_df["ds"].to_list(), residential_df["y"].to_list(), alpha=0.8)
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Load (kW)")
-ax.set_title("Residential Energy Load (1 Week)")
+residential_df = EnergyLoadGenerator(
+    engine="polars", min_length=168, max_length=168, freq="h",
+    base_load=100.0, load_type="residential", seed=42,
+).generate(n_series=1)
+
+commercial_df = EnergyLoadGenerator(
+    engine="polars", min_length=168, max_length=168, freq="h",
+    base_load=100.0, load_type="commercial", seed=42,
+).generate(n_series=1)
+
+industrial_df = EnergyLoadGenerator(
+    engine="polars", min_length=168, max_length=168, freq="h",
+    base_load=100.0, load_type="industrial", seed=42,
+).generate(n_series=1)
+
+panels = [
+    ("residential", residential_df),
+    ("commercial", commercial_df),
+    ("industrial", industrial_df),
+]
+fig, axes = plt.subplots(3, 1, figsize=(12, 7.5), sharex=True)
+for ax, (label, df) in zip(axes, panels):
+    ax.plot(df["ds"].to_list(), df["y"].to_list(), alpha=0.85, linewidth=1)
+    ax.set(ylabel="Load", title=label)
+axes[-1].set_xlabel("Timestamp")
 plt.tight_layout()
 plt.show()
+
 ```
 
-![](./energy_load_files/figure-markdown_strict/cell-4-output-1.png)
+![](./energy_load_files/figure-markdown_strict/cell-3-output-1.png)
 
-## 2. Commercial energy load (office building)
-
-Office buildings show high demand during business hours and low demand
-at night/weekends.
-
-```python
-commercial_params = {
-    "min_length": 168,
-    "max_length": 168,
-    "freq": "h",
-    "load_type": "commercial",
-    "base_load": 50.0,
-    "temperature_sensitivity": 0.08,
-    "seed": 42,
-}
-commercial_gen = EnergyLoadGenerator(engine="polars", **commercial_params)
-commercial_df = commercial_gen.generate(n_series=1)
-print(f"Generated {len(commercial_df)} hourly observations")
-print(
-    f"Statistics: Mean={commercial_df['y'].mean():.2f} kW, "
-    f"Min={commercial_df['y'].min():.2f} kW, Max={commercial_df['y'].max():.2f} kW"
-)
-commercial_df.head(24)
-```
-
-``` text
-Generated 168 hourly observations
-Statistics: Mean=101.82 kW, Min=71.94 kW, Max=128.25 kW
-```
-
-| unique_id | ds                  | y          |
-|-----------|---------------------|------------|
-| cat       | datetime\[ns\]      | f64        |
-| "0"       | 2000-01-01 00:00:00 | 86.591504  |
-| "0"       | 2000-01-01 01:00:00 | 93.658295  |
-| "0"       | 2000-01-01 02:00:00 | 95.876818  |
-| "0"       | 2000-01-01 03:00:00 | 98.244828  |
-| "0"       | 2000-01-01 04:00:00 | 95.714007  |
-| …         | …                   | …          |
-| "0"       | 2000-01-01 19:00:00 | 108.620837 |
-| "0"       | 2000-01-01 20:00:00 | 106.892316 |
-| "0"       | 2000-01-01 21:00:00 | 96.47236   |
-| "0"       | 2000-01-01 22:00:00 | 99.788689  |
-| "0"       | 2000-01-01 23:00:00 | 108.175298 |
-
-```python
-fig, ax = plt.subplots(figsize=(12, 4))
-ax.plot(commercial_df["ds"].to_list(), commercial_df["y"].to_list(), alpha=0.8, color="C1")
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Load (kW)")
-ax.set_title("Commercial Energy Load - Office Building (1 Week)")
-plt.tight_layout()
-plt.show()
-```
-
-![](./energy_load_files/figure-markdown_strict/cell-6-output-1.png)
-
-## 3. Industrial energy load (factory)
-
-Industrial loads are typically more constant with less temperature
-sensitivity.
-
-```python
-industrial_params = {
-    "min_length": 168,
-    "max_length": 168,
-    "freq": "h",
-    "load_type": "industrial",
-    "base_load": 200.0,
-    "temperature_sensitivity": 0.02,
-    "seed": 42,
-}
-industrial_gen = EnergyLoadGenerator(engine="polars", **industrial_params)
-industrial_df = industrial_gen.generate(n_series=1)
-print(f"Generated {len(industrial_df)} hourly observations")
-print(
-    f"Statistics: Mean={industrial_df['y'].mean():.2f} kW, "
-    f"Min={industrial_df['y'].min():.2f} kW, Max={industrial_df['y'].max():.2f} kW"
-)
-industrial_df.head(24)
-```
-
-``` text
-Generated 168 hourly observations
-Statistics: Mean=231.73 kW, Min=188.72 kW, Max=269.90 kW
-```
-
-| unique_id | ds                  | y          |
-|-----------|---------------------|------------|
-| cat       | datetime\[ns\]      | f64        |
-| "0"       | 2000-01-01 00:00:00 | 215.799236 |
-| "0"       | 2000-01-01 01:00:00 | 217.076458 |
-| "0"       | 2000-01-01 02:00:00 | 214.910692 |
-| "0"       | 2000-01-01 03:00:00 | 214.805926 |
-| "0"       | 2000-01-01 04:00:00 | 212.30712  |
-| …         | …                   | …          |
-| "0"       | 2000-01-01 19:00:00 | 239.999576 |
-| "0"       | 2000-01-01 20:00:00 | 241.522404 |
-| "0"       | 2000-01-01 21:00:00 | 234.366525 |
-| "0"       | 2000-01-01 22:00:00 | 240.528091 |
-| "0"       | 2000-01-01 23:00:00 | 251.386467 |
-
-```python
-fig, ax = plt.subplots(figsize=(12, 4))
-ax.plot(industrial_df["ds"].to_list(), industrial_df["y"].to_list(), alpha=0.8, color="C2")
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Load (kW)")
-ax.set_title("Industrial Energy Load - Factory (1 Week)")
-plt.tight_layout()
-plt.show()
-```
-
-![](./energy_load_files/figure-markdown_strict/cell-8-output-1.png)
-
-## 4. Residential load with extreme weather
+## 2. Extreme weather
 
 Simulate load spikes during extreme weather events like heat waves or
 cold snaps.
@@ -244,14 +115,14 @@ fig, ax = plt.subplots(figsize=(12, 4))
 ax.plot(extreme_df["ds"].to_list(), extreme_df["y"].to_list(), alpha=0.8, color="C3")
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Load (kW)")
-ax.set_title("Residential Load with Extreme Weather Events (2 Weeks)")
+ax.set_title("Residential load with extreme weather events (2 weeks)")
 plt.tight_layout()
 plt.show()
 ```
 
-![](./energy_load_files/figure-markdown_strict/cell-10-output-1.png)
+![](./energy_load_files/figure-markdown_strict/cell-5-output-1.png)
 
-## 5. Commercial load with holiday effect
+## 3. Holiday effect
 
 Model reduced commercial demand during holidays and weekends.
 
@@ -301,14 +172,14 @@ fig, ax = plt.subplots(figsize=(12, 4))
 ax.plot(holiday_df["ds"].to_list(), holiday_df["y"].to_list(), alpha=0.8, color="C4")
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Load (kW)")
-ax.set_title("Commercial Load with Holiday Effect (2 Weeks)")
+ax.set_title("Commercial load with holiday effect (2 weeks)")
 plt.tight_layout()
 plt.show()
 ```
 
-![](./energy_load_files/figure-markdown_strict/cell-12-output-1.png)
+![](./energy_load_files/figure-markdown_strict/cell-7-output-1.png)
 
-## 6. Residential load with high temperature sensitivity
+## 4. Temperature sensitivity
 
 Simulate a household with heavy AC/heating usage that is very sensitive
 to temperature changes.
@@ -358,14 +229,14 @@ fig, ax = plt.subplots(figsize=(12, 4))
 ax.plot(high_temp_df["ds"].to_list(), high_temp_df["y"].to_list(), alpha=0.8, color="C5")
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Load (kW)")
-ax.set_title("Residential Load with High Temperature Sensitivity (1 Week)")
+ax.set_title("Residential load with high temperature sensitivity (1 week)")
 plt.tight_layout()
 plt.show()
 ```
 
-![](./energy_load_files/figure-markdown_strict/cell-14-output-1.png)
+![](./energy_load_files/figure-markdown_strict/cell-9-output-1.png)
 
-## 7. Multiple residential customers
+## 5. Multiple customers
 
 Generate load profiles for 5 residential customers simultaneously.
 
@@ -417,13 +288,13 @@ for uid in multi_df["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.7)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Load (kW)")
-ax.set_title("Multiple Residential Customers (1 Week)")
+ax.set_title("Multiple residential customers (1 week)")
 ax.legend()
 plt.tight_layout()
 plt.show()
 ```
 
-![](./energy_load_files/figure-markdown_strict/cell-16-output-1.png)
+![](./energy_load_files/figure-markdown_strict/cell-11-output-1.png)
 
 > **Related generators**
 >

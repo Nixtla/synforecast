@@ -16,12 +16,12 @@ All options are off by default for backward compatibility.
 
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
-`datetime_features` | | Add calendar features (year, month, day_of_week, etc.) | *required*
-`datetime_cyclical` | | Add sin/cos cyclical encodings of datetime features | *required*
-`anomaly_flags` | | Add binary column indicating anomaly positions | *required*
-`changepoint_flags` | | Add binary column indicating changepoint positions | *required*
-`missing_flags` | | Add binary column indicating missing data positions | *required*
-`correlated` | | List of correlated exogenous variables to generate | *required*
+`datetime_features` |  | Add calendar features (year, month, day_of_week, etc.) | *required*
+`datetime_cyclical` |  | Add sin/cos cyclical encodings of datetime features | *required*
+`anomaly_flags` |  | Add binary column indicating anomaly positions | *required*
+`changepoint_flags` |  | Add binary column indicating changepoint positions | *required*
+`missing_flags` |  | Add binary column indicating missing data positions | *required*
+`correlated` |  | List of correlated exogenous variables to generate | *required*
 
 #### `ExogenousConfig.anomaly_flags`
 
@@ -72,6 +72,7 @@ validate_unique_names()
 ```
 
 Reject duplicate output columns before dataframe construction.
+
 
 ### `CorrelatedExogConfig`
 
@@ -126,3 +127,4 @@ smoothing_window: int = Field(default=10, ge=1, description='Window size for tre
 ```python
 trend_noise_std: float = Field(default=0.1, ge=0, description='Noise std for trend_following method')
 ```
+

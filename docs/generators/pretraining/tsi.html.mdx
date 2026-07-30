@@ -6,6 +6,8 @@ title: TSI
 seasonality, and irregular components. Each generated series samples a
 fresh configuration, so one call can produce a varied synthetic pool.
 
+$$y_t = T(t) + \sum_{h} S_h(t) + I_t \quad \text{(additive)}, \qquad y_t = T(t)\prod_{h} S_h(t) + I_t \quad \text{(multiplicative)}$$
+
 The component-based construction is informed by Bahrpeyma et al. (2021),
 [A Methodology for Validating Diversity in Synthetic Time Series
 Generation](https://doi.org/10.1016/j.mex.2021.101459). SynForecast’s

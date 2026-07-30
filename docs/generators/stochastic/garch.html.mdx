@@ -67,16 +67,24 @@ Statistics: Mean=-0.0104, Std=0.4302
 | "0"       | 2000-01-10 00:00:00 | -1.093879 |
 
 ```python
-fig, ax = plt.subplots(figsize=(12, 4))
+fig, (ax_returns, ax_vol) = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
 for uid in basic_df["unique_id"].unique().to_list():
     series = basic_df.filter(pl.col("unique_id") == uid)
-    ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
-ax.set_xlabel("Timestamp")
-ax.set_ylabel("Value")
-ax.set_title("Basic GARCH(1,1) Time Series")
-ax.legend()
+    ax_returns.plot(
+        series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8, linewidth=0.9
+    )
+    rolling = series.with_columns(pl.col("y").rolling_std(window_size=20).alias("sigma"))
+    ax_vol.plot(rolling["ds"].to_list(), rolling["sigma"].to_list(), alpha=0.8)
+ax_returns.set(ylabel="Return", title="Basic GARCH(1,1) series")
+ax_returns.legend(fontsize=8)
+ax_vol.set(
+    xlabel="Timestamp",
+    ylabel="Rolling std (20 steps)",
+    title="Volatility clustering: calm and turbulent stretches group together",
+)
 plt.tight_layout()
 plt.show()
+
 ```
 
 ![](./garch_files/figure-markdown_strict/cell-4-output-1.png)
@@ -131,7 +139,7 @@ for uid in high_vol_df["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("High Volatility GARCH Time Series")
+ax.set_title("High volatility GARCH series")
 ax.legend()
 plt.tight_layout()
 plt.show()
@@ -188,7 +196,7 @@ for uid in multi_df["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("Multiple GARCH Series")
+ax.set_title("Multiple GARCH series")
 ax.legend()
 plt.tight_layout()
 plt.show()

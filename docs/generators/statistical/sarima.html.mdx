@@ -10,6 +10,8 @@ build panels with a precise, well-understood dependence structure.
 
 > **The model**
 >
+> $$\phi(B)\,\Phi(B^s)\,(1-B)^d (1-B^s)^D\, y_t = \theta(B)\,\Theta(B^s)\, \varepsilon_t$$
+>
 > An ARIMA(p, d, q) process combines `p` autoregressive lags, `d` orders
 > of differencing (for trend / unit roots), and `q` moving-average lags;
 > the seasonal part `(P, D, Q)` repeats that structure at the seasonal
@@ -23,7 +25,7 @@ import matplotlib.pyplot as plt
 from synforecast.generators import SARIMAGenerator
 ```
 
-## Example 1: Basic SARIMA(2,1,1)(1,1,1)\_7
+## 1. Basic SARIMA(2,1,1)(1,1,1)\_7
 
 A SARIMA model with weekly seasonality, suitable for daily data.
 
@@ -112,7 +114,7 @@ for uid in df["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("SARIMA(2,1,1)(1,1,1)_7 Time Series")
+ax.set_title("SARIMA(2,1,1)(1,1,1)_7 series")
 ax.legend()
 plt.tight_layout()
 plt.show()
@@ -141,7 +143,7 @@ df.group_by("unique_id").agg(
 | "1"       | 200   | 628.393    | 4135.85017  | 2221.617457 | 1020.787936 |
 | "2"       | 200   | 452.878919 | 3437.538082 | 1778.004889 | 857.699315  |
 
-## Example 2: Stationary ARMA(1,1) with custom parameters
+## 2. Stationary ARMA(1,1) with custom parameters
 
 A stationary model with no differencing and explicit AR/MA coefficients.
 
@@ -186,7 +188,7 @@ for uid in df_arma["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("Stationary ARMA(1,1) Time Series")
+ax.set_title("Stationary ARMA(1,1) series")
 ax.legend()
 plt.tight_layout()
 plt.show()
@@ -194,7 +196,7 @@ plt.show()
 
 ![](./sarima_files/figure-markdown_strict/cell-9-output-1.png)
 
-## Example 3: Pure seasonal ARIMA(0,0,0)(1,1,1)\_12
+## 3. Pure seasonal ARIMA(0,0,0)(1,1,1)\_12
 
 A purely seasonal model with monthly frequency and 12-month seasonality.
 
@@ -252,7 +254,7 @@ for uid in df_seasonal["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("Pure Seasonal ARIMA(0,0,0)(1,1,1)_12 Time Series")
+ax.set_title("Pure seasonal ARIMA(0,0,0)(1,1,1)_12 series")
 ax.legend()
 plt.tight_layout()
 plt.show()

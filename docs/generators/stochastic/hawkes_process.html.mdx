@@ -9,6 +9,8 @@ It is the natural counterpoint to the memoryless Poisson process.
 
 > **The model**
 >
+> $$\lambda(t) = \mu + \sum_{t_i \le t} g(t - t_i), \qquad g(t) = \alpha e^{-\beta t}$$
+>
 > The arrival intensity is a baseline rate plus a decaying kick after
 > every event, so activity begets activity. The excitation strength and
 > decay set how tightly events cluster and how long a burst lasts; below
@@ -64,9 +66,9 @@ Total events: 836.0
 | unique_id | total_events | mean_per_hour | max_in_hour |
 |-----------|--------------|---------------|-------------|
 | cat       | f64          | f64           | f64         |
-| "1"       | 305.0        | 1.525         | 7.0         |
-| "2"       | 245.0        | 1.225         | 7.0         |
 | "0"       | 286.0        | 1.43          | 6.0         |
+| "2"       | 245.0        | 1.225         | 7.0         |
+| "1"       | 305.0        | 1.525         | 7.0         |
 
 ```python
 fig, ax = plt.subplots(figsize=(12, 4))
@@ -75,7 +77,7 @@ for uid in df["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Event Count")
-ax.set_title("Hawkes Process - Event Counts")
+ax.set_title("Hawkes process — event counts")
 ax.legend()
 plt.tight_layout()
 plt.show()
@@ -118,7 +120,7 @@ for uid in intensity_df["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Intensity")
-ax.set_title("Hawkes Process - Intensity Function")
+ax.set_title("Hawkes process — intensity function")
 ax.legend()
 plt.tight_layout()
 plt.show()
@@ -171,7 +173,7 @@ First 10 event times: [1.714 2.527 2.584 3.022 3.662 5.29  5.583 5.682 6.25  6.4
 fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
 axes[0].plot(event_times, intensities, alpha=0.8)
 axes[0].set_ylabel("Intensity")
-axes[0].set_title("Hawkes Process - Event Arrivals and Intensity")
+axes[0].set_title("Hawkes process — event arrivals and intensity")
 axes[1].eventplot([event_times], lineoffsets=0.5, linelengths=0.8, colors="tab:red")
 axes[1].set_xlabel("Time")
 axes[1].set_ylabel("Events")
@@ -215,7 +217,7 @@ for uid in power_law_df["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Event Count")
-ax.set_title("Hawkes Process - Power-Law Kernel")
+ax.set_title("Hawkes process — power-law kernel")
 ax.legend()
 plt.tight_layout()
 plt.show()

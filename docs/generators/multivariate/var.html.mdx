@@ -10,6 +10,8 @@ of independent univariate models cannot.
 
 > **The model**
 >
+> $$y_t = c + A_1 y_{t-1} + \dots + A_p y_{t-p} + e_t, \qquad e_t \sim (0, \Sigma)$$
+>
 > At each step every series is a linear combination of the last
 > `lag_order` values of all series, plus correlated innovations.
 > `generate(n_series)` returns the coupled channels of one system, so
@@ -69,7 +71,7 @@ for uid in df_auto["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("VAR(1) with Auto-Generated Coefficients")
+ax.set_title("VAR(1) with auto-generated coefficients")
 ax.legend()
 plt.tight_layout()
 plt.show()
@@ -105,8 +107,8 @@ shape: (3, 3)
 │ ---       ┆ ---       ┆ ---      │
 │ cat       ┆ f64       ┆ f64      │
 ╞═══════════╪═══════════╪══════════╡
-│ 2         ┆ -0.037405 ┆ 1.077848 │
 │ 0         ┆ -0.060332 ┆ 1.168862 │
+│ 2         ┆ -0.037405 ┆ 1.077848 │
 │ 1         ┆ -0.081108 ┆ 1.0294   │
 └───────────┴───────────┴──────────┘
 
@@ -173,7 +175,7 @@ for uid in df_custom["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("VAR(1) with Custom Coefficients (Strong Cross-Effects)")
+ax.set_title("VAR(1) with custom coefficients (strong cross-effects)")
 ax.legend()
 plt.tight_layout()
 plt.show()
@@ -246,7 +248,7 @@ for uid in df_var3["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("VAR(3) Higher-Order Model")
+ax.set_title("VAR(3) higher-order model")
 ax.legend()
 plt.tight_layout()
 plt.show()
@@ -304,7 +306,7 @@ for uid in df_corr_innov["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("VAR with Correlated Innovations")
+ax.set_title("VAR with correlated innovations")
 ax.legend()
 plt.tight_layout()
 plt.show()
@@ -357,7 +359,7 @@ for uid in df_multi["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("Multiple Bivariate VAR Series")
+ax.set_title("Multiple bivariate VAR series")
 ax.legend()
 plt.tight_layout()
 plt.show()

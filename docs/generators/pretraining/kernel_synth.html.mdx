@@ -10,6 +10,8 @@ path from the resulting prior. Addition mixes behaviors (trend +
 seasonality); multiplication modulates them (locally periodic,
 amplitude-varying seasonality).
 
+$$k = k_1 \star k_2 \star \dots \star k_n, \quad \star \in \{+, \times\}, \qquad f \sim \mathcal{GP}(0, k)$$
+
 This adapts the KernelSynth recipe introduced for pretraining the
 Chronos forecasting models (Ansari et al. 2024, [*Chronos: Learning the
 Language of Time Series*](https://arxiv.org/abs/2403.07815)) and its

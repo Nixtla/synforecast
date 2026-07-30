@@ -10,6 +10,8 @@ joint dependence matters more than any single series’ dynamics.
 
 > **The model**
 >
+> $$z \sim \mathcal{N}(0, R), \qquad u_i = \Phi(z_i), \qquad x_i = F_i^{-1}(u_i)$$
+>
 > A copula (`copula_type="gaussian"` or `"t"`) couples the channels
 > through a `correlation_matrix`, then maps each channel back to its
 > marginal. A t-copula adds tail dependence — extremes that co-occur —
@@ -77,7 +79,7 @@ for uid in df_gaussian["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("Gaussian Copula - Correlated Time Series")
+ax.set_title("Gaussian copula — correlated series")
 ax.legend()
 plt.tight_layout()
 plt.show()
@@ -128,7 +130,7 @@ for ax, (i, j) in zip(axes, pairs):
     ax.set_ylabel(cols[j])
     corr_val = np.corrcoef(df_wide[cols[i]].to_numpy(), df_wide[cols[j]].to_numpy())[0, 1]
     ax.set_title(f"Correlation: {corr_val:.2f}")
-plt.suptitle("Gaussian Copula - Pairwise Scatter Plots")
+plt.suptitle("Gaussian copula — pairwise scatter plots")
 plt.tight_layout()
 plt.show()
 ```
@@ -268,7 +270,7 @@ for uid in df_mixed["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("Gaussian Copula - Mixed Marginal Distributions")
+ax.set_title("Gaussian copula — mixed marginal distributions")
 ax.legend()
 plt.tight_layout()
 plt.show()
@@ -321,7 +323,7 @@ for uid in df_multi["unique_id"].unique().to_list():
     ax.plot(series["ds"].to_list(), series["y"].to_list(), label=uid, alpha=0.8)
 ax.set_xlabel("Timestamp")
 ax.set_ylabel("Value")
-ax.set_title("Multiple Correlated Series")
+ax.set_title("Multiple correlated series")
 ax.legend()
 plt.tight_layout()
 plt.show()

@@ -18,7 +18,7 @@ contributes its own type of time series pattern.
 
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
-`generators` | <code>[list](#list)\[[BaseGenerator](#synforecast.base.BaseGenerator)\]</code> | List of instantiated generator objects to use for creating time series. | *required*
+`generators` | <code>[list](#list)[[BaseGenerator](#synforecast.base.BaseGenerator)]</code> | List of instantiated generator objects to use for creating time series. | *required*
 
 **Examples:**
 
@@ -51,13 +51,13 @@ Initialize the SynSet with a list of generators.
 
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
-`generators` | <code>[list](#list)\[[BaseGenerator](#synforecast.base.BaseGenerator)\]</code> | List of instantiated generator objects. | *required*
+`generators` | <code>[list](#list)[[BaseGenerator](#synforecast.base.BaseGenerator)]</code> | List of instantiated generator objects. | *required*
 
 **Raises:**
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code>| If generators list is empty or contains non-BaseGenerator objects. If generators have inconsistent column names (id_col, time_col, target_col).
+<code>[ValueError](#ValueError)</code> | If generators list is empty or contains non-BaseGenerator objects. If generators have inconsistent column names (id_col, time_col, target_col).
 
 #### `SynSet.generate`
 
@@ -72,14 +72,13 @@ Generate synthetic time series data from all generators.
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `n_series_per_generator` | <code>[int](#int)</code> | Number of time series to generate from each generator. | *required*
-`n_jobs` | <code>[int](#int)</code> | Number of parallel workers. -1 (default) uses `RAYON_NUM_THREADS` if set, otherwise all logical cores. Results are seed-deterministic and do not depend on n_jobs. | <code>-1</code>
+`n_jobs` | <code>[int](#int)</code> | Number of parallel workers. -1 (default) uses ``RAYON_NUM_THREADS`` if set, otherwise all logical cores. Results are seed-deterministic and do not depend on n_jobs. | <code>-1</code>
 
 **Returns:**
 
 Type | Description
 ---- | -----------
-<code>[IntoFrameT](#narwhals.stable.v2.typing.IntoFrameT)</code> | DataFrame containing all generated time series from all generators,
-<code>[IntoFrameT](#narwhals.stable.v2.typing.IntoFrameT)</code> | in long format with columns [id_col, time_col, target_col].
+<code>[IntoFrameT](#narwhals.stable.v2.typing.IntoFrameT)</code> | DataFrame containing all generated time series from all generators, in long format with columns [id_col, time_col, target_col].
 
 <details class="notes" open markdown="1">
 <summary>Notes</summary>
@@ -88,6 +87,7 @@ Series IDs are unique across all generators. With 2 generators and
 3 series per generator, IDs run from 0 to 5.
 
 </details>
+
 
 ### `SynAugment`
 
@@ -102,12 +102,11 @@ statistical properties, fits parameters, and generates statistically
 similar synthetic series.
 
 The augmentation process:
-
 1. For each unique series in the input DataFrame, analyze its statistical properties
-1. Auto-select the most appropriate generator (or use user override)
-1. Fit generator parameters to match the series' statistical fingerprint
-1. Generate n_augment synthetic series that preserve these properties
-1. Return combined DataFrame with original and synthetic series
+2. Auto-select the most appropriate generator (or use user override)
+3. Fit generator parameters to match the series' statistical fingerprint
+4. Generate n_augment synthetic series that preserve these properties
+5. Return combined DataFrame with original and synthetic series
 
 Synthetic series IDs follow the pattern `"{original_id}_aug_{i}"`
 
@@ -118,33 +117,31 @@ Name | Type | Description | Default
 `id_col` | <code>[str](#str)</code> | Name of the ID column (default: 'unique_id') | <code>'unique_id'</code>
 `time_col` | <code>[str](#str)</code> | Name of the timestamp column (default: 'ds') | <code>'ds'</code>
 `target_col` | <code>[str](#str)</code> | Name of the value column (default: 'y') | <code>'y'</code>
-`seed` | <code>[int](#int) &#124; None</code> | Random seed for reproducibility | <code>None</code>
-`engine` | <code>[str](#str) &#124; None</code> | Output dataframe library. None (default) matches the input DataFrame's library. | <code>None</code>
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility | <code>None</code>
+`engine` | <code>[str](#str) \| None</code> | Output dataframe library. None (default) matches the input DataFrame's library. | <code>None</code>
 
 <details class="example" open markdown="1">
 <summary>Example</summary>
 
-> > > from synforecast import SynAugment
-> > > import polars as pl
-> > >
-> > > # Create sample data
-> > >
-> > > df = pl.DataFrame(
-> > > ... &#123;
-> > > ... "unique_id": ["series_0"] * 100,
-> > > ... "ds": pl.date_range(
-> > > ... pl.date(2020, 1, 1), pl.date(2020, 4, 9), eager=True
-> > > ... ),
-> > > ... "y": [i + np.random.randn() for i in range(100)],
-> > > ... &#125;
-> > > ... )
-> > >
-> > > # Augment the dataset
-> > >
-> > > augmenter = SynAugment(seed=42)
-> > > augmented_df = augmenter.augment(df, n_augment=3)
-> > > augmented_df["unique_id"].n_unique()
-> > > 4
+>>> from synforecast import SynAugment
+>>> import polars as pl
+>>>
+>>> # Create sample data
+>>> df = pl.DataFrame(
+...     &#123;
+...         "unique_id": ["series_0"] * 100,
+...         "ds": pl.date_range(
+...             pl.date(2020, 1, 1), pl.date(2020, 4, 9), eager=True
+...         ),
+...         "y": [i + np.random.randn() for i in range(100)],
+...     &#125;
+... )
+>>>
+>>> # Augment the dataset
+>>> augmenter = SynAugment(seed=42)
+>>> augmented_df = augmenter.augment(df, n_augment=3)
+>>> augmented_df["unique_id"].n_unique()
+4
 
 </details>
 
@@ -157,8 +154,8 @@ Name | Type | Description | Default
 `id_col` | <code>[str](#str)</code> | Name of the ID column | <code>'unique_id'</code>
 `time_col` | <code>[str](#str)</code> | Name of the timestamp column | <code>'ds'</code>
 `target_col` | <code>[str](#str)</code> | Name of the value column | <code>'y'</code>
-`seed` | <code>[int](#int) &#124; None</code> | Random seed for reproducibility | <code>None</code>
-`engine` | <code>[str](#str) &#124; None</code> | Output dataframe library (e.g. 'pandas', 'polars'). None (default) matches the input DataFrame's library. | <code>None</code>
+`seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility | <code>None</code>
+`engine` | <code>[str](#str) \| None</code> | Output dataframe library (e.g. 'pandas', 'polars'). None (default) matches the input DataFrame's library. | <code>None</code>
 `on_error` | <code>[Literal](#typing.Literal)['raise', 'ar1']</code> | What to do when a fitted generator fails for a series. 'raise' (default) propagates the error; 'ar1' substitutes an AR(1) series matching the source's mean, std, and lag-1 autocorrelation, and reports all substitutions in a single warning at the end of `augment`. | <code>'raise'</code>
 
 #### `SynAugment.analyze`
@@ -182,16 +179,13 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[dict](#dict)\[[str](#str), [dict](#dict)\]</code> | Mapping of each `unique_id` to its analysis results. Every entry
-<code>[dict](#dict)\[[str](#str), [dict](#dict)\]</code> | holds `recommended_generator` (the chosen generator name),
-<code>[dict](#dict)\[[str](#str), [dict](#dict)\]</code> | `properties` (all detected statistical properties), and
-<code>[dict](#dict)\[[str](#str), [dict](#dict)\]</code> | `fitted_params` (the estimated generator parameters).
+<code>[dict](#dict)[[str](#str), [dict](#dict)]</code> | Mapping of each `unique_id` to its analysis results. Every entry holds `recommended_generator` (the chosen generator name), `properties` (all detected statistical properties), and `fitted_params` (the estimated generator parameters).
 
 **Raises:**
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code>| If DataFrame is missing required columns
+<code>[ValueError](#ValueError)</code> | If DataFrame is missing required columns
 
 #### `SynAugment.augment`
 
@@ -210,37 +204,33 @@ Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `df` | <code>[IntoFrameT](#narwhals.stable.v2.typing.IntoFrameT)</code> | Input DataFrame with time series (must have id_col, time_col, target_col) | *required*
 `n_augment` | <code>[int](#int)</code> | Number of synthetic series to generate per original series | <code>1</code>
-`generator_override` | <code>[dict](#dict)\[[str](#str), [str](#str)\] &#124; None</code> | Optional dict mapping unique_id to generator name. Overrides automatic generator selection for specified series. Example: &#123;"series_0": "SARIMAGenerator"&#125; | <code>None</code>
+`generator_override` | <code>[dict](#dict)[[str](#str), [str](#str)] \| None</code> | Optional dict mapping unique_id to generator name. Overrides automatic generator selection for specified series. Example: &#123;"series_0": "SARIMAGenerator"&#125; | <code>None</code>
 `preserve_timestamps` | <code>[bool](#bool)</code> | If True, synthetic series use the same timestamps as the original series | <code>True</code>
 
 **Returns:**
 
 Type | Description
 ---- | -----------
-<code>[IntoFrameT](#narwhals.stable.v2.typing.IntoFrameT)</code> | Combined DataFrame with original and synthetic series.
-<code>[IntoFrameT](#narwhals.stable.v2.typing.IntoFrameT)</code> | Synthetic series IDs follow the pattern `"{original_id}_aug_{i}"`
+<code>[IntoFrameT](#narwhals.stable.v2.typing.IntoFrameT)</code> | Combined DataFrame with original and synthetic series. Synthetic series IDs follow the pattern `"{original_id}_aug_{i}"`
 
 **Raises:**
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code>| If DataFrame is missing required columns, n_augment < 1, or generator_override names an unsupported generator
-<code>[RuntimeError](#RuntimeError)</code>| If a fitted generator fails for a series and the instance was created with on_error='raise' (the default)
+<code>[ValueError](#ValueError)</code> | If DataFrame is missing required columns, n_augment &lt; 1, or generator_override names an unsupported generator
+<code>[RuntimeError](#RuntimeError)</code> | If a fitted generator fails for a series and the instance was created with on_error='raise' (the default)
 
 <details class="example" open markdown="1">
 <summary>Example</summary>
 
-> > > augmenter = SynAugment(seed=42)
-> > >
-> > > # Basic augmentation
-> > >
-> > > augmented_df = augmenter.augment(df, n_augment=3) # doctest: +SKIP
-> > >
-> > > # With generator override
-> > >
-> > > augmented_df = augmenter.augment( # doctest: +SKIP
-> > > ... df, n_augment=2, generator_override=&#123;"series_0": "SARIMAGenerator"&#125;
-> > > ... )
+>>> augmenter = SynAugment(seed=42)
+>>> # Basic augmentation
+>>> augmented_df = augmenter.augment(df, n_augment=3)  # doctest: +SKIP
+>>>
+>>> # With generator override
+>>> augmented_df = augmenter.augment(  # doctest: +SKIP
+...     df, n_augment=2, generator_override=&#123;"series_0": "SARIMAGenerator"&#125;
+... )
 
 </details>
 
@@ -260,10 +250,11 @@ Name | Type | Description | Default
 `values` | <code>[ndarray](#numpy.ndarray)</code> | Array of time series values | *required*
 `timestamps` | <code>[ndarray](#numpy.ndarray)</code> | Array of timestamps | *required*
 `n_augment` | <code>[int](#int)</code> | Number of synthetic series to generate | <code>1</code>
-`generator_name` | <code>[str](#str) &#124; None</code> | Optional generator name; if None, auto-detect | <code>None</code>
+`generator_name` | <code>[str](#str) \| None</code> | Optional generator name; if None, auto-detect | <code>None</code>
 
 **Returns:**
 
 Type | Description
 ---- | -----------
-<code>[list](#list)\[[tuple](#tuple)\[[str](#str), [ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray)\]\]</code> | List of tuples: (new_id, synthetic_values, timestamps)
+<code>[list](#list)[[tuple](#tuple)[[str](#str), [ndarray](#numpy.ndarray), [ndarray](#numpy.ndarray)]]</code> | List of tuples: (new_id, synthetic_values, timestamps)
+

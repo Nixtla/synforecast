@@ -95,7 +95,7 @@ ax.set_xticks(list(xs))
 ax.set_xticklabels([str(n) for n in sizes])
 ax.set(xlabel="number of observed series in the panel",
        ylabel="mean seasonal MASE (95% CI)",
-       title="Observed vs augmented: the intervals overlap at every panel size")
+       title="Seasonal MASE by panel size, observed vs augmented")
 ax.legend()
 plt.tight_layout()
 plt.show()
@@ -162,7 +162,7 @@ for ax, uid in zip(axes.flat, pool["unique_id"].unique(maintain_order=True).to_l
     s = pool.filter(pl.col("unique_id") == uid)
     ax.plot(s["ds"], s["y"], linewidth=1)
     ax.set_title(f"series {uid}", fontsize=9)
-fig.suptitle("One generate_series call spans very different behaviors")
+fig.suptitle("Six series from one generate_series call")
 plt.tight_layout()
 plt.show()
 ```
@@ -247,7 +247,7 @@ ax.set_xticks(list(xs))
 ax.set_xticklabels(labels)
 ax.set(xlabel='real history kept per series',
        ylabel='mean seasonal MASE (95% CI)',
-       title='Zero-shot synthetic pretraining wins when history is short')
+       title='Seasonal MASE by history length kept per series')
 ax.legend()
 plt.tight_layout()
 plt.show()
