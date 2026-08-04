@@ -10,8 +10,10 @@
   [Bandara et al. 2021](https://arxiv.org/abs/2008.02663)) — block-bootstrap the
   STL remainder; non-parametric, so it needs no fitter. Ships as a `SynAugment`
   strategy.
-- **DBA** (Bandara et al. 2021) — average a series with its DTW nearest
-  neighbours; cross-series, so it needs the panel API below.
+- **DBA** ([Petitjean et al. 2011](https://doi.org/10.1016/j.patcog.2010.09.013),
+  augmentation use in [Forestier et al. 2017](https://doi.org/10.1109/ICDM.2017.106)
+  and [Bandara et al. 2021](https://arxiv.org/abs/2008.02663)) — average a series
+  with its DTW nearest neighbours; cross-series, so it needs the panel API below.
 
 ## Augmentation
 
