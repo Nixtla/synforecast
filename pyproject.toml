@@ -56,7 +56,7 @@ dev = [
     "pre-commit>=4.6.1",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
-    "ruff>=0.16.0",
+    "ruff>=0.16.1",
     "scipy>=1.10.0",
     "statsforecast",
     "tomli>=2.0; python_version < '3.11'",
@@ -69,7 +69,7 @@ docs = [
     "mkdocstrings-parser @ git+https://github.com/Nixtla/mkdocstrings-parser@a6f375a052783c18f4ca2599c74814c05ee6d568",
     "nbclient>=0.10.0",
     "nbformat>=5.10.0",
-    "utilsforecast>=0.2.0",
+    "utilsforecast>=0.2.16",
 ]
 integration-docs = [
     "ipywidgets>=8.1.0",
