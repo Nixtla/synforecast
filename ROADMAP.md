@@ -20,9 +20,9 @@
 
 ## Evaluation
 
-- **Feature-space coverage** — a minimal targeting-scoped feature set now ships
-  in `synforecast/_features.py`; add the full tsfeatures/catch22 diversity and
-  coverage metrics.
+- **Feature-space coverage** — a minimal native, targeting-scoped feature set
+  now ships through `synforecast/_features.py`; add the full tsfeatures/catch22
+  diversity and coverage metrics.
 - **Nearest-neighbour distance to real data** — promote the memorization check
   from notebook to API.
 - **Fidelity scores** — discriminative and predictive scores for comparing

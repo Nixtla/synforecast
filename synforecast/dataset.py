@@ -790,6 +790,9 @@ class SynAugment:
         the result to that source; re-pinning mean and standard deviation would
         distort the remainder variability.
 
+        Classical decomposition and moving-block sampling execute in native
+        Rust. Seed determinism is stable within this native path.
+
         NaNs are interpolated before decomposition. Every input series must
         contain a finite observation and at least four observations. Additional
         input columns are copied unchanged from each source series. The
@@ -898,6 +901,9 @@ class SynAugment:
         reference and neighbor weights to create distinct augmentations.
         Additional input columns are copied unchanged from the reference
         series; DBA only barycenters the target column.
+
+        Banded DTW and barycenter updates execute in native Rust. Seed
+        determinism is stable within this native path.
         """
         if n_augment < 1:
             raise ValueError("n_augment must be >= 1")

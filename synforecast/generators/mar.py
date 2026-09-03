@@ -39,7 +39,9 @@ class MARGenerator(BaseGenerator):
     rather than retaining the MAR model's component-implied level and scale.
     Set ``standardize=False`` to preserve those raw simulated moments. This
     output normalization is SynForecast's own design and is not source-series
-    moment matching.
+    moment matching. Bulk :meth:`generate` calls use the native Rust batch
+    path; :meth:`generate_single_series` remains the Python reference path, so
+    their seeded RNG streams are not bit-for-bit equivalent.
     """
 
     max_components: int = Field(

@@ -1,4 +1,4 @@
-"""Minimal numeric feature computation for feature-targeted generation."""
+"""Minimal native feature computation for feature-targeted generation."""
 
 import numpy as np
 

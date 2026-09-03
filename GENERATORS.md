@@ -76,6 +76,28 @@ reproduction of the reference code. MBB bypasses moment pinning because its
 reconstructed source components already anchor each generated series and
 re-pinning would distort bootstrap-remainder variability.
 
+```python
+from synforecast import SynAugment
+
+augmented = SynAugment(seed=42).mbb(
+    train_df,
+    n_augment=2,
+    seasonal_period=24,
+    block_size=12,
+)
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `n_augment` | `1` | Synthetic copies generated for every input series |
+| `seasonal_period` | `None` | Fixed period; `None` enables period detection |
+| `block_size` | `None` | Requested remainder-block length; capped per series |
+| `include_original` | `True` | Include the input rows in the result |
+
+Every series needs at least four observations and one finite target. Missing
+targets are interpolated before decomposition. Non-target columns are copied
+from the source series.
+
 ### SynAugment.dba
 
 `dba` uses panel-wide DTW nearest neighbours and weighted DTW barycenter
@@ -89,6 +111,30 @@ SynForecast's own design rather than a reproduction of the reference code.
 DBA bypasses moment pinning: `scale="reference"` explicitly maps the normalized
 barycenter back to the reference scale, while `scale="none"` averages raw
 values.
+
+```python
+augmented = SynAugment(seed=42).dba(
+    train_df,
+    n_augment=2,
+    n_neighbors=3,
+    n_iterations=5,
+    window_fraction=0.1,
+    scale="reference",
+)
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `n_augment` | `1` | Synthetic copies generated around every usable reference |
+| `n_neighbors` | `3` | Nearest panel series included in each barycenter |
+| `n_iterations` | `5` | DBA refinement iterations |
+| `window_fraction` | `0.1` | DTW band width as a fraction of the longest series |
+| `scale` | `"reference"` | Reference normalization or raw-value averaging (`"none"`) |
+| `include_original` | `True` | Include the input rows in the result |
+
+DBA requires at least two usable series. Synthetic rows retain the reference
+timestamps and non-target columns. Decomposition, block sampling, DTW, and
+barycenter updates execute in native Rust.
 
 ---
 
@@ -718,10 +764,12 @@ mv = Multivariatizer(
 df = mv.generate(n_series=4)
 ```
 
-TSI and TCM use the Rust batch path when the extension is available;
-KernelSynth and MAR are pure NumPy (they run on the threaded fallback path). Reproduce
-performance measurements on your hardware with the scripts in `benchmarks/`;
-benchmark results are not API guarantees.
+TSI, TCM, and MAR use the Rust batch path for bulk `generate()` calls;
+KernelSynth runs through the threaded NumPy path. MAR feature computation and
+the MBB/DBA numeric kernels are also native. Rust and NumPy RNG streams provide
+seed determinism within their respective paths but are not bit-for-bit
+equivalent. Reproduce performance measurements on your hardware with the
+scripts in `benchmarks/`; benchmark results are not API guarantees.
 
 ---
 

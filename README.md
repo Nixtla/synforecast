@@ -89,10 +89,28 @@ augmenter = SynAugment(seed=42)
 augmented_train_df = augmenter.augment(train_df, n_augment=2)
 ```
 
+For non-parametric augmentation, bootstrap local remainder blocks or construct
+panel-aware DTW barycenters:
+
+```python
+mbb_train_df = augmenter.mbb(
+    train_df,
+    n_augment=2,
+    seasonal_period=24,
+)
+dba_train_df = augmenter.dba(
+    train_df,
+    n_augment=2,
+    n_neighbors=3,
+)
+```
+
 Fit augmentation parameters on the training split only; fitting on validation
 or test observations would leak information into model training. See the
 [augmentation guide](https://nixtlaverse.nixtla.io/synforecast/docs/capabilities/augmentation.html)
-for generator overrides and diagnostics.
+for generator overrides and diagnostics, or the
+[non-parametric augmentation guide](https://nixtlaverse.nixtla.io/synforecast/docs/capabilities/nonparametric_augmentation.html)
+for MBB and DBA behavior and constraints.
 
 ## Works with the Nixtlaverse
 
@@ -185,6 +203,8 @@ pretraining choices can be evaluated against observed-only baselines.
 - pandas, Polars, cuDF, Modin, and PyArrow output through Narwhals
 - Changepoint, anomaly, missingness, and exogenous-variable injection
 - Dataset composition with `SynSet` and augmentation with `SynAugment`
+- Fit-and-simulate, TSMixup, moving-block-bootstrap, and DTW-barycenter
+  augmentation strategies
 - Seed-deterministic parallel generation
 - Native generation through Rust and PyO3
 

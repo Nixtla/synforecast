@@ -1,4 +1,4 @@
-"""Self-contained DTW and DBA utilities.
+"""DTW and DBA utilities backed by native Rust kernels.
 
 The barycenter follows Petitjean, Ketterlin, and Gancarski (2011,
 https://doi.org/10.1016/j.patcog.2010.09.013).
