@@ -135,6 +135,41 @@ class TestMarBehavior:
         )
         assert_acf(generator.generate_single_series(8000), 1, 0.8)
 
+    @pytest.mark.stats
+    def test_native_fixed_ar1_reproduces_raw_moments_and_acf(self) -> None:
+        generator = MARGenerator(
+            min_length=16_000,
+            max_length=16_000,
+            freq="D",
+            seed=8,
+            weights=[1.0],
+            ar_coefficients=[[0.6]],
+            intercepts=[2.0],
+            noise_scales=[0.8],
+            standardize=False,
+        )
+        values = next(iter(series_values(generator.generate(n_series=1)).values()))
+        # AR(1) has mean c / (1 - phi) and standard deviation
+        # sigma / sqrt(1 - phi**2), both equal to 5 and 1 here.
+        assert values.mean() == pytest.approx(5.0, abs=0.1)
+        assert values.std() == pytest.approx(1.0, abs=0.05)
+        assert_acf(values, 1, 0.6)
+
+    @pytest.mark.stats
+    def test_native_fixed_seasonal_ar_reproduces_lag_acf(self) -> None:
+        generator = MARGenerator(
+            min_length=16_000,
+            max_length=16_000,
+            freq="D",
+            seed=9,
+            weights=[1.0],
+            ar_coefficients=[[0.0] * 11 + [0.75]],
+            intercepts=[0.0],
+            noise_scales=[1.0],
+        )
+        values = next(iter(series_values(generator.generate(n_series=1)).values()))
+        assert_acf(values, 12, 0.75)
+
 
 class TestMarValidation:
     """Validation for random and fixed modes."""

@@ -1,0 +1,65 @@
+{
+  "benchmark": "native_paths",
+  "environment": {
+    "command": "benchmarks/benchmark_native_paths.py --repeats 5 --workers 1 --save benchmarks/data/native_paths_summary.json",
+    "timestamp_utc": "2026-09-03T11:38:31+00:00",
+    "python": "3.10.12",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "machine": "x86_64",
+    "cpu_count": 20,
+    "package_versions": {
+      "synforecast": "0.1.0",
+      "numpy": "2.2.6",
+      "pandas": "2.3.3",
+      "polars": "1.35.2",
+      "scipy": "1.15.3",
+      "scikit-learn": "1.7.2",
+      "statsforecast": "2.1.1",
+      "mlforecast": "1.1.0",
+      "neuralforecast": "3.1.7",
+      "utilsforecast": "0.2.15",
+      "datasetsforecast": "1.0.1",
+      "torch": "2.13.0+cpu"
+    },
+    "git_commit": "ca249205459887873b226142aedaa0b0d0b0ca32",
+    "git_dirty": true,
+    "git_diff_sha256": "6921b03056a6535b4c3c7736c8e113ab8bfecc6280135d56bf5f7eda259bc5a0"
+  },
+  "configuration": {
+    "mar_n_series": 256,
+    "mar_length": 1024,
+    "mbb_length": 8192,
+    "dba_length": 256,
+    "dba_iterations": 5,
+    "feature_length": 4096,
+    "repeats": 5,
+    "workers": 1,
+    "quick": false
+  },
+  "cases": [
+    {
+      "name": "mar_generate",
+      "native_seconds": 0.01552168105263263,
+      "python_seconds": 0.4353724760003388,
+      "speedup": 28.04931208958809
+    },
+    {
+      "name": "mbb_kernel",
+      "native_seconds": 6.390409544110298e-05,
+      "python_seconds": 0.000232381047680974,
+      "speedup": 3.636403051744114
+    },
+    {
+      "name": "dba_kernel",
+      "native_seconds": 0.0008470530156046152,
+      "python_seconds": 0.46193246298935264,
+      "speedup": 545.3406746443508
+    },
+    {
+      "name": "feature_kernel",
+      "native_seconds": 0.00013260706327855587,
+      "python_seconds": 0.00022703199647367,
+      "speedup": 1.7120656385909405
+    }
+  ]
+}
