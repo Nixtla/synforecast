@@ -29,6 +29,21 @@ class TestFeatureComputation:
         assert all(isinstance(value, float) for value in features.values())
         assert all(np.isfinite(value) for value in features.values())
 
+    @pytest.mark.parametrize("length", [63, 64, 121])
+    def test_native_feature_tuple_matches_public_helpers(self, length: int) -> None:
+        values = np.random.default_rng(length).normal(size=length)
+        features = compute_features(values, 12)
+        assert features["spectral_entropy"] == pytest.approx(
+            spectral_entropy(values), abs=1e-12
+        )
+        assert features["trend_strength"] == pytest.approx(
+            trend_strength(values, 12), abs=1e-12
+        )
+        assert features["seasonal_strength"] == pytest.approx(
+            seasonal_strength(values, 12), abs=1e-12
+        )
+        assert features["acf1"] == pytest.approx(acf1(values), abs=1e-12)
+
     @pytest.mark.parametrize("period", [None, 7, 12])
     def test_decomposition_reconstructs_input(self, period: int | None) -> None:
         values = np.random.default_rng(1).normal(size=121)

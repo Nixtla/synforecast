@@ -6,6 +6,8 @@ https://doi.org/10.1016/j.patcog.2010.09.013).
 
 import numpy as np
 
+from synforecast._lib import augmentation as _rs_augmentation
+
 
 def dtw_alignment(
     a: np.ndarray, b: np.ndarray, band: int | None
@@ -20,41 +22,10 @@ def dtw_alignment(
     if band is not None and band < 0:
         raise ValueError("band must be non-negative when provided")
 
-    n, m = len(a), len(b)
-    width = max(n, m) if band is None else max(band, abs(n - m))
-    previous_costs = {0: 0.0}
-    parents: dict[tuple[int, int], int] = {}
-    for i in range(1, n + 1):
-        current_costs: dict[int, float] = {}
-        lower = max(1, i - width)
-        upper = min(m, i + width)
-        for j in range(lower, upper + 1):
-            options = (
-                previous_costs.get(j - 1, np.inf),
-                previous_costs.get(j, np.inf),
-                current_costs.get(j - 1, np.inf),
-            )
-            direction = int(np.argmin(options))
-            current_costs[j] = (a[i - 1] - b[j - 1]) ** 2 + options[direction]
-            parents[(i - 1, j - 1)] = direction
-        previous_costs = current_costs
-
-    i, j = n - 1, m - 1
-    path: list[tuple[int, int]] = []
-    while i >= 0 and j >= 0:
-        path.append((i, j))
-        direction = parents.get((i, j), -1)
-        if direction == 0:
-            i -= 1
-            j -= 1
-        elif direction == 1:
-            i -= 1
-        elif direction == 2:
-            j -= 1
-        else:
-            raise RuntimeError("DTW alignment is infeasible for the requested band")
-    path.reverse()
-    return float(np.sqrt(previous_costs.get(m, np.inf))), np.asarray(path, dtype=int)
+    distance, path = _rs_augmentation.dtw_alignment(
+        np.ascontiguousarray(a), np.ascontiguousarray(b), band
+    )
+    return float(distance), np.asarray(path, dtype=int)
 
 
 def dtw_distance(a: np.ndarray, b: np.ndarray, band: int | None) -> float:
@@ -78,15 +49,12 @@ def dba_barycenter(
     if n_iterations < 1:
         raise ValueError("n_iterations must be >= 1")
 
-    barycenter = series[0].copy()
-    for _ in range(n_iterations):
-        sums = np.zeros_like(barycenter)
-        totals = np.zeros_like(barycenter)
-        for values, weight in zip(series, weights, strict=True):
-            _, path = dtw_alignment(barycenter, values, band)
-            for barycenter_index, values_index in path:
-                sums[barycenter_index] += weight * values[values_index]
-                totals[barycenter_index] += weight
-        observed = totals > 0
-        barycenter[observed] = sums[observed] / totals[observed]
-    return barycenter
+    return np.asarray(
+        _rs_augmentation.dba_barycenter(
+            np.ascontiguousarray(series[0]),
+            [np.ascontiguousarray(values) for values in series[1:]],
+            np.ascontiguousarray(weights),
+            n_iterations,
+            band,
+        )
+    )

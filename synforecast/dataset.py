@@ -9,8 +9,8 @@ from narwhals.stable.v2.typing import IntoFrameT
 
 from synforecast._analysis import classify_series, detect_seasonality
 from synforecast._dtw import dba_barycenter, dtw_distance
-from synforecast._features import classical_decompose
 from synforecast._fitting import fit_generator_params
+from synforecast._lib import augmentation as _rs_augmentation
 from synforecast._lib import batch as _rs_batch
 from synforecast.base import (
     BaseGenerator,
@@ -831,25 +831,22 @@ class SynAugment:
                 raise ValueError(f"series {series_id!r} is too short to bootstrap")
             detected = detect_seasonality(values)["period"]
             period = seasonal_period if seasonal_period is not None else detected
-            trend, seasonal, remainder = classical_decompose(values, period)
             default_block = (
                 2 * period if period else max(2, int(round(len(values) ** 0.5)))
             )
             block = block_size if block_size is not None else default_block
             block = min(block, max(2, len(values) // 3))
-            n_blocks = len(values) // block + 2
 
             for copy_index in range(n_augment):
                 generated_id = self._reserve_generated_id(
                     f"{series_id}_mbb_{copy_index}", reserved_ids
                 )
-                starts = self.rng.integers(0, len(values) - block + 1, n_blocks)
-                sampled = np.concatenate(
-                    [remainder[start : start + block] for start in starts]
+                native_seed = int(self.rng.integers(0, 2**63))
+                generated = np.asarray(
+                    _rs_augmentation.moving_block_bootstrap(
+                        np.ascontiguousarray(values), block, native_seed, period
+                    )
                 )
-                offset = int(self.rng.integers(0, block))
-                bootstrapped = sampled[offset : offset + len(values)]
-                generated = trend + seasonal + bootstrapped
                 synthetic_dfs.append(
                     self._copy_reference_frame(
                         output_sdf, generated_id, generated, out_engine

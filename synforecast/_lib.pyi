@@ -3,6 +3,41 @@
 import numpy as np
 import numpy.typing as npt
 
+class augmentation:
+    @staticmethod
+    def dtw_alignment(
+        a: npt.NDArray[np.float64],
+        b: npt.NDArray[np.float64],
+        band: int | None = None,
+    ) -> tuple[float, list[tuple[int, int]]]: ...
+    @staticmethod
+    def dba_barycenter(
+        reference: npt.NDArray[np.float64],
+        neighbors: list[npt.NDArray[np.float64]],
+        weights: npt.NDArray[np.float64],
+        n_iterations: int,
+        band: int | None = None,
+    ) -> npt.NDArray[np.float64]: ...
+    @staticmethod
+    def classical_decompose(
+        values: npt.NDArray[np.float64], period: int | None = None
+    ) -> tuple[
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+    ]: ...
+    @staticmethod
+    def compute_features(
+        values: npt.NDArray[np.float64], period: int | None = None
+    ) -> tuple[float, float, float, float]: ...
+    @staticmethod
+    def moving_block_bootstrap(
+        values: npt.NDArray[np.float64],
+        block_size: int,
+        seed: int,
+        period: int | None = None,
+    ) -> npt.NDArray[np.float64]: ...
+
 class pattern_injection:
     @staticmethod
     def add_changepoints(

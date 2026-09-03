@@ -205,6 +205,45 @@ class MARGenerator(BaseGenerator):
             np.asarray(self.noise_scales, dtype=float),
         )
 
+    def _get_batch_params(self) -> tuple[np.ndarray, list[np.ndarray]]:
+        """Encode MAR configuration for the native batch kernel."""
+        fixed_mode = self.weights is not None
+        scalars = np.asarray(
+            [
+                self.max_components,
+                self.max_ar_order,
+                self.seasonal_period or 0,
+                self.weights_concentration,
+                self.intercept_scale,
+                self.noise_scale_range[0],
+                self.noise_scale_range[1],
+                self.burn_in,
+                float(self.standardize),
+                float(fixed_mode),
+                self._rs_innov_dist,
+                self._rs_innov_param,
+            ],
+            dtype=np.float64,
+        )
+        if not fixed_mode:
+            return scalars, []
+        assert self.weights is not None
+        assert self.ar_coefficients is not None
+        assert self.intercepts is not None
+        assert self.noise_scales is not None
+        return scalars, [
+            np.asarray(self.weights, dtype=np.float64),
+            np.asarray(
+                [len(values) for values in self.ar_coefficients], dtype=np.float64
+            ),
+            np.asarray(
+                [value for component in self.ar_coefficients for value in component],
+                dtype=np.float64,
+            ),
+            np.asarray(self.intercepts, dtype=np.float64),
+            np.asarray(self.noise_scales, dtype=np.float64),
+        ]
+
     def _simulate(
         self,
         length: int,

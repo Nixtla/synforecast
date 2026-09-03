@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from synforecast._features import acf1, compute_features
-from synforecast.base import BaseGenerator
+from synforecast.base import _GEN_TYPE_MAP, BaseGenerator
 from synforecast.generators import MARGenerator
 from tests.helpers import assert_acf, assert_long_format, series_values
 
@@ -39,6 +39,37 @@ class TestMarApi:
             values = generator.generate_single_series(length)
             assert values.shape == (length,)
             assert np.all(np.isfinite(values))
+
+    def test_native_batch_parameter_contract(self) -> None:
+        generator = MARGenerator(**BASE)
+        assert generator._batch_gen_type == _GEN_TYPE_MAP["MARGenerator"] == 30
+        scalars, arrays = generator._get_batch_params()
+        assert scalars.shape == (12,)
+        assert arrays == []
+
+    def test_native_batch_is_independent_of_worker_count(self) -> None:
+        first = MARGenerator(**BASE).generate(n_series=8, n_jobs=1)
+        second = MARGenerator(**BASE).generate(n_series=8, n_jobs=2)
+        first_values = series_values(first)
+        second_values = series_values(second)
+        assert first_values.keys() == second_values.keys()
+        for series_id in first_values:
+            np.testing.assert_array_equal(
+                first_values[series_id], second_values[series_id]
+            )
+
+    def test_fixed_native_batch_parameter_layout(self) -> None:
+        generator = MARGenerator(
+            **BASE,
+            weights=[0.25, 0.75],
+            ar_coefficients=[[0.5], [0.2, -0.1]],
+            intercepts=[1.0, -1.0],
+            noise_scales=[0.5, 1.5],
+        )
+        scalars, arrays = generator._get_batch_params()
+        assert scalars[9] == 1.0
+        np.testing.assert_array_equal(arrays[1], [1.0, 2.0])
+        np.testing.assert_array_equal(arrays[2], [0.5, 0.2, -0.1])
 
 
 class TestMarBehavior:

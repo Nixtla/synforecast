@@ -3,6 +3,7 @@
 import numpy as np
 
 from synforecast._analysis import _autocorrelation
+from synforecast._lib import augmentation as _rs_augmentation
 
 
 def _validate_values(values: np.ndarray) -> np.ndarray:
@@ -57,18 +58,10 @@ def classical_decompose(
     values = _validate_values(values)
     if period is not None and period < 2:
         raise ValueError("period must be >= 2 when provided")
-    usable_period = period if period is not None and len(values) >= 2 * period else None
-    trend = _moving_average(values, usable_period)
-    seasonal = np.zeros_like(values)
-    if usable_period is not None:
-        detrended = values - trend
-        phase_means = np.array(
-            [detrended[phase::usable_period].mean() for phase in range(usable_period)]
-        )
-        phase_means -= phase_means.mean()
-        seasonal = np.resize(phase_means, len(values))
-    remainder = values - trend - seasonal
-    return trend, seasonal, remainder
+    trend, seasonal, remainder = _rs_augmentation.classical_decompose(
+        np.ascontiguousarray(values), period
+    )
+    return np.asarray(trend), np.asarray(seasonal), np.asarray(remainder)
 
 
 def spectral_entropy(values: np.ndarray) -> float:
@@ -132,9 +125,15 @@ def compute_features(
     feature definitions, and numerical guards are SynForecast's own design
     rather than a reproduction of the reference code.
     """
+    values = _validate_values(values)
+    if seasonal_period is not None and seasonal_period < 2:
+        raise ValueError("period must be >= 2 when provided")
+    entropy, trend, seasonal, autocorrelation = _rs_augmentation.compute_features(
+        np.ascontiguousarray(values), seasonal_period
+    )
     return {
-        "spectral_entropy": spectral_entropy(values),
-        "trend_strength": trend_strength(values, seasonal_period),
-        "seasonal_strength": seasonal_strength(values, seasonal_period),
-        "acf1": acf1(values),
+        "spectral_entropy": float(entropy),
+        "trend_strength": float(trend),
+        "seasonal_strength": float(seasonal),
+        "acf1": float(autocorrelation),
     }
