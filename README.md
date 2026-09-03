@@ -15,7 +15,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Nixtla/synforecast/blob/main/LICENSE)
 [![Docs](https://github.com/Nixtla/synforecast/actions/workflows/build-docs.yaml/badge.svg)](https://github.com/Nixtla/synforecast/actions/workflows/build-docs.yaml)
 
-**SynForecast** generates synthetic time-series panels with 31
+**SynForecast** generates synthetic time-series panels with 32
 statistical, stochastic, multivariate, domain-specific, and pretraining
 generators. It follows the Nixtla long format and supports controlled
 changepoints, anomalies, missing data, exogenous variables, and augmentation
@@ -179,7 +179,7 @@ pretraining choices can be evaluated against observed-only baselines.
 
 ## Features
 
-- 31 generators across statistical, stochastic, multivariate, domain-specific,
+- 32 generators across statistical, stochastic, multivariate, domain-specific,
   and pretraining categories
 - Long-format output following Nixtla conventions
 - pandas, Polars, cuDF, Modin, and PyArrow output through Narwhals

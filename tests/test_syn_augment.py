@@ -8,6 +8,7 @@ import polars as pl
 import pytest
 
 from synforecast import SynAugment
+from tests.helpers import series_values
 
 
 class TestSynAugment:
@@ -975,6 +976,288 @@ class TestTSMixup:
             SynAugment(seed=0).mixup(df, scaling="bogus")
         with pytest.raises(ValueError):
             SynAugment(seed=0).mixup(df, n_series=0)
+
+
+def _smooth_panel(engine: str, unequal: bool = False):
+    """Build a phase-shifted smooth panel for MBB and DBA tests."""
+    rng = np.random.default_rng(123)
+    ids: list[str] = []
+    timestamps: list[pd.Timestamp] = []
+    values: list[float] = []
+    for index, length in enumerate((72, 65, 80) if unequal else (72, 72, 72)):
+        time = np.arange(length)
+        signal = (
+            10.0
+            + 0.08 * time
+            + 2.0 * np.sin(2 * np.pi * (time + index) / 12)
+            + rng.normal(0.0, 0.15, length)
+        )
+        ids.extend([f"s{index}"] * length)
+        timestamps.extend(pd.date_range("2022-01-01", periods=length, freq="D"))
+        values.extend(signal)
+    data = {"unique_id": ids, "ds": timestamps, "y": values}
+    return pl.DataFrame(data) if engine == "polars" else pd.DataFrame(data)
+
+
+class TestMBB:
+    """Tests for decomposition-remainder moving block bootstrap."""
+
+    def test_ids_counts_timestamps_and_engine(self, engine: str) -> None:
+        frame = _smooth_panel(engine)
+        output = SynAugment(seed=1).mbb(frame, n_augment=2, seasonal_period=12)
+        split = series_values(output)
+        assert len(split) == 9
+        for series_id in ("s0", "s1", "s2"):
+            assert f"{series_id}_mbb_0" in split
+            assert f"{series_id}_mbb_1" in split
+        output_pd = output.to_pandas() if engine == "polars" else output
+        input_pd = frame.to_pandas() if engine == "polars" else frame
+        source_time = input_pd.loc[input_pd["unique_id"] == "s0", "ds"].tolist()
+        generated_time = output_pd.loc[
+            output_pd["unique_id"].astype(str) == "s0_mbb_0", "ds"
+        ].tolist()
+        assert generated_time == source_time
+
+    def test_seed_determinism_and_variation(self) -> None:
+        frame = _smooth_panel("polars")
+        first = SynAugment(seed=2).mbb(frame, include_original=False)
+        repeated = SynAugment(seed=2).mbb(frame, include_original=False)
+        different = SynAugment(seed=3).mbb(frame, include_original=False)
+        assert first.equals(repeated)
+        assert not first.equals(different)
+
+    def test_include_original_false_and_finite_output(self) -> None:
+        output = SynAugment(seed=4).mbb(_smooth_panel("polars"), include_original=False)
+        ids = set(output["unique_id"].cast(pl.String).to_list())
+        assert ids == {"s0_mbb_0", "s1_mbb_0", "s2_mbb_0"}
+        assert np.all(np.isfinite(output["y"].to_numpy()))
+
+    def test_copies_additional_source_columns(self, engine: str) -> None:
+        frame = _smooth_panel(engine)
+        if engine == "polars":
+            frame = frame.with_columns(pl.int_range(pl.len()).alias("covariate"))
+        else:
+            frame = frame.assign(covariate=np.arange(len(frame)))
+
+        output = SynAugment(seed=4).mbb(frame)
+        output_pd = output.to_pandas() if engine == "polars" else output
+        frame_pd = frame.to_pandas() if engine == "polars" else frame
+        source = frame_pd.loc[frame_pd["unique_id"] == "s0", "covariate"].to_numpy()
+        generated = output_pd.loc[
+            output_pd["unique_id"].astype(str) == "s0_mbb_0", "covariate"
+        ].to_numpy()
+
+        assert list(output_pd.columns) == list(frame_pd.columns)
+        np.testing.assert_array_equal(generated, source)
+
+    def test_generated_ids_do_not_collide_with_source_ids(self) -> None:
+        frame = _smooth_panel("polars").with_columns(
+            pl.when(pl.col("unique_id") == "s1")
+            .then(pl.lit("s0_mbb_0"))
+            .otherwise(pl.col("unique_id"))
+            .alias("unique_id")
+        )
+        output = SynAugment(seed=4).mbb(frame)
+        ids = output["unique_id"].cast(pl.String)
+
+        assert ids.n_unique() == 6
+        assert "s0_mbb_0_1" in ids.to_list()
+        assert output.filter(ids == "s0_mbb_0").height == 72
+
+    def test_preserves_trend_and_seasonal_shape_without_pinning(self) -> None:
+        frame = _smooth_panel("polars")
+        output = SynAugment(seed=5).mbb(
+            frame, seasonal_period=12, block_size=5, include_original=False
+        )
+        source = frame.filter(pl.col("unique_id") == "s0")["y"].to_numpy()
+        generated = output.filter(pl.col("unique_id") == "s0_mbb_0")["y"].to_numpy()
+        assert np.corrcoef(source, generated)[0, 1] > 0.9
+        source_phases = np.array([source[phase::12].mean() for phase in range(12)])
+        generated_phases = np.array(
+            [generated[phase::12].mean() for phase in range(12)]
+        )
+        assert np.max(np.abs(source_phases - generated_phases)) < 0.5
+        assert generated.std() != pytest.approx(source.std(), abs=1e-12)
+        assert not np.array_equal(source, generated)
+
+    @pytest.mark.parametrize(
+        ("arguments", "message"),
+        [
+            ({"n_augment": 0}, "n_augment"),
+            ({"n_augment": 1001}, "n_augment"),
+            ({"block_size": 1}, "block_size"),
+            ({"seasonal_period": 1}, "seasonal_period"),
+        ],
+    )
+    def test_invalid_arguments(self, arguments: dict, message: str) -> None:
+        with pytest.raises(ValueError, match=message):
+            SynAugment(seed=0).mbb(_smooth_panel("polars"), **arguments)
+
+    def test_entirely_missing_series_rejected(self) -> None:
+        frame = pl.DataFrame(
+            {
+                "unique_id": ["missing"] * 4,
+                "ds": pd.date_range("2020-01-01", periods=4),
+                "y": [np.nan] * 4,
+            }
+        )
+        with pytest.raises(ValueError, match="missing"):
+            SynAugment(seed=0).mbb(frame)
+
+    def test_too_short_series_rejected(self) -> None:
+        frame = pl.DataFrame(
+            {
+                "unique_id": ["short"] * 3,
+                "ds": pd.date_range("2020-01-01", periods=3),
+                "y": [1.0, 2.0, 3.0],
+            }
+        )
+        with pytest.raises(ValueError, match="too short"):
+            SynAugment(seed=0).mbb(frame)
+
+    def test_empty_panel_rejected(self) -> None:
+        frame = pl.DataFrame(
+            schema={"unique_id": pl.String, "ds": pl.Datetime, "y": pl.Float64}
+        )
+        with pytest.raises(ValueError, match="at least 1"):
+            SynAugment(seed=0).mbb(frame, include_original=False)
+
+
+class TestDBA:
+    """Tests for nearest-neighbor DTW barycenter augmentation."""
+
+    def test_ids_timestamps_engine_and_finite_output(self, engine: str) -> None:
+        frame = _smooth_panel(engine)
+        output = SynAugment(seed=10).dba(frame, n_augment=2, n_iterations=2)
+        split = series_values(output)
+        assert len(split) == 9
+        assert np.all(np.isfinite(np.concatenate(list(split.values()))))
+        for series_id in ("s0", "s1", "s2"):
+            assert f"{series_id}_dba_0" in split
+            assert f"{series_id}_dba_1" in split
+        output_pd = output.to_pandas() if engine == "polars" else output
+        input_pd = frame.to_pandas() if engine == "polars" else frame
+        source_time = input_pd.loc[input_pd["unique_id"] == "s1", "ds"].tolist()
+        generated_time = output_pd.loc[
+            output_pd["unique_id"].astype(str) == "s1_dba_0", "ds"
+        ].tolist()
+        assert generated_time == source_time
+
+    def test_seed_determinism_variation_and_distinct_copies(self) -> None:
+        frame = _smooth_panel("polars")
+        first = SynAugment(seed=11).dba(
+            frame, n_augment=2, n_iterations=2, include_original=False
+        )
+        repeated = SynAugment(seed=11).dba(
+            frame, n_augment=2, n_iterations=2, include_original=False
+        )
+        different = SynAugment(seed=12).dba(
+            frame, n_augment=2, n_iterations=2, include_original=False
+        )
+        assert first.equals(repeated)
+        assert not first.equals(different)
+        split = series_values(first)
+        assert not np.array_equal(split["s0_dba_0"], split["s0_dba_1"])
+
+    def test_reference_scaling_and_shape(self) -> None:
+        frame = _smooth_panel("polars")
+        output = SynAugment(seed=13).dba(frame, n_iterations=3, include_original=False)
+        source = frame.filter(pl.col("unique_id") == "s0")["y"].to_numpy()
+        generated = output.filter(pl.col("unique_id") == "s0_dba_0")["y"].to_numpy()
+        assert abs(generated.mean() - source.mean()) < 0.25 * source.std()
+        assert 0.5 < generated.std() / source.std() < 1.2
+        assert np.corrcoef(source, generated)[0, 1] > 0.7
+
+    def test_scale_none_and_unequal_lengths(self, engine: str) -> None:
+        output = SynAugment(seed=14).dba(
+            _smooth_panel(engine, unequal=True),
+            scale="none",
+            n_iterations=2,
+            include_original=False,
+        )
+        assert len(series_values(output)["s1_dba_0"]) == 65
+
+    def test_copies_additional_reference_columns(self, engine: str) -> None:
+        frame = _smooth_panel(engine)
+        if engine == "polars":
+            frame = frame.with_columns(pl.int_range(pl.len()).alias("covariate"))
+        else:
+            frame = frame.assign(covariate=np.arange(len(frame)))
+
+        output = SynAugment(seed=14).dba(frame, n_iterations=2)
+        output_pd = output.to_pandas() if engine == "polars" else output
+        frame_pd = frame.to_pandas() if engine == "polars" else frame
+        source = frame_pd.loc[frame_pd["unique_id"] == "s0", "covariate"].to_numpy()
+        generated = output_pd.loc[
+            output_pd["unique_id"].astype(str) == "s0_dba_0", "covariate"
+        ].to_numpy()
+
+        assert list(output_pd.columns) == list(frame_pd.columns)
+        np.testing.assert_array_equal(generated, source)
+
+    def test_generated_ids_do_not_collide_with_source_ids(self) -> None:
+        frame = _smooth_panel("polars").with_columns(
+            pl.when(pl.col("unique_id") == "s1")
+            .then(pl.lit("s0_dba_0"))
+            .otherwise(pl.col("unique_id"))
+            .alias("unique_id")
+        )
+        output = SynAugment(seed=14).dba(frame, n_iterations=2)
+        ids = output["unique_id"].cast(pl.String)
+
+        assert ids.n_unique() == 6
+        assert "s0_dba_0_1" in ids.to_list()
+        assert output.filter(ids == "s0_dba_0").height == 72
+
+    def test_constant_reference_keeps_zero_scale(self) -> None:
+        length = 48
+        time = np.arange(length)
+        frame = pl.DataFrame(
+            {
+                "unique_id": ["constant"] * length + ["wave"] * length,
+                "ds": list(pd.date_range("2020-01-01", periods=length)) * 2,
+                "y": np.concatenate(
+                    (np.full(length, 10.0), np.sin(2 * np.pi * time / 12))
+                ),
+            }
+        )
+        output = SynAugment(seed=15).dba(frame, n_iterations=2, include_original=False)
+        generated = output.filter(pl.col("unique_id") == "constant_dba_0")[
+            "y"
+        ].to_numpy()
+
+        np.testing.assert_array_equal(generated, np.full(length, 10.0))
+
+    def test_requires_two_usable_series(self) -> None:
+        frame = _smooth_panel("polars").filter(pl.col("unique_id") == "s0")
+        with pytest.raises(ValueError, match="at least 2"):
+            SynAugment(seed=0).dba(frame)
+
+    def test_entirely_missing_panel_rejected(self) -> None:
+        frame = pl.DataFrame(
+            {
+                "unique_id": ["a"] * 4 + ["b"] * 4,
+                "ds": list(pd.date_range("2020-01-01", periods=4)) * 2,
+                "y": [np.nan] * 8,
+            }
+        )
+        with pytest.raises(ValueError, match="at least 2 usable"):
+            SynAugment(seed=0).dba(frame)
+
+    @pytest.mark.parametrize(
+        "arguments",
+        [
+            {"window_fraction": 0.0},
+            {"window_fraction": 1.5},
+            {"n_neighbors": 0},
+            {"n_iterations": 0},
+            {"n_augment": 0},
+            {"n_augment": 1001},
+        ],
+    )
+    def test_invalid_arguments(self, arguments: dict) -> None:
+        with pytest.raises(ValueError):
+            SynAugment(seed=0).dba(_smooth_panel("polars"), **arguments)
 
 
 # Every generator SynAugment can select, paired with its fitter through

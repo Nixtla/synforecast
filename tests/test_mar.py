@@ -1,0 +1,268 @@
+"""Tests for MARGenerator and feature-targeted MAR generation."""
+
+import numpy as np
+import pytest
+
+from synforecast._features import acf1, compute_features
+from synforecast.base import BaseGenerator
+from synforecast.generators import MARGenerator
+from tests.helpers import assert_acf, assert_long_format, series_values
+
+BASE = {"min_length": 64, "max_length": 128, "freq": "h", "seed": 42}
+
+
+class TestMarApi:
+    """Public API and structural behavior."""
+
+    def test_is_base_generator(self) -> None:
+        assert isinstance(MARGenerator(**BASE), BaseGenerator)
+
+    def test_long_format(self, engine: str) -> None:
+        frame = MARGenerator(**BASE, engine=engine).generate(n_series=4)
+        assert_long_format(frame, n_series=4, min_length=64, max_length=128)
+
+    def test_seed_determinism(self, engine: str) -> None:
+        first = series_values(MARGenerator(**BASE, engine=engine).generate(n_series=4))
+        second = series_values(MARGenerator(**BASE, engine=engine).generate(n_series=4))
+        assert first.keys() == second.keys()
+        for series_id in first:
+            np.testing.assert_array_equal(first[series_id], second[series_id])
+
+    def test_different_seeds_differ(self) -> None:
+        first = MARGenerator(**{**BASE, "seed": 1}).generate_single_series(96)
+        second = MARGenerator(**{**BASE, "seed": 2}).generate_single_series(96)
+        assert not np.array_equal(first, second)
+
+    def test_requested_lengths_are_finite(self) -> None:
+        generator = MARGenerator(**BASE)
+        for length in (1, 2, 10, 200):
+            values = generator.generate_single_series(length)
+            assert values.shape == (length,)
+            assert np.all(np.isfinite(values))
+
+
+class TestMarBehavior:
+    """Statistical and fixed-mode behavior."""
+
+    def test_finite_and_bounded_across_pool(self) -> None:
+        generator = MARGenerator(**{**BASE, "seed": 0})
+        for _ in range(64):
+            values = generator.generate_single_series(128)
+            assert np.all(np.isfinite(values))
+            assert np.abs(values).max() < 1e8
+
+    def test_standardized_by_default(self) -> None:
+        generator = MARGenerator(**{**BASE, "seed": 0})
+        for _ in range(12):
+            values = generator.generate_single_series(256)
+            assert values.mean() == pytest.approx(0.0, abs=1e-7)
+            assert values.std() == pytest.approx(1.0, abs=1e-7)
+
+    def test_standardize_false_keeps_raw_scale(self) -> None:
+        generator = MARGenerator(**BASE, standardize=False)
+        scales = [generator.generate_single_series(256).std() for _ in range(12)]
+        assert any(abs(scale - 1.0) > 1e-3 for scale in scales)
+
+    def test_seasonal_period_is_accepted(self) -> None:
+        values = MARGenerator(**BASE, seasonal_period=24).generate_single_series(200)
+        assert np.all(np.isfinite(values))
+
+    def test_fixed_parameters_vary_with_seed(self) -> None:
+        fixed = {
+            "weights": [1.0],
+            "ar_coefficients": [[0.7]],
+            "intercepts": [0.0],
+            "noise_scales": [1.0],
+        }
+        first = MARGenerator(**{**BASE, "seed": 1}, **fixed).generate_single_series(512)
+        second = MARGenerator(**{**BASE, "seed": 2}, **fixed).generate_single_series(
+            512
+        )
+        assert not np.array_equal(first, second)
+        assert abs(acf1(first)) < 1.0
+        assert abs(acf1(second)) < 1.0
+
+    @pytest.mark.stats
+    def test_random_pool_has_acf_diversity(self) -> None:
+        generator = MARGenerator(**{**BASE, "seed": 7})
+        autocorrelations = np.array(
+            [acf1(generator.generate_single_series(256)) for _ in range(48)]
+        )
+        assert np.ptp(autocorrelations) > 0.5
+
+    @pytest.mark.stats
+    def test_fixed_ar1_reproduces_acf(self) -> None:
+        generator = MARGenerator(
+            min_length=8000,
+            max_length=8000,
+            freq="D",
+            seed=8,
+            weights=[1.0],
+            ar_coefficients=[[0.8]],
+            intercepts=[0.0],
+            noise_scales=[1.0],
+        )
+        assert_acf(generator.generate_single_series(8000), 1, 0.8)
+
+
+class TestMarValidation:
+    """Validation for random and fixed modes."""
+
+    def test_fixed_fields_are_all_or_nothing(self) -> None:
+        with pytest.raises(ValueError, match="provided together"):
+            MARGenerator(**BASE, weights=[1.0])
+
+    def test_fixed_component_counts_must_match(self) -> None:
+        with pytest.raises(ValueError, match="component counts"):
+            MARGenerator(
+                **BASE,
+                weights=[0.5, 0.5],
+                ar_coefficients=[[0.5]],
+                intercepts=[0.0, 0.0],
+                noise_scales=[1.0, 1.0],
+            )
+
+    def test_nonstationary_component_rejected(self) -> None:
+        with pytest.raises(ValueError, match="stationary"):
+            MARGenerator(
+                **BASE,
+                weights=[1.0],
+                ar_coefficients=[[1.2]],
+                intercepts=[0.0],
+                noise_scales=[1.0],
+            )
+
+    @pytest.mark.parametrize("period", [0, 1])
+    def test_short_seasonal_period_rejected(self, period: int) -> None:
+        with pytest.raises(ValueError, match="seasonal_period"):
+            MARGenerator(**BASE, seasonal_period=period)
+
+    @pytest.mark.parametrize("noise_range", [(0.0, 1.0), (2.0, 1.0)])
+    def test_invalid_noise_range_rejected(
+        self, noise_range: tuple[float, float]
+    ) -> None:
+        with pytest.raises(ValueError, match="noise_scale_range"):
+            MARGenerator(**BASE, noise_scale_range=noise_range)
+
+
+class TestMarFeatureTargeting:
+    """Feature-targeted evolutionary search behavior."""
+
+    def test_unknown_feature_rejected(self) -> None:
+        with pytest.raises(ValueError, match="supported names"):
+            MARGenerator.tune_to_features(
+                {"unknown": 0.5}, 64, 64, "D", n_generations=1, population_size=1
+            )
+
+    def test_seasonal_target_requires_period(self) -> None:
+        with pytest.raises(ValueError, match="requires seasonal_period"):
+            MARGenerator.tune_to_features(
+                {"seasonal_strength": 0.8},
+                64,
+                64,
+                "D",
+                n_generations=1,
+                population_size=1,
+            )
+
+    @pytest.mark.parametrize(
+        "target", [{"acf1": -1.1}, {"acf1": 1.1}, {"spectral_entropy": 1.1}]
+    )
+    def test_out_of_range_target_rejected(self, target: dict[str, float]) -> None:
+        with pytest.raises(ValueError, match="target"):
+            MARGenerator.tune_to_features(
+                target, 64, 64, "D", n_generations=1, population_size=1
+            )
+
+    @pytest.mark.parametrize(
+        ("min_length", "max_length", "message"),
+        [(2, 64, "min_length"), (65, 64, "max_length")],
+    )
+    def test_invalid_target_length_range_rejected(
+        self, min_length: int, max_length: int, message: str
+    ) -> None:
+        with pytest.raises(ValueError, match=message):
+            MARGenerator.tune_to_features(
+                {"acf1": 0.5},
+                min_length,
+                max_length,
+                "D",
+                n_generations=1,
+                population_size=1,
+            )
+
+    def test_seasonal_target_requires_two_periods_at_min_length(self) -> None:
+        with pytest.raises(ValueError, match="2 \\* seasonal_period"):
+            MARGenerator.tune_to_features(
+                {"seasonal_strength": 0.5},
+                23,
+                48,
+                "D",
+                seasonal_period=12,
+                n_generations=1,
+                population_size=1,
+            )
+
+    def test_candidate_draw_lengths_span_configured_range(self) -> None:
+        np.testing.assert_array_equal(
+            MARGenerator._evaluation_lengths(64, 96, 3), [64, 80, 96]
+        )
+        np.testing.assert_array_equal(MARGenerator._evaluation_lengths(64, 96, 1), [80])
+
+    def test_search_is_deterministic(self) -> None:
+        arguments = {
+            "target_features": {"acf1": 0.7},
+            "min_length": 64,
+            "max_length": 96,
+            "freq": "D",
+            "n_generations": 2,
+            "population_size": 5,
+            "n_draws_per_candidate": 2,
+            "seed": 9,
+        }
+        first = MARGenerator.tune_to_features(**arguments)
+        second = MARGenerator.tune_to_features(**arguments)
+        assert first.weights == second.weights
+        assert first.ar_coefficients == second.ar_coefficients
+        assert first.intercepts == second.intercepts
+        assert first.noise_scales == second.noise_scales
+
+    @pytest.mark.parametrize(
+        ("feature", "target", "seasonal_period", "seed"),
+        [
+            ("spectral_entropy", 0.8, None, 31),
+            ("trend_strength", 0.6, None, 32),
+            ("seasonal_strength", 0.7, 12, 33),
+            ("acf1", 0.7, None, 34),
+        ],
+    )
+    @pytest.mark.stats
+    @pytest.mark.slow
+    def test_search_targets_each_feature_across_length_range(
+        self,
+        feature: str,
+        target: float,
+        seasonal_period: int | None,
+        seed: int,
+    ) -> None:
+        generator = MARGenerator.tune_to_features(
+            {feature: target},
+            min_length=64,
+            max_length=128,
+            freq="D",
+            seasonal_period=seasonal_period,
+            n_generations=5,
+            population_size=10,
+            n_draws_per_candidate=3,
+            seed=seed,
+        )
+        realized = np.mean(
+            [
+                compute_features(
+                    generator.generate_single_series(length), seasonal_period
+                )[feature]
+                for length in (64, 96, 128)
+                for _ in range(8)
+            ]
+        )
+        assert abs(realized - target) < 0.2
