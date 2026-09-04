@@ -8,7 +8,7 @@ import numpy as np
 from narwhals.stable.v2.typing import IntoFrameT
 
 from synforecast._analysis import classify_series, detect_seasonality
-from synforecast._dtw import dba_barycenter, dtw_distance
+from synforecast._dtw import dba_barycenter, pairwise_dtw_distances
 from synforecast._fitting import fit_generator_params
 from synforecast._lib import augmentation as _rs_augmentation
 from synforecast._lib import batch as _rs_batch
@@ -245,18 +245,27 @@ class SynSet:
 class SynAugment:
     """Augment time series datasets with synthetic series.
 
-    Analyzes input time series, auto-selects appropriate generators based on
-    statistical properties, fits parameters, and generates statistically
-    similar synthetic series.
+    Four strategies share the same column contract and seeding:
 
-    The augmentation process:
+    - :meth:`augment` fits a parametric generator per series and simulates
+      from it (IDs ``"{original_id}_aug_{i}"``).
+    - :meth:`mixup` forms convex combinations of z-normalized series
+      (IDs ``"mixup_{i}"``).
+    - :meth:`mbb` bootstraps decomposition remainders in moving blocks
+      (IDs ``"{original_id}_mbb_{i}"``).
+    - :meth:`dba` averages nearest neighbours with DTW barycenters
+      (IDs ``"{original_id}_dba_{i}"``).
+
+    The fit-and-simulate process behind :meth:`augment`:
     1. For each unique series in the input DataFrame, analyze its statistical properties
     2. Auto-select the most appropriate generator (or use user override)
     3. Fit generator parameters to match the series' statistical fingerprint
     4. Generate n_augment synthetic series that preserve these properties
     5. Return combined DataFrame with original and synthetic series
 
-    Synthetic series IDs follow the pattern `"{original_id}_aug_{i}"`
+    Series that are entirely missing (or, for :meth:`mbb`, shorter than four
+    observations) are skipped with a logged warning by :meth:`mixup`,
+    :meth:`mbb`, and :meth:`dba`.
 
     Args:
         id_col: Name of the ID column (default: 'unique_id')
@@ -535,6 +544,18 @@ class SynAugment:
         return result.to_native()
 
     @staticmethod
+    def _warn_skipped(method: str, skipped: list[Any]) -> None:
+        """Log one summary for series skipped as unusable by ``method``."""
+        if skipped:
+            logger.warning(
+                "%s skipped %d unusable series (entirely missing or too short): %s",
+                method,
+                len(skipped),
+                ", ".join(repr(series_id) for series_id in skipped[:10])
+                + (", ..." if len(skipped) > 10 else ""),
+            )
+
+    @staticmethod
     def _warn_fallbacks(fallbacks: list[tuple[str, str, str]], total: int) -> None:
         """Log one summary for AR(1) substitutions made during an API call."""
         if not fallbacks:
@@ -793,8 +814,9 @@ class SynAugment:
         Classical decomposition and moving-block sampling execute in native
         Rust. Seed determinism is stable within this native path.
 
-        NaNs are interpolated before decomposition. Every input series must
-        contain a finite observation and at least four observations. Additional
+        NaNs are interpolated before decomposition. Series without a finite
+        observation or with fewer than four observations are skipped with a
+        logged warning; at least one series must be usable. Additional
         input columns are copied unchanged from each source series. The
         effective block length, including an explicitly supplied
         ``block_size``, is capped per source series at
@@ -822,18 +844,21 @@ class SynAugment:
             raise ValueError("mbb requires at least 1 series")
         reserved_ids = {str(series_id) for series_id in unique_ids}
         synthetic_dfs: list[nw.DataFrame] = []
+        skipped: list[Any] = []
 
         for series_id in unique_ids:
             sdf = df_nw.filter(nw.col(self.id_col) == series_id).sort(self.time_col)
             raw_values = sdf.select(self.target_col).to_numpy().flatten().astype(float)
-            output_sdf = self._to_output_backend(sdf, out_engine)
             values = self._interpolate_missing(raw_values)
-            if values is None:
-                raise ValueError(f"series {series_id!r} is entirely missing")
-            if len(values) < 4:
-                raise ValueError(f"series {series_id!r} is too short to bootstrap")
-            detected = detect_seasonality(values)["period"]
-            period = seasonal_period if seasonal_period is not None else detected
+            if values is None or len(values) < 4:
+                skipped.append(series_id)
+                continue
+            output_sdf = self._to_output_backend(sdf, out_engine)
+            period = (
+                seasonal_period
+                if seasonal_period is not None
+                else detect_seasonality(values)["period"]
+            )
             default_block = (
                 2 * period if period else max(2, int(round(len(values) ** 0.5)))
             )
@@ -855,6 +880,12 @@ class SynAugment:
                         output_sdf, generated_id, generated, out_engine
                     )
                 )
+
+        self._warn_skipped("mbb", skipped)
+        if len(skipped) == len(unique_ids):
+            raise ValueError(
+                "mbb requires at least 1 usable series (finite values, >= 4 rows)"
+            )
 
         frames = [output_original] if include_original else []
         frames.extend(synthetic_dfs)
@@ -888,8 +919,8 @@ class SynAugment:
         https://arxiv.org/abs/2008.02663). Neighbor weighting, per-copy weight
         randomization, banded DTW, and z-normalized alignment are SynForecast's
         own design rather than a reproduction of the reference code. Pairwise
-        panel distances are cached, while the band limits the otherwise
-        quadratic alignment cost.
+        panel distances are computed once per call in parallel native code,
+        while the band limits the otherwise quadratic alignment cost.
 
         This panel-aware method caches every usable source series once and
         deliberately bypasses ``_match_autocorrelation``. With the default
@@ -929,13 +960,15 @@ class SynAugment:
         series: dict[Any, tuple[np.ndarray, nw.DataFrame]] = {}
         aligned: dict[Any, np.ndarray] = {}
         moments: dict[Any, tuple[float, float]] = {}
+        skipped: list[Any] = []
         for series_id in unique_ids:
             sdf = df_nw.filter(nw.col(self.id_col) == series_id).sort(self.time_col)
             raw_values = sdf.select(self.target_col).to_numpy().flatten().astype(float)
-            output_sdf = self._to_output_backend(sdf, out_engine)
             values = self._interpolate_missing(raw_values)
             if values is None:
+                skipped.append(series_id)
                 continue
+            output_sdf = self._to_output_backend(sdf, out_engine)
             mean = float(values.mean())
             std = float(values.std())
             divisor = std if std >= 1e-8 else 1.0
@@ -945,33 +978,21 @@ class SynAugment:
                 (values - mean) / divisor if scale == "reference" else values
             )
         usable_ids = list(series)
+        self._warn_skipped("dba", skipped)
         if len(usable_ids) < 2:
             raise ValueError("dba requires at least 2 usable series")
 
-        distance_cache: dict[frozenset[Any], float] = {}
+        distance_matrix = pairwise_dtw_distances(
+            [aligned[series_id] for series_id in usable_ids], window_fraction
+        )
         synthetic_dfs: list[nw.DataFrame] = []
-        for reference_id in usable_ids:
-            distances: list[tuple[float, Any]] = []
+        for reference_index, reference_id in enumerate(usable_ids):
             reference_values = aligned[reference_id]
-            for other_id in usable_ids:
-                if other_id == reference_id:
-                    continue
-                key = frozenset((reference_id, other_id))
-                if key not in distance_cache:
-                    other_values = aligned[other_id]
-                    band = max(
-                        int(
-                            np.ceil(
-                                window_fraction
-                                * max(len(reference_values), len(other_values))
-                            )
-                        ),
-                        abs(len(reference_values) - len(other_values)) + 1,
-                    )
-                    distance_cache[key] = dtw_distance(
-                        reference_values, other_values, band
-                    )
-                distances.append((distance_cache[key], other_id))
+            distances: list[tuple[float, Any]] = [
+                (float(distance_matrix[reference_index, other_index]), other_id)
+                for other_index, other_id in enumerate(usable_ids)
+                if other_id != reference_id
+            ]
             distances.sort(key=lambda item: (item[0], str(item[1])))
             neighbor_ids = [
                 series_id

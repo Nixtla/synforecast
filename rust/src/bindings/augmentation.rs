@@ -31,6 +31,37 @@ fn dtw_alignment(
 }
 
 #[pyfunction]
+#[pyo3(signature = (a, b, band=None))]
+fn dtw_distance(
+    py: Python<'_>,
+    a: PyReadonlyArray1<'_, f64>,
+    b: PyReadonlyArray1<'_, f64>,
+    band: Option<i64>,
+) -> PyResult<f64> {
+    let a = a.as_slice()?.to_vec();
+    let b = b.as_slice()?.to_vec();
+    let band = parse_band(band)?;
+    py.detach(|| algorithms::dtw_distance(&a, &b, band))
+        .map_err(PyValueError::new_err)
+}
+
+#[pyfunction]
+fn pairwise_dtw_distances(
+    py: Python<'_>,
+    series: Vec<PyReadonlyArray1<'_, f64>>,
+    window_fraction: f64,
+) -> PyResult<Py<PyArray1<f64>>> {
+    let series = series
+        .iter()
+        .map(|values| values.as_slice().map(ToOwned::to_owned))
+        .collect::<Result<Vec<_>, _>>()?;
+    let matrix = py
+        .detach(|| algorithms::pairwise_dtw_distances(&series, window_fraction))
+        .map_err(PyValueError::new_err)?;
+    Ok(PyArray1::from_vec(py, matrix).into())
+}
+
+#[pyfunction]
 #[pyo3(signature = (reference, neighbors, weights, n_iterations, band=None))]
 fn dba_barycenter(
     py: Python<'_>,
@@ -102,6 +133,8 @@ fn moving_block_bootstrap(
 pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let module = PyModule::new(parent.py(), "augmentation")?;
     module.add_function(wrap_pyfunction!(dtw_alignment, &module)?)?;
+    module.add_function(wrap_pyfunction!(dtw_distance, &module)?)?;
+    module.add_function(wrap_pyfunction!(pairwise_dtw_distances, &module)?)?;
     module.add_function(wrap_pyfunction!(dba_barycenter, &module)?)?;
     module.add_function(wrap_pyfunction!(classical_decompose, &module)?)?;
     module.add_function(wrap_pyfunction!(compute_features, &module)?)?;

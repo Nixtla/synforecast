@@ -94,7 +94,8 @@ augmented = SynAugment(seed=42).mbb(
 | `block_size` | `None` | Requested remainder-block length; capped per series |
 | `include_original` | `True` | Include the input rows in the result |
 
-Every series needs at least four observations and one finite target. Missing
+Series without a finite target or with fewer than four observations are
+skipped with a logged warning; at least one series must be usable. Missing
 targets are interpolated before decomposition. Non-target columns are copied
 from the source series.
 
@@ -719,29 +720,34 @@ bounded retries, divergence guards, and optional standardization.
 ### MARGenerator
 
 Samples a fresh mixture of stationary autoregressive components for every
-series, following the breadth-oriented MAR recipe in GRATIS (Kang, Hyndman,
-and Li 2020). Component orders, mixture weights, intercepts, innovation scales,
-and optional seasonal AR factors vary between draws. SynForecast's PACF-based
-sampler and stability guards are its own design rather than a reproduction of
-the `gratis` R package. **Applications**: broad foundation-model pretraining.
+series. The mixture autoregressive model is due to Wong and Li (2000); the
+breadth-oriented sampling recipe follows GRATIS (Kang, Hyndman, and Li 2020).
+Component orders, mixture weights, intercepts, innovation scales, and optional
+seasonal AR factors vary between draws. SynForecast's PACF-based sampler and
+stability guards are its own design rather than a reproduction of the `gratis`
+R package. **Applications**: broad foundation-model pretraining.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `max_components` | `3` | Maximum number of mixture components |
-| `max_ar_order` | `5` | Maximum non-seasonal AR order |
-| `seasonal_period` | `None` | Optional multiplicative seasonal AR period |
+| `max_components` | `3` | Maximum number of mixture components (1-64) |
+| `max_ar_order` | `5` | Maximum non-seasonal AR order (1-100) |
+| `seasonal_period` | `None` | Optional multiplicative seasonal AR period (random mode only) |
 | `weights_concentration` | `1.0` | Symmetric Dirichlet concentration |
 | `intercept_scale` | `1.0` | Component-intercept sampling scale |
 | `noise_scale_range` | `(0.1, 2.0)` | Log-uniform innovation-scale range |
-| `burn_in` | `100` | Number of discarded simulation steps |
+| `burn_in` | `100` | Number of discarded simulation steps (0-1,000,000) |
 | `standardize` | `True` | Standardize each accepted series |
 | `weights` | `None` | Fixed positive component weights |
-| `ar_coefficients` | `None` | Fixed stationary AR coefficients by component |
+| `ar_coefficients` | `None` | Fixed stationary AR coefficients by component; the mixture must also be second-order stationary |
 | `intercepts` | `None` | Fixed component intercepts |
 | `noise_scales` | `None` | Fixed positive innovation scales |
 
 `MARGenerator.tune_to_features` selects fixed parameters by seeded evolutionary
-search over the minimal GRATIS-style feature set.
+search over the minimal GRATIS-style feature set. The search stops early once
+the best L2 feature distance is at or below `tolerance` (default `0.05`), so
+the `n_generations * population_size * n_draws_per_candidate` budget is an upper
+bound. In fixed mode, a configuration that fails the finite, bounded,
+non-constant output guards raises `ValueError` rather than substituting noise.
 
 ### Multivariatizer
 
@@ -889,6 +895,10 @@ the KernelSynth entry explicitly identifies its reference implementation:
 - Ansari et al. (2025), “Chronos-2: From Univariate to Universal Forecasting,”
   [arXiv:2510.15821](https://arxiv.org/abs/2510.15821) (motivation for the
   cotemporaneous and sequential couplings in `Multivariatizer`).
+- Wong and Li (2000), “On a mixture autoregressive model,” Journal of the
+  Royal Statistical Society Series B 62(1),
+  [doi:10.1111/1467-9868.00222](https://doi.org/10.1111/1467-9868.00222)
+  (mixture autoregressive model and its second-order stationarity condition).
 - Kang, Hyndman, and Li (2020), “GRATIS: GeneRAting TIme Series with diverse
   and controllable characteristics,”
   [arXiv:1903.02787](https://arxiv.org/abs/1903.02787) (MAR simulation and

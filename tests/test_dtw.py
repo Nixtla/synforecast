@@ -3,7 +3,12 @@
 import numpy as np
 import pytest
 
-from synforecast._dtw import dba_barycenter, dtw_alignment, dtw_distance
+from synforecast._dtw import (
+    dba_barycenter,
+    dtw_alignment,
+    dtw_distance,
+    pairwise_dtw_distances,
+)
 
 
 class TestDtwAlignment:
@@ -23,6 +28,44 @@ class TestDtwAlignment:
         assert distance == pytest.approx(1.0)
         assert tuple(path[0]) == (0, 0)
         assert tuple(path[-1]) == (2, 1)
+
+    def test_distance_kernel_matches_alignment_distance(self) -> None:
+        rng = np.random.default_rng(3)
+        first = rng.normal(size=40).cumsum()
+        second = rng.normal(size=37).cumsum()
+        for band in (None, 3, 10):
+            assert dtw_distance(first, second, band) == pytest.approx(
+                dtw_alignment(first, second, band)[0], rel=1e-12
+            )
+
+    def test_band_constrains_alignment(self) -> None:
+        first = np.array([0.0, 0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        second = np.roll(first, 2)
+        assert dtw_distance(first, second, None) == pytest.approx(0.0)
+        assert dtw_distance(first, second, 2) == pytest.approx(0.0)
+        assert dtw_distance(first, second, 1) > 1.0
+
+    def test_pairwise_matrix_matches_per_pair_distances(self) -> None:
+        rng = np.random.default_rng(4)
+        series = [rng.normal(size=n).cumsum() for n in (30, 25, 30, 41)]
+        matrix = pairwise_dtw_distances(series, 0.1)
+        assert matrix.shape == (4, 4)
+        np.testing.assert_array_equal(matrix, matrix.T)
+        np.testing.assert_array_equal(np.diag(matrix), 0.0)
+        for i in range(4):
+            for j in range(i + 1, 4):
+                band = max(
+                    int(np.ceil(0.1 * max(len(series[i]), len(series[j])))),
+                    abs(len(series[i]) - len(series[j])) + 1,
+                )
+                assert matrix[i, j] == pytest.approx(
+                    dtw_distance(series[i], series[j], band), rel=1e-12
+                )
+
+    @pytest.mark.parametrize("window_fraction", [0.0, 1.5])
+    def test_pairwise_rejects_bad_window_fraction(self, window_fraction: float) -> None:
+        with pytest.raises(ValueError, match="window_fraction"):
+            pairwise_dtw_distances([np.ones(3), np.ones(3)], window_fraction)
 
     def test_distance_is_symmetric_for_unequal_lengths(self) -> None:
         first = np.array([0.0, 1.0, 1.5, 2.0])

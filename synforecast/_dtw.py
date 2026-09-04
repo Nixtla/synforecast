@@ -30,8 +30,38 @@ def dtw_alignment(
 
 def dtw_distance(a: np.ndarray, b: np.ndarray, band: int | None) -> float:
     """Return square-root accumulated squared-Euclidean DTW distance."""
-    distance, _ = dtw_alignment(a, b, band)
-    return distance
+    a = np.asarray(a, dtype=float)
+    b = np.asarray(b, dtype=float)
+    if a.ndim != 1 or b.ndim != 1 or len(a) == 0 or len(b) == 0:
+        raise ValueError("DTW inputs must be non-empty one-dimensional arrays")
+    if not np.all(np.isfinite(a)) or not np.all(np.isfinite(b)):
+        raise ValueError("DTW inputs must be finite")
+    if band is not None and band < 0:
+        raise ValueError("band must be non-negative when provided")
+    return float(
+        _rs_augmentation.dtw_distance(
+            np.ascontiguousarray(a), np.ascontiguousarray(b), band
+        )
+    )
+
+
+def pairwise_dtw_distances(
+    series: list[np.ndarray], window_fraction: float
+) -> np.ndarray:
+    """Return the symmetric matrix of banded DTW distances between all series.
+
+    Each pair uses band ``max(ceil(window_fraction * max_len), |len_a - len_b|
+    + 1)``. Pairs are evaluated in parallel in native Rust.
+    """
+    arrays = [
+        np.ascontiguousarray(np.asarray(values, dtype=float)) for values in series
+    ]
+    if any(values.ndim != 1 or len(values) == 0 for values in arrays):
+        raise ValueError("DTW inputs must be non-empty one-dimensional arrays")
+    if not 0 < window_fraction <= 1:
+        raise ValueError("window_fraction must satisfy 0 < value <= 1")
+    flat = np.asarray(_rs_augmentation.pairwise_dtw_distances(arrays, window_fraction))
+    return flat.reshape(len(arrays), len(arrays))
 
 
 def dba_barycenter(

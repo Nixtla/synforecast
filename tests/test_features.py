@@ -29,7 +29,7 @@ class TestFeatureComputation:
         assert all(isinstance(value, float) for value in features.values())
         assert all(np.isfinite(value) for value in features.values())
 
-    @pytest.mark.parametrize("length", [63, 64, 121])
+    @pytest.mark.parametrize("length", [63, 64, 121, 1000, 4095])
     def test_native_feature_tuple_matches_public_helpers(self, length: int) -> None:
         values = np.random.default_rng(length).normal(size=length)
         features = compute_features(values, 12)

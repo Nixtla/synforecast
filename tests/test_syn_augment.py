@@ -1101,7 +1101,7 @@ class TestMBB:
                 "y": [np.nan] * 4,
             }
         )
-        with pytest.raises(ValueError, match="missing"):
+        with pytest.raises(ValueError, match="at least 1 usable"):
             SynAugment(seed=0).mbb(frame)
 
     def test_too_short_series_rejected(self) -> None:
@@ -1112,8 +1112,27 @@ class TestMBB:
                 "y": [1.0, 2.0, 3.0],
             }
         )
-        with pytest.raises(ValueError, match="too short"):
+        with pytest.raises(ValueError, match="at least 1 usable"):
             SynAugment(seed=0).mbb(frame)
+
+    def test_unusable_series_are_skipped_with_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        good = _smooth_panel("polars")
+        bad = pl.DataFrame(
+            {
+                "unique_id": ["missing"] * 4 + ["short"] * 3,
+                "ds": list(pd.date_range("2020-01-01", periods=4))
+                + list(pd.date_range("2020-01-01", periods=3)),
+                "y": [np.nan] * 4 + [1.0, 2.0, 3.0],
+            }
+        ).with_columns(pl.col("ds").cast(good.schema["ds"]))
+        frame = pl.concat([good, bad.select(good.columns)])
+        with caplog.at_level("WARNING", logger="synforecast.dataset"):
+            result = SynAugment(seed=0).mbb(frame, include_original=False)
+        ids = set(result["unique_id"].unique().to_list())
+        assert ids == {f"{sid}_mbb_0" for sid in good["unique_id"].unique()}
+        assert "mbb skipped 2 unusable series" in caplog.text
 
     def test_empty_panel_rejected(self) -> None:
         frame = pl.DataFrame(
@@ -1243,6 +1262,41 @@ class TestDBA:
         )
         with pytest.raises(ValueError, match="at least 2 usable"):
             SynAugment(seed=0).dba(frame)
+
+    def test_missing_series_is_skipped_with_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        good = _smooth_panel("polars")
+        bad = pl.DataFrame(
+            {
+                "unique_id": ["missing"] * 4,
+                "ds": pd.date_range("2020-01-01", periods=4),
+                "y": [np.nan] * 4,
+            }
+        ).with_columns(pl.col("ds").cast(good.schema["ds"]))
+        frame = pl.concat([good, bad.select(good.columns)])
+        with caplog.at_level("WARNING", logger="synforecast.dataset"):
+            result = SynAugment(seed=0).dba(frame, include_original=False)
+        ids = set(result["unique_id"].unique().to_list())
+        assert ids == {f"{sid}_dba_0" for sid in good["unique_id"].unique()}
+        assert "dba skipped 1 unusable series" in caplog.text
+
+    def test_nearest_neighbour_is_preferred(self) -> None:
+        length = 64
+        t = np.arange(length, dtype=float)
+        base = np.sin(2 * np.pi * t / 16)
+        frame = pl.DataFrame(
+            {
+                "unique_id": ["ref"] * length + ["near"] * length + ["far"] * length,
+                "ds": list(pd.date_range("2020-01-01", periods=length)) * 3,
+                "y": np.concatenate([base, np.roll(base, 1), 8.0 + 3.0 * t / length]),
+            }
+        )
+        result = SynAugment(seed=0).dba(
+            frame, n_neighbors=1, include_original=False, scale="none"
+        )
+        generated = result.filter(pl.col("unique_id") == "ref_dba_0")["y"].to_numpy()
+        assert np.abs(generated - base).max() < 0.5
 
     @pytest.mark.parametrize(
         "arguments",

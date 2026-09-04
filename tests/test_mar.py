@@ -6,7 +6,7 @@ import pytest
 from synforecast._features import acf1, compute_features
 from synforecast.base import _GEN_TYPE_MAP, BaseGenerator
 from synforecast.generators import MARGenerator
-from tests.helpers import assert_acf, assert_long_format, series_values
+from tests.helpers import assert_acf, assert_long_format, sample_acf, series_values
 
 BASE = {"min_length": 64, "max_length": 128, "freq": "h", "seed": 42}
 
@@ -122,6 +122,67 @@ class TestMarBehavior:
         assert np.ptp(autocorrelations) > 0.5
 
     @pytest.mark.stats
+    def test_native_random_pool_has_acf_diversity(self) -> None:
+        generator = MARGenerator(
+            **{**BASE, "seed": 7, "min_length": 256, "max_length": 256}
+        )
+        values = series_values(generator.generate(n_series=48))
+        autocorrelations = np.array([acf1(series) for series in values.values()])
+        assert np.ptp(autocorrelations) > 0.5
+        assert np.mean(np.abs(autocorrelations) > 0.3) > 0.25
+
+    @pytest.mark.stats
+    def test_native_random_seasonal_pool_shows_seasonal_lag(self) -> None:
+        generator = MARGenerator(
+            **{**BASE, "seed": 11, "min_length": 512, "max_length": 512},
+            seasonal_period=12,
+        )
+        values = series_values(generator.generate(n_series=48))
+        lag12 = np.array([sample_acf(series, 12) for series in values.values()])
+        assert np.mean(np.abs(lag12) > 0.2) > 0.2
+
+    @pytest.mark.stats
+    @pytest.mark.parametrize("native", [True, False])
+    def test_two_component_mixture_is_bimodal_in_both_paths(self, native: bool) -> None:
+        generator = MARGenerator(
+            min_length=20_000,
+            max_length=20_000,
+            freq="D",
+            seed=5,
+            weights=[0.5, 0.5],
+            ar_coefficients=[[0.2], [0.1, 0.05, -0.05]],
+            intercepts=[-6.0, 6.0],
+            noise_scales=[0.3, 0.3],
+            standardize=False,
+        )
+        if native:
+            values = next(iter(series_values(generator.generate(n_series=1)).values()))
+        else:
+            values = generator.generate_single_series(20_000)
+        assert values.mean() == pytest.approx(0.0, abs=0.3)
+        negative = np.mean(values < -3.0)
+        positive = np.mean(values > 3.0)
+        assert 0.35 < negative < 0.65
+        assert 0.35 < positive < 0.65
+        assert np.mean(np.abs(values) < 3.0) < 0.1
+
+    @pytest.mark.parametrize("native", [True, False])
+    def test_fixed_mode_raises_instead_of_falling_back(self, native: bool) -> None:
+        generator = MARGenerator(
+            **BASE,
+            weights=[1.0],
+            ar_coefficients=[[0.5]],
+            intercepts=[1e9],
+            noise_scales=[1.0],
+            standardize=False,
+        )
+        with pytest.raises(ValueError, match="fixed"):
+            if native:
+                generator.generate(n_series=1)
+            else:
+                generator.generate_single_series(64)
+
+    @pytest.mark.stats
     def test_fixed_ar1_reproduces_acf(self) -> None:
         generator = MARGenerator(
             min_length=8000,
@@ -203,12 +264,62 @@ class TestMarValidation:
         with pytest.raises(ValueError, match="seasonal_period"):
             MARGenerator(**BASE, seasonal_period=period)
 
-    @pytest.mark.parametrize("noise_range", [(0.0, 1.0), (2.0, 1.0)])
+    @pytest.mark.parametrize(
+        "noise_range", [(0.0, 1.0), (2.0, 1.0), (0.1, float("inf"))]
+    )
     def test_invalid_noise_range_rejected(
         self, noise_range: tuple[float, float]
     ) -> None:
         with pytest.raises(ValueError, match="noise_scale_range"):
             MARGenerator(**BASE, noise_scale_range=noise_range)
+
+    @pytest.mark.parametrize("field", ["intercept_scale", "weights_concentration"])
+    def test_non_finite_scalars_rejected(self, field: str) -> None:
+        with pytest.raises(ValueError, match=field):
+            MARGenerator(**BASE, **{field: float("inf")})
+
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("max_components", 65),
+            ("max_ar_order", 101),
+            ("burn_in", 1_000_001),
+            ("seasonal_period", 10_001),
+        ],
+    )
+    def test_oversized_parameters_rejected(self, field: str, value: int) -> None:
+        with pytest.raises(ValueError, match=field):
+            MARGenerator(**BASE, **{field: value})
+
+    def test_non_stationary_mixture_rejected(self) -> None:
+        with pytest.raises(ValueError, match="second-order stationary"):
+            MARGenerator(
+                **BASE,
+                weights=[0.5, 0.5],
+                ar_coefficients=[[-1.9, -0.95], [1.9, -0.95]],
+                intercepts=[0.0, 0.0],
+                noise_scales=[1.0, 1.0],
+            )
+
+    def test_stationary_mixture_of_stationary_components_accepted(self) -> None:
+        generator = MARGenerator(
+            **BASE,
+            weights=[0.3, 0.7],
+            ar_coefficients=[[0.9], [0.5, -0.3]],
+            intercepts=[0.0, 1.0],
+            noise_scales=[1.0, 0.5],
+        )
+        assert generator.weights == pytest.approx([0.3, 0.7])
+
+    def test_overflowing_weights_rejected(self) -> None:
+        with pytest.raises(ValueError, match="finite sum"):
+            MARGenerator(
+                **BASE,
+                weights=[1e308, 1e308],
+                ar_coefficients=[[0.5], [0.5]],
+                intercepts=[0.0, 0.0],
+                noise_scales=[1.0, 1.0],
+            )
 
 
 class TestMarFeatureTargeting:

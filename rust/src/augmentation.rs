@@ -1,6 +1,6 @@
 //! Native algorithms shared by augmentation and feature-targeted generation.
 
-use std::f64::consts::PI;
+use rayon::prelude::*;
 
 use crate::{fft, rng::SfRng};
 
@@ -16,30 +16,41 @@ fn validate_values(values: &[f64]) -> Result<(), String> {
     Ok(())
 }
 
-/// Return square-root DTW distance and an optimal alignment path.
-pub fn dtw_alignment(
-    a: &[f64],
-    b: &[f64],
-    band: Option<usize>,
-) -> Result<(f64, Vec<(usize, usize)>), String> {
+fn validate_dtw_inputs(a: &[f64], b: &[f64]) -> Result<(), String> {
     if a.is_empty() || b.is_empty() {
         return Err("DTW inputs must be non-empty one-dimensional arrays".to_string());
     }
     if !a.iter().chain(b).all(|value| value.is_finite()) {
         return Err("DTW inputs must be finite".to_string());
     }
+    Ok(())
+}
+
+fn band_width(n: usize, m: usize, band: Option<usize>) -> usize {
+    band.unwrap_or(n.max(m)).max(n.abs_diff(m))
+}
+
+/// Banded DTW dynamic program over two rolling rows.
+///
+/// Returns the accumulated squared cost. When `parents` is provided it must
+/// hold `n * min(2 * width + 1, m)` cells; row `i` stores the columns
+/// `lower..=upper` of its band contiguously, starting at column `lower`.
+fn dtw_core(a: &[f64], b: &[f64], width: usize, mut parents: Option<&mut [u8]>) -> f64 {
     let (n, m) = (a.len(), b.len());
-    let width = band.unwrap_or(n.max(m)).max(n.abs_diff(m));
+    let row_width = (2 * width + 1).min(m);
     let mut previous = vec![f64::INFINITY; m + 1];
+    let mut current = vec![f64::INFINITY; m + 1];
     previous[0] = 0.0;
-    let mut parents = vec![u8::MAX; n * m];
     for i in 1..=n {
-        let mut current = vec![f64::INFINITY; m + 1];
         let lower = 1.max(i.saturating_sub(width));
         let upper = m.min(i.saturating_add(width));
+        current[lower - 1] = f64::INFINITY;
+        if upper < m {
+            current[upper + 1] = f64::INFINITY;
+        }
         for j in lower..=upper {
             let mut best = previous[j - 1];
-            let mut direction = 0;
+            let mut direction = 0u8;
             if previous[j] < best {
                 best = previous[j];
                 direction = 1;
@@ -49,30 +60,102 @@ pub fn dtw_alignment(
                 direction = 2;
             }
             current[j] = (a[i - 1] - b[j - 1]).powi(2) + best;
-            parents[(i - 1) * m + j - 1] = direction;
+            if let Some(parents) = parents.as_deref_mut() {
+                parents[(i - 1) * row_width + (j - lower)] = direction;
+            }
         }
-        previous = current;
+        std::mem::swap(&mut previous, &mut current);
     }
-    if !previous[m].is_finite() {
+    previous[m]
+}
+
+/// Return square-root DTW distance without materializing an alignment path.
+pub fn dtw_distance(a: &[f64], b: &[f64], band: Option<usize>) -> Result<f64, String> {
+    validate_dtw_inputs(a, b)?;
+    let cost = dtw_core(a, b, band_width(a.len(), b.len(), band), None);
+    if !cost.is_finite() {
+        return Err("DTW alignment is infeasible for the requested band".to_string());
+    }
+    Ok(cost.sqrt())
+}
+
+/// Return square-root DTW distance and an optimal alignment path.
+pub fn dtw_alignment(
+    a: &[f64],
+    b: &[f64],
+    band: Option<usize>,
+) -> Result<(f64, Vec<(usize, usize)>), String> {
+    validate_dtw_inputs(a, b)?;
+    let (n, m) = (a.len(), b.len());
+    let width = band_width(n, m, band);
+    let row_width = (2 * width + 1).min(m);
+    let mut parents = vec![u8::MAX; n * row_width];
+    let cost = dtw_core(a, b, width, Some(&mut parents));
+    if !cost.is_finite() {
         return Err("DTW alignment is infeasible for the requested band".to_string());
     }
 
+    let infeasible = || "DTW alignment is infeasible for the requested band".to_string();
     let (mut i, mut j) = (n, m);
     let mut path = Vec::with_capacity(n + m);
     while i > 0 && j > 0 {
         path.push((i - 1, j - 1));
-        match parents[(i - 1) * m + j - 1] {
+        let lower = 1.max(i.saturating_sub(width));
+        if j < lower || j > m.min(i.saturating_add(width)) {
+            return Err(infeasible());
+        }
+        match parents[(i - 1) * row_width + (j - lower)] {
             0 => {
                 i -= 1;
                 j -= 1;
             }
             1 => i -= 1,
             2 => j -= 1,
-            _ => return Err("DTW alignment is infeasible for the requested band".to_string()),
+            _ => return Err(infeasible()),
         }
     }
     path.reverse();
-    Ok((previous[m].sqrt(), path))
+    Ok((cost.sqrt(), path))
+}
+
+/// Return the symmetric matrix of banded DTW distances between all series.
+///
+/// The band for each pair is `max(ceil(window_fraction * max_len), |len_a -
+/// len_b| + 1)`. Pairs are evaluated in parallel and the result is a
+/// row-major `len(series) x len(series)` matrix with a zero diagonal.
+pub fn pairwise_dtw_distances(
+    series: &[Vec<f64>],
+    window_fraction: f64,
+) -> Result<Vec<f64>, String> {
+    if !(window_fraction > 0.0 && window_fraction <= 1.0) {
+        return Err("window_fraction must satisfy 0 < value <= 1".to_string());
+    }
+    if series
+        .iter()
+        .any(|values| values.is_empty() || values.iter().any(|value| !value.is_finite()))
+    {
+        return Err("DTW inputs must be non-empty and finite".to_string());
+    }
+    let n = series.len();
+    let pairs: Vec<(usize, usize)> = (0..n)
+        .flat_map(|i| ((i + 1)..n).map(move |j| (i, j)))
+        .collect();
+    let distances: Vec<f64> = pairs
+        .par_iter()
+        .map(|&(i, j)| {
+            let (a, b) = (&series[i], &series[j]);
+            let longest = a.len().max(b.len());
+            let band = ((window_fraction * longest as f64).ceil() as usize)
+                .max(a.len().abs_diff(b.len()) + 1);
+            dtw_core(a, b, band_width(a.len(), b.len(), Some(band)), None).sqrt()
+        })
+        .collect();
+    let mut matrix = vec![0.0; n * n];
+    for (&(i, j), &distance) in pairs.iter().zip(&distances) {
+        matrix[i * n + j] = distance;
+        matrix[j * n + i] = distance;
+    }
+    Ok(matrix)
 }
 
 /// Compute a weighted DBA barycenter restricted to reference length.
@@ -227,26 +310,10 @@ fn spectral_entropy(values: &[f64]) -> f64 {
     if n_bins <= 1 {
         return 0.0;
     }
-    let power: Vec<f64> = if values.len().is_power_of_two() {
-        fft::rfft(&centered)[1..=n_bins]
-            .iter()
-            .map(|value| value.norm_sqr())
-            .collect()
-    } else {
-        (1..=n_bins)
-            .map(|bin| {
-                let frequency = -2.0 * PI * bin as f64 / values.len() as f64;
-                let (real, imaginary) = centered.iter().enumerate().fold(
-                    (0.0, 0.0),
-                    |(real, imaginary), (index, &value)| {
-                        let angle = frequency * index as f64;
-                        (real + value * angle.cos(), imaginary + value * angle.sin())
-                    },
-                );
-                real * real + imaginary * imaginary
-            })
-            .collect()
-    };
+    let power: Vec<f64> = fft::rfft(&centered)[1..=n_bins]
+        .iter()
+        .map(|value| value.norm_sqr())
+        .collect();
     let total = power.iter().sum::<f64>();
     if total <= f64::EPSILON {
         return 0.0;
@@ -362,7 +429,45 @@ mod tests {
     }
 
     #[test]
+    fn banded_dtw_matches_unbanded_when_band_covers_everything() {
+        let a: Vec<f64> = (0..40).map(|i| (i as f64 * 0.3).sin()).collect();
+        let b: Vec<f64> = (0..37).map(|i| (i as f64 * 0.31 + 0.2).sin()).collect();
+        let (full, path_full) = dtw_alignment(&a, &b, None).unwrap();
+        let (wide, path_wide) = dtw_alignment(&a, &b, Some(100)).unwrap();
+        assert_eq!(full, wide);
+        assert_eq!(path_full, path_wide);
+        assert_eq!(dtw_distance(&a, &b, None).unwrap(), full);
+        let (narrow, _) = dtw_alignment(&a, &b, Some(4)).unwrap();
+        assert!(narrow >= full);
+        assert_eq!(dtw_distance(&a, &b, Some(4)).unwrap(), narrow);
+    }
+
+    #[test]
+    fn pairwise_matrix_matches_single_distances() {
+        let series = vec![
+            (0..30)
+                .map(|i| (i as f64 * 0.2).sin())
+                .collect::<Vec<f64>>(),
+            (0..25).map(|i| (i as f64 * 0.25).cos()).collect(),
+            (0..30).map(|i| i as f64 * 0.01).collect(),
+        ];
+        let matrix = pairwise_dtw_distances(&series, 0.1).unwrap();
+        for i in 0..3 {
+            assert_eq!(matrix[i * 3 + i], 0.0);
+            for j in (i + 1)..3 {
+                let longest = series[i].len().max(series[j].len());
+                let band = ((0.1 * longest as f64).ceil() as usize)
+                    .max(series[i].len().abs_diff(series[j].len()) + 1);
+                let expected = dtw_distance(&series[i], &series[j], Some(band)).unwrap();
+                assert_eq!(matrix[i * 3 + j], expected);
+                assert_eq!(matrix[j * 3 + i], expected);
+            }
+        }
+    }
+
+    #[test]
     fn decomposition_reconstructs_input() {
+        use std::f64::consts::PI;
         let values: Vec<f64> = (0..48)
             .map(|index| index as f64 / 10.0 + (2.0 * PI * index as f64 / 12.0).sin())
             .collect();

@@ -174,8 +174,19 @@ pub fn mar(out: &mut [f64], sp: &[f64], ap: &[Vec<f64>], seed: u64) -> Result<()
             sp.len()
         ));
     }
-    if sp[0] < 1.0 || sp[1] < 1.0 || sp[3] <= 0.0 || sp[5] <= 0.0 || sp[6] < sp[5] {
-        return Err("mar: invalid random-mode configuration".to_string());
+    if !sp.iter().all(|value| value.is_finite()) {
+        return Err("mar: scalar params must be finite".to_string());
+    }
+    if !(1.0..=1e6).contains(&sp[0])
+        || !(1.0..=1e6).contains(&sp[1])
+        || !(0.0..=1e9).contains(&sp[2])
+        || sp[3] <= 0.0
+        || sp[4] < 0.0
+        || sp[5] <= 0.0
+        || sp[6] < sp[5]
+        || !(0.0..=1e9).contains(&sp[7])
+    {
+        return Err("mar: invalid configuration".to_string());
     }
     let fixed = if sp[9] != 0.0 {
         if ap.len() < 5 {
@@ -218,6 +229,11 @@ pub fn mar(out: &mut [f64], sp: &[f64], ap: &[Vec<f64>], seed: u64) -> Result<()
             return Ok(());
         }
     }
+    if fixed.is_some() {
+        return Err(format!(
+            "mar: fixed configuration produced no finite, bounded, non-constant series in {MAX_RETRIES} attempts"
+        ));
+    }
     rng.normal_array(out, 0.0, 1.0);
     Ok(())
 }
@@ -242,6 +258,26 @@ mod tests {
         assert!(a.iter().all(|value| value.is_finite()));
         assert!(a.iter().sum::<f64>().abs() < 1e-10);
         assert!((population_std(&a) - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn non_finite_scalars_are_rejected() {
+        let mut sp = random_scalars();
+        sp[4] = f64::INFINITY;
+        assert!(mar(&mut [0.0; 8], &sp, &[], 1).is_err());
+        sp = random_scalars();
+        sp[0] = 1e12;
+        assert!(mar(&mut [0.0; 8], &sp, &[], 1).is_err());
+    }
+
+    #[test]
+    fn fixed_mar_errors_instead_of_falling_back() {
+        let mut sp = random_scalars();
+        sp[8] = 0.0;
+        sp[9] = 1.0;
+        let ap = vec![vec![1.0], vec![1.0], vec![0.5], vec![1e9], vec![1.0]];
+        let mut out = vec![0.0; 64];
+        assert!(mar(&mut out, &sp, &ap, 7).is_err());
     }
 
     #[test]

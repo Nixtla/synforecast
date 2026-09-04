@@ -11,6 +11,16 @@ class augmentation:
         band: int | None = None,
     ) -> tuple[float, list[tuple[int, int]]]: ...
     @staticmethod
+    def dtw_distance(
+        a: npt.NDArray[np.float64],
+        b: npt.NDArray[np.float64],
+        band: int | None = None,
+    ) -> float: ...
+    @staticmethod
+    def pairwise_dtw_distances(
+        series: list[npt.NDArray[np.float64]], window_fraction: float
+    ) -> npt.NDArray[np.float64]: ...
+    @staticmethod
     def dba_barycenter(
         reference: npt.NDArray[np.float64],
         neighbors: list[npt.NDArray[np.float64]],

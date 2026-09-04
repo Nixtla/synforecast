@@ -11,6 +11,7 @@ from synforecast.base import BaseGenerator
 _MAX_ABS = 1e8
 _MIN_STD = 1e-8
 _MAX_RETRIES = 8
+_MAX_MIXTURE_CHECK_ORDER = 32
 _SUPPORTED_FEATURES = {
     "spectral_entropy",
     "trend_strength",
@@ -22,18 +23,27 @@ _SUPPORTED_FEATURES = {
 class MARGenerator(BaseGenerator):
     """Generate GRATIS-style mixtures of autoregressive components.
 
-    This adapts the MAR simulation used by GRATIS (Kang, Hyndman, and Li,
-    2020, "GRATIS: GeneRAting TIme Series with diverse and controllable
-    characteristics", https://arxiv.org/abs/1903.02787). At each step a
-    component ``k`` is drawn from the mixture weights, then
+    The mixture autoregressive model is due to Wong and Li (2000, "On a
+    mixture autoregressive model", Journal of the Royal Statistical Society
+    Series B 62(1), https://doi.org/10.1111/1467-9868.00222). This generator
+    adapts the MAR simulation used for diverse series by GRATIS (Kang,
+    Hyndman, and Li, 2020, "GRATIS: GeneRAting TIme Series with diverse and
+    controllable characteristics", https://arxiv.org/abs/1903.02787). At each
+    step a component ``k`` is drawn from the mixture weights, then
     ``y_t = c_k + sum_i phi[k, i] y[t-i] + sigma_k eps_t``. The parameter
     sampling, partial-autocorrelation reparameterization via Durbin-Levinson,
     defaults, and stability guards are SynForecast's own design rather than a
     reproduction of the reference ``gratis`` R package.
 
-    Random mode samples one to ``max_components`` components for every series.
-    Fixed mode supplies all four of ``weights``, ``ar_coefficients``,
-    ``intercepts``, and ``noise_scales`` and is used by feature targeting.
+    Random mode samples one to ``max_components`` components for every series;
+    ``seasonal_period`` only affects random mode, where it enables a seasonal
+    AR factor for a random subset of components. Fixed mode supplies all four
+    of ``weights``, ``ar_coefficients``, ``intercepts``, and ``noise_scales``
+    and is used by feature targeting. Every fixed component must be
+    stationary, and the mixture must be second-order stationary (Wong and Li
+    2000); the mixture check is skipped for AR orders above 32. A fixed model
+    that fails the finite, bounded, non-constant output guards raises a
+    ``ValueError`` at generation time instead of silently substituting noise.
     Moment handling is explicit: ``standardize=True`` (the default) maps every
     accepted multi-observation draw to zero mean and unit standard deviation,
     rather than retaining the MAR model's component-implied level and scale.
@@ -45,13 +55,14 @@ class MARGenerator(BaseGenerator):
     """
 
     max_components: int = Field(
-        default=3, ge=1, description="Maximum number of AR mixture components"
+        default=3, ge=1, le=64, description="Maximum number of AR mixture components"
     )
     max_ar_order: int = Field(
-        default=5, ge=1, description="Maximum non-seasonal AR order"
+        default=5, ge=1, le=100, description="Maximum non-seasonal AR order"
     )
     seasonal_period: int | None = Field(
-        default=None, description="Optional multiplicative seasonal AR period"
+        default=None,
+        description="Optional multiplicative seasonal AR period (random mode only)",
     )
     weights_concentration: float = Field(
         default=1.0, gt=0, description="Symmetric Dirichlet concentration"
@@ -62,7 +73,9 @@ class MARGenerator(BaseGenerator):
     noise_scale_range: tuple[float, float] = Field(
         default=(0.1, 2.0), description="Minimum and maximum innovation scales"
     )
-    burn_in: int = Field(default=100, ge=0, description="Discarded simulation steps")
+    burn_in: int = Field(
+        default=100, ge=0, le=1_000_000, description="Discarded simulation steps"
+    )
     standardize: bool = Field(
         default=True, description="Standardize each generated series"
     )
@@ -82,11 +95,17 @@ class MARGenerator(BaseGenerator):
     @model_validator(mode="after")
     def validate_mar_parameters(self) -> "MARGenerator":
         """Validate seasonal, noise-range, and fixed-mode configuration."""
-        if self.seasonal_period is not None and self.seasonal_period < 2:
-            raise ValueError("seasonal_period must be >= 2 when provided")
+        if self.seasonal_period is not None and not 2 <= self.seasonal_period <= 10_000:
+            raise ValueError("seasonal_period must be in [2, 10000] when provided")
+        if not np.isfinite(self.weights_concentration):
+            raise ValueError("weights_concentration must be finite")
+        if not np.isfinite(self.intercept_scale):
+            raise ValueError("intercept_scale must be finite")
         lo, hi = self.noise_scale_range
-        if not 0 < lo <= hi:
-            raise ValueError("noise_scale_range must satisfy 0 < low <= high")
+        if not (np.isfinite(lo) and np.isfinite(hi) and 0 < lo <= hi):
+            raise ValueError(
+                "noise_scale_range must be finite and satisfy 0 < low <= high"
+            )
 
         fixed = (
             self.weights,
@@ -127,9 +146,14 @@ class MARGenerator(BaseGenerator):
             if not self._is_stationary(np.asarray(component, dtype=float)):
                 raise ValueError("every fixed AR component must be stationary")
         total = float(sum(weights))
-        object.__setattr__(
-            self, "weights", [float(weight / total) for weight in weights]
-        )
+        if not np.isfinite(total):
+            raise ValueError("weights must have a finite sum")
+        normalized = [float(weight / total) for weight in weights]
+        if not self._is_mixture_stationary(
+            np.asarray(normalized), [np.asarray(c, dtype=float) for c in coefficients]
+        ):
+            raise ValueError("the fixed MAR mixture must be second-order stationary")
+        object.__setattr__(self, "weights", normalized)
         return self
 
     @staticmethod
@@ -141,6 +165,37 @@ class MARGenerator(BaseGenerator):
         if order > 1:
             companion[1:, :-1] = np.eye(order - 1)
         return bool(np.max(np.abs(np.linalg.eigvals(companion))) < 1.0 - 1e-10)
+
+    @staticmethod
+    def _is_mixture_stationary(
+        weights: np.ndarray, coefficients: list[np.ndarray]
+    ) -> bool:
+        """Check second-order stationarity of the mixture (Wong and Li 2000).
+
+        The condition is a spectral radius below one for the second-moment
+        operator ``X -> sum_k w_k A_k X A_k^T`` over companion matrices
+        ``A_k``, evaluated exactly on the symmetric-matrix subspace.
+        """
+        order = max(len(component) for component in coefficients)
+        if order > _MAX_MIXTURE_CHECK_ORDER:
+            return True
+        companions = []
+        for component in coefficients:
+            companion = np.zeros((order, order))
+            companion[0, : len(component)] = component
+            if order > 1:
+                companion[1:, :-1] = np.eye(order - 1)
+            companions.append(companion)
+        rows, cols = np.triu_indices(order)
+        basis = np.zeros((len(rows), order, order))
+        basis[np.arange(len(rows)), rows, cols] = 1.0
+        basis[np.arange(len(rows)), cols, rows] = 1.0
+        images = sum(
+            weight * (companion @ basis @ companion.T)
+            for weight, companion in zip(weights, companions, strict=True)
+        )
+        operator = images[:, rows, cols]
+        return bool(np.max(np.abs(np.linalg.eigvals(operator))) < 1.0 - 1e-10)
 
     @staticmethod
     def _pacf_to_ar(pacf: np.ndarray) -> np.ndarray:
@@ -270,7 +325,11 @@ class MARGenerator(BaseGenerator):
         return values[max_order + self.burn_in :]
 
     def generate_single_series(self, length: int) -> np.ndarray:
-        """Generate one finite MAR series of exactly ``length`` observations."""
+        """Generate one finite MAR series of exactly ``length`` observations.
+
+        Random mode falls back to standard normal noise after ``_MAX_RETRIES``
+        rejected draws. Fixed mode raises ``ValueError`` instead.
+        """
         fixed_mode = self.weights is not None
         for _ in range(_MAX_RETRIES):
             params = self._fixed_params() if fixed_mode else self._sample_params()
@@ -285,6 +344,11 @@ class MARGenerator(BaseGenerator):
             if self.standardize and length > 1:
                 values = (values - values.mean()) / std
             return values
+        if fixed_mode:
+            raise ValueError(
+                "fixed MAR configuration produced no finite, bounded, non-constant "
+                f"series in {_MAX_RETRIES} attempts"
+            )
         return self.rng.normal(0.0, 1.0, length)
 
     @classmethod
@@ -312,9 +376,12 @@ class MARGenerator(BaseGenerator):
         feature set are SynForecast's own design rather than a reproduction of
         the GRATIS genetic algorithm. Candidate draw lengths are spaced evenly
         across ``min_length..max_length`` so the result targets the configured
-        length range rather than one endpoint. The default budget evaluates
-        roughly ``15 * 30 * 3`` series. Infeasible targets return the best
-        candidate after the fixed budget.
+        length range rather than one endpoint. The default budget evaluates at
+        most ``15 * 30 * 3`` series; the search stops early once the best L2
+        feature distance is at or below ``tolerance``. Infeasible targets
+        return the best candidate after the fixed budget. Candidates whose
+        mixture is not second-order stationary, or whose simulation fails the
+        output guards, receive infinite fitness.
         """
         cls._validate_targeting(
             target_features,
@@ -519,24 +586,29 @@ class MARGenerator(BaseGenerator):
     ) -> float:
         """Return realized L2 feature distance for one candidate."""
         fixed = cls._candidate_to_fixed(candidate, seasonal_period)
-        generator = cls(
-            min_length=int(eval_lengths.min()),
-            max_length=int(eval_lengths.max()),
-            freq=freq,
-            seed=int(rng.integers(0, 2**63)),
-            seasonal_period=seasonal_period,
-            weights=fixed[0],
-            ar_coefficients=fixed[1],
-            intercepts=fixed[2],
-            noise_scales=fixed[3],
-        )
+        seed = int(rng.integers(0, 2**63))
         realized = dict.fromkeys(target_features, 0.0)
-        for eval_length in eval_lengths:
-            features = compute_features(
-                generator.generate_single_series(int(eval_length)), seasonal_period
+        try:
+            generator = cls(
+                min_length=int(eval_lengths.min()),
+                max_length=int(eval_lengths.max()),
+                freq=freq,
+                seed=seed,
+                seasonal_period=seasonal_period,
+                weights=fixed[0],
+                ar_coefficients=fixed[1],
+                intercepts=fixed[2],
+                noise_scales=fixed[3],
             )
-            for name in realized:
-                realized[name] += features[name] / len(eval_lengths)
+            for eval_length in eval_lengths:
+                features = compute_features(
+                    generator.generate_single_series(int(eval_length)),
+                    seasonal_period,
+                )
+                for name in realized:
+                    realized[name] += features[name] / len(eval_lengths)
+        except ValueError:
+            return float("inf")
         differences = [
             realized[name] - value for name, value in target_features.items()
         ]

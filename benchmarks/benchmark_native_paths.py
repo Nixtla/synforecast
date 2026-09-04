@@ -6,7 +6,9 @@ The comparisons isolate the paths replaced by Rust:
   ``generate_single_series`` fallback, including DataFrame construction.
 * MBB: native decomposition and block sampling versus the former NumPy recipe.
 * DBA: native banded DTW/barycenter updates versus the former Python recipe.
-* Features: the native targeting feature tuple versus its NumPy equivalent.
+* Features: the native targeting feature tuple versus its NumPy equivalent,
+  at a power-of-two length and at an odd length that exercises Bluestein.
+* Pairwise DTW: the parallel native distance matrix versus per-pair Python.
 
 Timings are descriptive and are never asserted in CI. The minimum of repeated
 runs is reported to reduce scheduler noise, and saved results include the full
@@ -190,6 +192,24 @@ def _python_features(
     return float(entropy), float(trend_strength), float(seasonal_strength), acf1
 
 
+def _python_pairwise_dtw(
+    series: list[np.ndarray], window_fraction: float
+) -> np.ndarray:
+    """Per-pair Python loop over the former DTW implementation."""
+    n = len(series)
+    matrix = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i + 1, n):
+            longest = max(len(series[i]), len(series[j]))
+            band = max(
+                int(np.ceil(window_fraction * longest)),
+                abs(len(series[i]) - len(series[j])) + 1,
+            )
+            distance, _ = _python_dtw_alignment(series[i], series[j], band)
+            matrix[i, j] = matrix[j, i] = distance
+    return matrix
+
+
 def _mar_generate(native_path: bool, n_series: int, length: int, workers: int) -> int:
     """Generate a MAR panel through native batch or Python fallback."""
     original_type = base_module._GEN_TYPE_MAP.pop("MARGenerator", None)
@@ -240,6 +260,9 @@ def run_benchmarks(quick: bool, repeats: int, workers: int) -> dict:
         "dba_length": 64 if quick else 256,
         "dba_iterations": 2 if quick else 5,
         "feature_length": 512 if quick else 4_096,
+        "feature_length_odd": 511 if quick else 4_095,
+        "pairwise_n_series": 8 if quick else 24,
+        "pairwise_length": 64 if quick else 256,
         "repeats": repeats,
         "workers": workers,
         "quick": quick,
@@ -259,6 +282,11 @@ def run_benchmarks(quick: bool, repeats: int, workers: int) -> dict:
     dba_weights = np.asarray([0.55, 0.2, 0.15, 0.1])
     dba_band = max(1, config["dba_length"] // 10)
     feature_values = rng.normal(size=config["feature_length"])
+    feature_values_odd = rng.normal(size=config["feature_length_odd"])
+    pairwise_series = [
+        rng.normal(size=config["pairwise_length"]).cumsum()
+        for _ in range(config["pairwise_n_series"])
+    ]
 
     print(f"{'case':<20} {'native':>14} {'python':>14} {'speedup':>10}")
     print("-" * 72)
@@ -307,6 +335,18 @@ def run_benchmarks(quick: bool, repeats: int, workers: int) -> dict:
             "feature_kernel",
             lambda: native.compute_features(feature_values, 24),
             lambda: _python_features(feature_values, 24),
+            repeats,
+        ),
+        _benchmark_case(
+            "feature_kernel_odd",
+            lambda: native.compute_features(feature_values_odd, 24),
+            lambda: _python_features(feature_values_odd, 24),
+            repeats,
+        ),
+        _benchmark_case(
+            "pairwise_dtw",
+            lambda: native.pairwise_dtw_distances(pairwise_series, 0.1),
+            lambda: _python_pairwise_dtw(pairwise_series, 0.1),
             repeats,
         ),
     ]

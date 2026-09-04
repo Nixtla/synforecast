@@ -51,13 +51,53 @@ pub fn fft_radix2(x: &mut [Complex64], inverse: bool) {
     }
 }
 
-/// Real-to-complex FFT
+/// Forward DFT of arbitrary length via Bluestein's chirp-z algorithm.
+///
+/// Reduces a length-`n` DFT to a convolution evaluated with a radix-2 FFT of
+/// size `next_pow2(2n - 1)`, so the cost is O(n log n) for every `n`.
+pub fn fft_bluestein(x: &[Complex64]) -> Vec<Complex64> {
+    let n = x.len();
+    if n <= 1 {
+        return x.to_vec();
+    }
+    let m = next_pow2(2 * n - 1);
+    let chirp: Vec<Complex64> = (0..n)
+        .map(|k| {
+            // Reduce k^2 mod 2n before scaling to keep the angle small.
+            let k2 = (k * k) % (2 * n);
+            let angle = -PI * k2 as f64 / n as f64;
+            Complex64::new(angle.cos(), angle.sin())
+        })
+        .collect();
+    let mut a = vec![Complex64::new(0.0, 0.0); m];
+    for k in 0..n {
+        a[k] = x[k] * chirp[k];
+    }
+    let mut b = vec![Complex64::new(0.0, 0.0); m];
+    b[0] = chirp[0].conj();
+    for k in 1..n {
+        b[k] = chirp[k].conj();
+        b[m - k] = chirp[k].conj();
+    }
+    fft_radix2(&mut a, false);
+    fft_radix2(&mut b, false);
+    for (av, bv) in a.iter_mut().zip(&b) {
+        *av *= bv;
+    }
+    fft_radix2(&mut a, true);
+    (0..n).map(|k| a[k] * chirp[k]).collect()
+}
+
+/// Real-to-complex FFT for any length (radix-2 when `n` is a power of two).
 pub fn rfft(data: &[f64]) -> Vec<Complex64> {
     let n = data.len();
     let mut x: Vec<Complex64> = data.iter().map(|&v| Complex64::new(v, 0.0)).collect();
-    fft_radix2(&mut x, false);
-    x.truncate(n); // keep full spectrum for irfft compatibility
-    x
+    if n.is_power_of_two() {
+        fft_radix2(&mut x, false);
+        x
+    } else {
+        fft_bluestein(&x)
+    }
 }
 
 /// Complex-to-real IFFT
@@ -149,6 +189,27 @@ mod tests {
             (time_energy - freq_energy).abs() < 1e-8,
             "Parseval: time={time_energy}, freq={freq_energy}"
         );
+    }
+
+    #[test]
+    fn test_bluestein_matches_naive_dft() {
+        for n in [3usize, 5, 7, 12, 100, 4095] {
+            let data: Vec<f64> = (0..n).map(|i| ((i * 7919) % 13) as f64 - 6.0).collect();
+            let fast = rfft(&data);
+            for k in [0, 1, n / 3, n / 2, n - 1] {
+                let mut acc = Complex64::new(0.0, 0.0);
+                for (i, &v) in data.iter().enumerate() {
+                    let angle = -2.0 * PI * (k as f64) * (i as f64) / n as f64;
+                    acc += Complex64::new(v * angle.cos(), v * angle.sin());
+                }
+                assert!(
+                    (fast[k] - acc).norm() < 1e-7 * n as f64,
+                    "n={n} k={k}: {:?} vs {:?}",
+                    fast[k],
+                    acc
+                );
+            }
+        }
     }
 
     #[test]
