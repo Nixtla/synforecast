@@ -380,6 +380,37 @@ class TestMarFeatureTargeting:
                 population_size=1,
             )
 
+    def test_targeting_rejects_oversized_seasonal_period_before_search(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def search_started(*_args: object, **_kwargs: object) -> None:
+            pytest.fail("candidate search started before validation completed")
+
+        monkeypatch.setattr(MARGenerator, "_random_candidate", search_started)
+        with pytest.raises(ValueError, match="seasonal_period must be in"):
+            MARGenerator.tune_to_features(
+                {"acf1": 0.5},
+                64,
+                64,
+                "D",
+                seasonal_period=10_001,
+                n_generations=1,
+                population_size=1,
+            )
+
+    def test_all_invalid_candidates_report_search_exhaustion(self) -> None:
+        with pytest.raises(ValueError, match="no valid MAR candidate"):
+            MARGenerator.tune_to_features(
+                {"acf1": 0.5},
+                64,
+                64,
+                "D",
+                n_generations=1,
+                population_size=1,
+                n_draws_per_candidate=1,
+                seed=5,
+            )
+
     def test_candidate_draw_lengths_span_configured_range(self) -> None:
         np.testing.assert_array_equal(
             MARGenerator._evaluation_lengths(64, 96, 3), [64, 80, 96]

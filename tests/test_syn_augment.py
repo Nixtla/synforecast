@@ -955,6 +955,25 @@ class TestTSMixup:
         with pytest.raises(ValueError, match="no usable series"):
             SynAugment(seed=6).mixup(df)
 
+    def test_entirely_missing_series_is_skipped_with_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        good = _panel("polars", n_series=1, base_len=5)
+        missing = pl.DataFrame(
+            {
+                "unique_id": ["missing"] * 5,
+                "ds": pd.date_range("2020-01-01", periods=5, freq="D"),
+                "y": [np.nan] * 5,
+            }
+        ).with_columns(pl.col("ds").cast(good.schema["ds"]))
+        frame = pl.concat([good, missing])
+
+        with caplog.at_level("WARNING", logger="synforecast.dataset"):
+            result = SynAugment(seed=6).mixup(frame, n_series=1, include_original=False)
+
+        assert result["unique_id"].n_unique() == 1
+        assert "mixup skipped 1 unusable series" in caplog.text
+
     def test_scaling_modes(self, engine: str) -> None:
         df = _panel(engine)
         for scaling in ("mean", "std", "none"):

@@ -706,6 +706,7 @@ class SynAugment:
 
         # Cache each series' values and timestamps, sorted by time.
         series: dict[Any, tuple[np.ndarray, np.ndarray]] = {}
+        skipped: list[Any] = []
         for series_id in unique_ids:
             sdf = df_nw.filter(nw.col(self.id_col) == series_id).sort(self.time_col)
             values = sdf.select(self.target_col).to_numpy().flatten().astype(float)
@@ -715,9 +716,12 @@ class SynAugment:
                 and (values := self._interpolate_missing(values)) is not None
             ):
                 series[series_id] = (values, timestamps)
+            else:
+                skipped.append(series_id)
 
         usable_ids = list(series.keys())
         n_available = len(usable_ids)
+        self._warn_skipped("mixup", skipped)
         if n_available == 0:
             raise ValueError("no usable series to mix")
 

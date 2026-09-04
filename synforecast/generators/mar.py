@@ -400,7 +400,7 @@ class MARGenerator(BaseGenerator):
         population = [
             cls._random_candidate(rng, seasonal_period) for _ in range(population_size)
         ]
-        best_candidate = population[0]
+        best_candidate: dict[str, Any] | None = None
         best_distance = np.inf
         for _ in range(n_generations):
             ranked: list[tuple[float, dict[str, Any]]] = []
@@ -415,7 +415,7 @@ class MARGenerator(BaseGenerator):
                 )
                 ranked.append((distance, candidate))
             ranked.sort(key=lambda item: item[0])
-            if ranked[0][0] < best_distance:
+            if np.isfinite(ranked[0][0]) and ranked[0][0] < best_distance:
                 best_distance, best_candidate = ranked[0]
             if best_distance <= tolerance:
                 break
@@ -429,6 +429,11 @@ class MARGenerator(BaseGenerator):
             while len(population) < population_size:
                 population.append(cls._random_candidate(rng, seasonal_period))
 
+        if best_candidate is None:
+            raise ValueError(
+                "feature targeting found no valid MAR candidate within the search "
+                "budget"
+            )
         fixed = cls._candidate_to_fixed(best_candidate, seasonal_period)
         return cls(
             min_length=min_length,
@@ -471,8 +476,8 @@ class MARGenerator(BaseGenerator):
                 raise ValueError(f"target {name} must be in [{lower:g}, 1]")
         if "seasonal_strength" in target_features and seasonal_period is None:
             raise ValueError("targeting seasonal_strength requires seasonal_period")
-        if seasonal_period is not None and seasonal_period < 2:
-            raise ValueError("seasonal_period must be >= 2 when provided")
+        if seasonal_period is not None and not 2 <= seasonal_period <= 10_000:
+            raise ValueError("seasonal_period must be in [2, 10000] when provided")
         if (
             "seasonal_strength" in target_features
             and seasonal_period is not None
