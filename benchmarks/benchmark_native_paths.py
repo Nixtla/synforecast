@@ -7,7 +7,7 @@ The comparisons isolate the paths replaced by Rust:
 * MBB: native decomposition and block sampling versus the former NumPy recipe.
 * DBA: native banded DTW/barycenter updates versus the former Python recipe.
 * Features: the native targeting feature tuple versus its NumPy equivalent,
-  at a power-of-two length and at an odd length that exercises Bluestein.
+  at a power-of-two length and at an odd length that exercises RealFFT.
 * Pairwise DTW: the parallel native distance matrix versus per-pair Python.
 
 Timings are descriptive and are never asserted in CI. The minimum of repeated

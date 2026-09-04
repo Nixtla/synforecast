@@ -11,8 +11,9 @@
 - Added `MARGenerator` to `pretraining_pool` after the existing meta-generators.
 - Added native Rust paths for MAR batch generation, feature computation,
   decomposition, MBB sampling, DTW, and DBA updates. Banded DTW stores only
-  the band, spectral entropy uses an O(n log n) Bluestein FFT for every
-  length, and `SynAugment.dba` computes pairwise panel distances in parallel.
+  the band, spectral entropy uses a cached RealFFT path for
+  non-power-of-two lengths, and `SynAugment.dba` computes pairwise panel
+  distances in parallel.
 - `MARGenerator` rejects non-finite or oversized parameters, checks
   second-order stationarity of fixed mixtures (Wong and Li 2000), and raises
   instead of substituting noise when a fixed model fails the output guards.

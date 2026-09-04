@@ -2,7 +2,7 @@
   "benchmark": "native_paths",
   "environment": {
     "command": "benchmarks/benchmark_native_paths.py --repeats 5 --workers 1 --save benchmarks/data/native_paths_summary.json",
-    "timestamp_utc": "2026-09-04T12:27:26+00:00",
+    "timestamp_utc": "2026-09-04T13:28:21+00:00",
     "python": "3.10.12",
     "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
     "machine": "x86_64",
@@ -21,9 +21,9 @@
       "datasetsforecast": "1.0.1",
       "torch": "2.13.0+cpu"
     },
-    "git_commit": "efd896e4ec2c27268b7dd2db988fc0ab6427c745",
+    "git_commit": "e7ef0e05639f81db2ad6be71a57b6822a052051c",
     "git_dirty": true,
-    "git_diff_sha256": "e7fa6eb581cdcdaf7d6657f0f614131ef4ecec5b4510411376125f92ee42599b"
+    "git_diff_sha256": "db3c375b817f28b84e5f9eff119bcc2f42a0a6cf765047c83c16e1d022269900"
   },
   "configuration": {
     "mar_n_series": 256,
@@ -42,39 +42,39 @@
   "cases": [
     {
       "name": "mar_generate",
-      "native_seconds": 0.014504441991448402,
-      "python_seconds": 0.4079196440288797,
-      "speedup": 28.123773687356113
+      "native_seconds": 0.015112843946553767,
+      "python_seconds": 0.4640666409395635,
+      "speedup": 30.706771179582397
     },
     {
       "name": "mbb_kernel",
-      "native_seconds": 6.537907756865025e-05,
-      "python_seconds": 0.0002444640267640352,
-      "speedup": 3.739178279279632
+      "native_seconds": 6.665207911282778e-05,
+      "python_seconds": 0.0002717429306358099,
+      "speedup": 4.077036069284605
     },
     {
       "name": "dba_kernel",
-      "native_seconds": 0.0005440620006993413,
-      "python_seconds": 0.4573189120274037,
-      "speedup": 840.563964106228
+      "native_seconds": 0.0005420489469543099,
+      "python_seconds": 0.47769625298678875,
+      "speedup": 881.2788137877417
     },
     {
       "name": "feature_kernel",
-      "native_seconds": 0.00013100693468004465,
-      "python_seconds": 0.00022923096548765898,
-      "speedup": 1.7497620721185845
+      "native_seconds": 0.00012912892270833254,
+      "python_seconds": 0.000237233005464077,
+      "speedup": 1.8371794675304653
     },
     {
       "name": "feature_kernel_odd",
-      "native_seconds": 0.0005767330294474959,
-      "python_seconds": 0.0002349569695070386,
-      "speedup": 0.4073929487480973
+      "native_seconds": 8.535198867321014e-05,
+      "python_seconds": 0.00023172597866505384,
+      "speedup": 2.7149452785718964
     },
     {
       "name": "pairwise_dtw",
-      "native_seconds": 0.001593788038007915,
-      "python_seconds": 6.689055462018587,
-      "speedup": 4196.954238895704
+      "native_seconds": 0.0017905859276652336,
+      "python_seconds": 6.995771726011299,
+      "speedup": 3906.9734760694614
     }
   ]
 }

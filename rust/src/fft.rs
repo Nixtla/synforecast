@@ -1,5 +1,45 @@
 use num_complex::Complex64;
+use realfft::{RealFftPlanner, RealToComplex};
+use std::collections::{HashMap, VecDeque};
 use std::f64::consts::PI;
+use std::sync::{Arc, Mutex, OnceLock};
+
+const REAL_FFT_PLAN_CACHE_CAPACITY: usize = 16;
+type RealFftPlan = Arc<dyn RealToComplex<f64>>;
+
+#[derive(Default)]
+struct RealFftPlanCache {
+    plans: HashMap<usize, RealFftPlan>,
+    order: VecDeque<usize>,
+}
+
+fn real_fft_plan(len: usize) -> RealFftPlan {
+    static CACHE: OnceLock<Mutex<RealFftPlanCache>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| Mutex::new(RealFftPlanCache::default()));
+    let mut cache = cache
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    if let Some(plan) = cache.plans.get(&len).cloned() {
+        cache.order.retain(|cached_len| *cached_len != len);
+        cache.order.push_back(len);
+        return plan;
+    }
+
+    // Plans own their shared internal data, so the planner can be dropped.
+    // Creating it per cache miss keeps this cache genuinely bounded instead
+    // of retaining the planner's own unbounded history of requested lengths.
+    let mut planner = RealFftPlanner::<f64>::new();
+    let plan = planner.plan_fft_forward(len);
+    if cache.plans.len() == REAL_FFT_PLAN_CACHE_CAPACITY {
+        if let Some(evicted) = cache.order.pop_front() {
+            cache.plans.remove(&evicted);
+        }
+    }
+    cache.plans.insert(len, Arc::clone(&plan));
+    cache.order.push_back(len);
+    plan
+}
 
 /// Minimal radix-2 Cooley-Tukey FFT implementation.
 pub fn fft_radix2(x: &mut [Complex64], inverse: bool) {
@@ -98,6 +138,34 @@ pub fn rfft(data: &[f64]) -> Vec<Complex64> {
     } else {
         fft_bluestein(&x)
     }
+}
+
+/// Real-to-complex FFT retaining only the non-redundant half spectrum.
+///
+/// Power-of-two inputs retain the existing radix-2 path. Other lengths use a
+/// cached mixed-radix RealFFT plan, with output and scratch storage allocated
+/// per call so concurrent feature computations never share mutable buffers.
+pub fn rfft_half(data: &mut [f64]) -> Result<Vec<Complex64>, String> {
+    let n = data.len();
+    if n == 0 {
+        return Ok(Vec::new());
+    }
+    if n.is_power_of_two() {
+        let mut spectrum: Vec<Complex64> = data
+            .iter()
+            .map(|&value| Complex64::new(value, 0.0))
+            .collect();
+        fft_radix2(&mut spectrum, false);
+        spectrum.truncate(n / 2 + 1);
+        return Ok(spectrum);
+    }
+
+    let plan = real_fft_plan(n);
+    let mut spectrum = plan.make_output_vec();
+    let mut scratch = plan.make_scratch_vec();
+    plan.process_with_scratch(data, &mut spectrum, &mut scratch)
+        .map_err(|error| format!("real FFT failed: {error}"))?;
+    Ok(spectrum)
 }
 
 /// Complex-to-real IFFT
@@ -207,6 +275,22 @@ mod tests {
                     "n={n} k={k}: {:?} vs {:?}",
                     fast[k],
                     acc
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_half_spectrum_matches_full_transform() {
+        for n in [3usize, 63, 64, 1000, 1001, 4093, 4095, 4096] {
+            let data: Vec<f64> = (0..n).map(|i| ((i * 7919) % 13) as f64 - 6.0).collect();
+            let expected = rfft(&data);
+            let actual = rfft_half(&mut data.clone()).unwrap();
+            assert_eq!(actual.len(), n / 2 + 1);
+            for (bin, (&actual, &expected)) in actual.iter().zip(&expected).enumerate() {
+                assert!(
+                    (actual - expected).norm() < 1e-7 * n as f64,
+                    "n={n} bin={bin}: {actual:?} vs {expected:?}",
                 );
             }
         }

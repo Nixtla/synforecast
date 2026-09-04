@@ -300,33 +300,35 @@ fn variance(values: &[f64]) -> f64 {
         / values.len() as f64
 }
 
-fn spectral_entropy(values: &[f64]) -> f64 {
+fn spectral_entropy(values: &[f64]) -> Result<f64, String> {
     let mean = values.iter().sum::<f64>() / values.len() as f64;
-    let centered: Vec<f64> = values.iter().map(|value| value - mean).collect();
+    let mut centered: Vec<f64> = values.iter().map(|value| value - mean).collect();
     if variance(&centered) <= f64::EPSILON {
-        return 0.0;
+        return Ok(0.0);
     }
     let n_bins = values.len() / 2;
     if n_bins <= 1 {
-        return 0.0;
+        return Ok(0.0);
     }
-    let power: Vec<f64> = fft::rfft(&centered)[1..=n_bins]
-        .iter()
-        .map(|value| value.norm_sqr())
-        .collect();
-    let total = power.iter().sum::<f64>();
+    let spectrum = fft::rfft_half(&mut centered)?;
+    let bins = &spectrum[1..=n_bins];
+    let total = bins.iter().map(|value| value.norm_sqr()).sum::<f64>();
     if total <= f64::EPSILON {
-        return 0.0;
+        return Ok(0.0);
     }
-    let entropy = power
+    let entropy = bins
         .iter()
-        .filter(|value| **value > 0.0)
-        .map(|value| {
-            let probability = value / total;
-            -probability * probability.ln()
+        .filter_map(|value| {
+            let power = value.norm_sqr();
+            if power > 0.0 {
+                let probability = power / total;
+                Some(-probability * probability.ln())
+            } else {
+                None
+            }
         })
         .sum::<f64>();
-    (entropy / (n_bins as f64).ln()).clamp(0.0, 1.0)
+    Ok((entropy / (n_bins as f64).ln()).clamp(0.0, 1.0))
 }
 
 /// Return spectral entropy, trend strength, seasonal strength, and ACF(1).
@@ -382,7 +384,7 @@ pub fn compute_features(
             / var
     };
     Ok((
-        spectral_entropy(values),
+        spectral_entropy(values)?,
         trend_strength,
         seasonal_strength,
         acf1,
