@@ -16,6 +16,21 @@ from synforecast._lib import (
 class TestAugmentationBindings:
     """Validation and shape contracts for the native augmentation module."""
 
+    @pytest.mark.parametrize("period", [None, 7, 12])
+    def test_mbb_many_matches_independent_draws(self, period):
+        values = np.random.default_rng(12).normal(size=101)
+        seeds = [42, 7, 2**63 - 1]
+        copies = augmentation.moving_block_bootstrap_many(values, 6, seeds, period)
+        assert len(copies) == len(seeds)
+        for copy, seed in zip(copies, seeds, strict=True):
+            np.testing.assert_array_equal(
+                copy, augmentation.moving_block_bootstrap(values, 6, seed, period)
+            )
+
+    def test_mbb_many_rejects_invalid_block_size(self):
+        with pytest.raises(ValueError, match="block_size"):
+            augmentation.moving_block_bootstrap_many(np.arange(8.0), 9, [42])
+
     def test_dtw_supports_unequal_lengths(self):
         first = np.array([0.0, 1.0, 2.0])
         second = np.array([0.0, 0.5, 1.0, 2.0])

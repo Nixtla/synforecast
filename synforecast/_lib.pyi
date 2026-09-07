@@ -21,6 +21,12 @@ class augmentation:
         series: list[npt.NDArray[np.float64]], window_fraction: float
     ) -> npt.NDArray[np.float64]: ...
     @staticmethod
+    def nearest_dtw_neighbors(
+        series: list[npt.NDArray[np.float64]],
+        window_fraction: float,
+        n_neighbors: int,
+    ) -> list[list[tuple[int, float]]]: ...
+    @staticmethod
     def dba_barycenter(
         reference: npt.NDArray[np.float64],
         neighbors: list[npt.NDArray[np.float64]],
@@ -47,6 +53,13 @@ class augmentation:
         seed: int,
         period: int | None = None,
     ) -> npt.NDArray[np.float64]: ...
+    @staticmethod
+    def moving_block_bootstrap_many(
+        values: npt.NDArray[np.float64],
+        block_size: int,
+        seeds: list[int],
+        period: int | None = None,
+    ) -> list[npt.NDArray[np.float64]]: ...
 
 class pattern_injection:
     @staticmethod

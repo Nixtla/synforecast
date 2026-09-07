@@ -94,6 +94,32 @@ class TestMarBehavior:
         scales = [generator.generate_single_series(256).std() for _ in range(12)]
         assert any(abs(scale - 1.0) > 1e-3 for scale in scales)
 
+    @pytest.mark.parametrize("native", [False, True])
+    @pytest.mark.parametrize("length", [1, 2, 128])
+    def test_random_fallback_honors_standardization(
+        self, native: bool, length: int
+    ) -> None:
+        # These intercepts force all eight attempted paths beyond the bound.
+        args = {
+            **BASE,
+            "min_length": length,
+            "max_length": length,
+            "intercept_scale": 1e20,
+        }
+        raw_generator = MARGenerator(**args, standardize=False)
+        normalized_generator = MARGenerator(**args, standardize=True)
+
+        def draw(generator: MARGenerator) -> np.ndarray:
+            if native:
+                return next(iter(series_values(generator.generate(1)).values()))
+            return generator.generate_single_series(length)
+
+        raw = draw(raw_generator)
+        normalized = draw(normalized_generator)
+        assert np.abs(raw).max() < 10.0  # Confirms the Gaussian fallback was used.
+        expected = (raw - raw.mean()) / raw.std() if length > 1 else raw
+        np.testing.assert_allclose(normalized, expected, atol=1e-12)
+
     def test_seasonal_period_is_accepted(self) -> None:
         values = MARGenerator(**BASE, seasonal_period=24).generate_single_series(200)
         assert np.all(np.isfinite(values))
@@ -324,6 +350,29 @@ class TestMarValidation:
 
 class TestMarFeatureTargeting:
     """Feature-targeted evolutionary search behavior."""
+
+    @pytest.mark.parametrize("tolerance", [1e-15, 2.0])
+    def test_search_reports_convergence_and_budget(self, tolerance: float) -> None:
+        generator = MARGenerator.tune_to_features(
+            {"acf1": 0.7},
+            64,
+            96,
+            "D",
+            n_generations=2,
+            population_size=5,
+            n_draws_per_candidate=2,
+            seed=9,
+            tolerance=tolerance,
+        )
+        diagnostics = generator.tuning_diagnostics
+        assert diagnostics is not None
+        assert np.isfinite(diagnostics["best_distance"])
+        assert diagnostics["converged"] is (tolerance == 2.0)
+        assert diagnostics["generations_run"] == (1 if tolerance == 2.0 else 2)
+        assert diagnostics["candidates_evaluated"] == 5 * diagnostics["generations_run"]
+        diagnostics["best_distance"] = -1
+        assert generator.tuning_diagnostics["best_distance"] >= 0
+        assert MARGenerator(**BASE).tuning_diagnostics is None
 
     def test_unknown_feature_rejected(self) -> None:
         with pytest.raises(ValueError, match="supported names"):

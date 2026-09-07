@@ -1,10 +1,34 @@
 //! Native algorithms shared by augmentation and feature-targeted generation.
 
 use rayon::prelude::*;
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
 
 use crate::{fft, rng::SfRng};
 
 pub type Decomposition = (Vec<f64>, Vec<f64>, Vec<f64>);
+
+#[derive(PartialEq)]
+struct Neighbor {
+    distance: f64,
+    index: usize,
+}
+
+impl Eq for Neighbor {}
+
+impl Ord for Neighbor {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.distance
+            .total_cmp(&other.distance)
+            .then_with(|| self.index.cmp(&other.index))
+    }
+}
+
+impl PartialOrd for Neighbor {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 fn validate_values(values: &[f64]) -> Result<(), String> {
     if values.len() < 3 {
@@ -158,6 +182,75 @@ pub fn pairwise_dtw_distances(
     Ok(matrix)
 }
 
+/// Retain only the k nearest neighbors per series, breaking ties by input index.
+/// Each unordered pair is evaluated once, in bounded parallel chunks. Storage
+/// is O(n * k) plus one chunk, rather than a full pair list and distance matrix.
+pub fn nearest_dtw_neighbors(
+    series: &[Vec<f64>],
+    window_fraction: f64,
+    n_neighbors: usize,
+) -> Result<Vec<Vec<(usize, f64)>>, String> {
+    if !(window_fraction > 0.0 && window_fraction <= 1.0) {
+        return Err("window_fraction must satisfy 0 < value <= 1".to_string());
+    }
+    if n_neighbors == 0 {
+        return Err("n_neighbors must be >= 1".to_string());
+    }
+    for values in series {
+        validate_dtw_inputs(values, values)?;
+    }
+    let k = n_neighbors.min(series.len().saturating_sub(1));
+    let mut nearest: Vec<BinaryHeap<Neighbor>> = (0..series.len())
+        .map(|_| BinaryHeap::with_capacity(k))
+        .collect();
+    const CHUNK_SIZE: usize = 4096;
+    let mut pairs = Vec::with_capacity(CHUNK_SIZE);
+    let mut evaluate = |pairs: &[(usize, usize)]| -> Result<(), String> {
+        let distances = pairs
+            .par_iter()
+            .map(|&(i, j)| {
+                let (a, b) = (&series[i], &series[j]);
+                let band = ((window_fraction * a.len().max(b.len()) as f64).ceil() as usize)
+                    .max(a.len().abs_diff(b.len()) + 1);
+                dtw_distance(a, b, Some(band))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        for (&(i, j), distance) in pairs.iter().zip(distances) {
+            for (source, index) in [(i, j), (j, i)] {
+                let heap = &mut nearest[source];
+                let neighbor = Neighbor { distance, index };
+                if heap.len() < k {
+                    heap.push(neighbor);
+                } else if let Some(mut worst) = heap.peek_mut() {
+                    if neighbor < *worst {
+                        *worst = neighbor;
+                    }
+                }
+            }
+        }
+        Ok(())
+    };
+    for i in 0..series.len() {
+        for j in i + 1..series.len() {
+            pairs.push((i, j));
+            if pairs.len() == CHUNK_SIZE {
+                evaluate(&pairs)?;
+                pairs.clear();
+            }
+        }
+    }
+    evaluate(&pairs)?;
+    Ok(nearest
+        .into_iter()
+        .map(|heap| {
+            heap.into_sorted_vec()
+                .into_iter()
+                .map(|neighbor| (neighbor.index, neighbor.distance))
+                .collect()
+        })
+        .collect())
+}
+
 /// Compute a weighted DBA barycenter restricted to reference length.
 pub fn dba_barycenter(
     reference: &[f64],
@@ -213,37 +306,53 @@ pub fn dba_barycenter(
 
 fn moving_average(values: &[f64], period: Option<usize>) -> Vec<f64> {
     let n = values.len();
-    let mut weights = match period {
+    let (mut width, mut half_endpoints) = match period {
         None => {
             let mut window = (n / 10) | 1;
             window = window.max(3);
             if window > n {
                 window = if n % 2 == 1 { n } else { n - 1 };
             }
-            vec![1.0 / window as f64; window]
+            (window, false)
         }
-        Some(period) if period % 2 == 1 => vec![1.0 / period as f64; period],
-        Some(period) => {
-            let mut result = vec![1.0 / period as f64; period + 1];
-            result[0] *= 0.5;
-            result[period] *= 0.5;
-            result
-        }
+        Some(period) if period % 2 == 1 => (period, false),
+        Some(period) => (period + 1, true),
     };
-    if weights.len() > n {
-        let window = if n % 2 == 1 { n } else { n - 1 };
-        weights = vec![1.0 / window as f64; window];
+    if width > n {
+        width = if n % 2 == 1 { n } else { n - 1 };
+        half_endpoints = false;
     }
-    let width = weights.len();
+    // Center before accumulating and compensate rounding error as the window
+    // slides. Even periods retain the classical half-weighted endpoints.
+    let baseline = values[0];
+    let mut sum = 0.0;
+    let mut correction = 0.0;
+    let add = |sum: &mut f64, correction: &mut f64, value: f64| {
+        let adjusted = value - *correction;
+        let next = *sum + adjusted;
+        *correction = (next - *sum) - adjusted;
+        *sum = next;
+    };
+    for value in &values[..width] {
+        add(&mut sum, &mut correction, value - baseline);
+    }
+    let denominator = if half_endpoints { width - 1 } else { width } as f64;
     let mut computed = Vec::with_capacity(n - width + 1);
     for start in 0..=n - width {
-        computed.push(
-            values[start..start + width]
-                .iter()
-                .zip(&weights)
-                .map(|(value, weight)| value * weight)
-                .sum(),
-        );
+        if start > 0 {
+            add(&mut sum, &mut correction, -(values[start - 1] - baseline));
+            add(
+                &mut sum,
+                &mut correction,
+                values[start + width - 1] - baseline,
+            );
+        }
+        let endpoints = if half_endpoints {
+            0.5 * (values[start] - baseline) + 0.5 * (values[start + width - 1] - baseline)
+        } else {
+            0.0
+        };
+        computed.push(baseline + (sum - endpoints) / denominator);
     }
     let left = (width - 1) / 2;
     let right = n - computed.len() - left;
@@ -398,24 +507,47 @@ pub fn moving_block_bootstrap(
     block_size: usize,
     seed: u64,
 ) -> Result<Vec<f64>, String> {
-    let (trend, seasonal, remainder) = classical_decompose(values, period)?;
+    let decomposition = classical_decompose(values, period)?;
     if block_size < 2 || block_size > values.len() {
         return Err("block_size must be in [2, len(values)]".to_string());
     }
+    Ok(bootstrap_remainder(&decomposition, block_size, seed))
+}
+
+/// Decompose once and independently resample the remainder for each seed.
+pub fn moving_block_bootstrap_many(
+    values: &[f64],
+    period: Option<usize>,
+    block_size: usize,
+    seeds: &[u64],
+) -> Result<Vec<Vec<f64>>, String> {
+    let decomposition = classical_decompose(values, period)?;
+    if block_size < 2 || block_size > values.len() {
+        return Err("block_size must be in [2, len(values)]".to_string());
+    }
+    Ok(seeds
+        .iter()
+        .map(|&seed| bootstrap_remainder(&decomposition, block_size, seed))
+        .collect())
+}
+
+fn bootstrap_remainder(decomposition: &Decomposition, block_size: usize, seed: u64) -> Vec<f64> {
+    let (trend, seasonal, remainder) = decomposition;
+    let length = remainder.len();
     let mut rng = SfRng::new(seed);
-    let n_blocks = values.len() / block_size + 2;
+    let n_blocks = length / block_size + 2;
     let mut sampled = Vec::with_capacity(n_blocks * block_size);
     for _ in 0..n_blocks {
-        let start = rng.integers(0, (values.len() - block_size + 1) as i32) as usize;
+        let start = rng.integers(0, (length - block_size + 1) as i32) as usize;
         sampled.extend_from_slice(&remainder[start..start + block_size]);
     }
     let offset = rng.integers(0, block_size as i32) as usize;
-    Ok(trend
+    trend
         .iter()
-        .zip(&seasonal)
-        .zip(&sampled[offset..offset + values.len()])
+        .zip(seasonal)
+        .zip(&sampled[offset..offset + length])
         .map(|((&trend, &seasonal), &remainder)| trend + seasonal + remainder)
-        .collect())
+        .collect()
 }
 
 #[cfg(test)]

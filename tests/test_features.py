@@ -17,6 +17,23 @@ from tests.helpers import sample_acf
 class TestFeatureComputation:
     """Behavior and edge-case tests for private numeric features."""
 
+    @pytest.mark.parametrize("period", [None, 2, 7, 12, 20_000])
+    @pytest.mark.parametrize("offset", [0.0, 1e9])
+    def test_rolling_trend_matches_direct_convolution(
+        self, period: int | None, offset: float
+    ) -> None:
+        from synforecast._features import _moving_average
+
+        values = offset + np.random.default_rng(42).normal(size=10_001)
+        usable_period = (
+            period if period is not None and period <= len(values) // 2 else None
+        )
+        expected = _moving_average(values, usable_period)
+        actual, _, _ = classical_decompose(values, period)
+        np.testing.assert_allclose(
+            actual, expected, rtol=0.0, atol=1e-12 if offset == 0 else 1e-6
+        )
+
     def test_compute_features_contract(self) -> None:
         values = np.random.default_rng(0).normal(size=128)
         features = compute_features(values, 12)

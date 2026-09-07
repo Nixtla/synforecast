@@ -8,7 +8,7 @@ import numpy as np
 from narwhals.stable.v2.typing import IntoFrameT
 
 from synforecast._analysis import classify_series, detect_seasonality
-from synforecast._dtw import dba_barycenter, pairwise_dtw_distances
+from synforecast._dtw import dba_barycenter, nearest_dtw_neighbors
 from synforecast._fitting import fit_generator_params
 from synforecast._lib import augmentation as _rs_augmentation
 from synforecast._lib import batch as _rs_batch
@@ -869,19 +869,17 @@ class SynAugment:
             block = block_size if block_size is not None else default_block
             block = min(block, max(2, len(values) // 3))
 
-            for copy_index in range(n_augment):
+            native_seeds = self.rng.integers(0, 2**63, size=n_augment).tolist()
+            generated_copies = _rs_augmentation.moving_block_bootstrap_many(
+                np.ascontiguousarray(values), block, native_seeds, period
+            )
+            for copy_index, generated in enumerate(generated_copies):
                 generated_id = self._reserve_generated_id(
                     f"{series_id}_mbb_{copy_index}", reserved_ids
                 )
-                native_seed = int(self.rng.integers(0, 2**63))
-                generated = np.asarray(
-                    _rs_augmentation.moving_block_bootstrap(
-                        np.ascontiguousarray(values), block, native_seed, period
-                    )
-                )
                 synthetic_dfs.append(
                     self._copy_reference_frame(
-                        output_sdf, generated_id, generated, out_engine
+                        output_sdf, generated_id, np.asarray(generated), out_engine
                     )
                 )
 
@@ -923,8 +921,10 @@ class SynAugment:
         https://arxiv.org/abs/2008.02663). Neighbor weighting, per-copy weight
         randomization, banded DTW, and z-normalized alignment are SynForecast's
         own design rather than a reproduction of the reference code. Pairwise
-        panel distances are computed once per call in parallel native code,
-        while the band limits the otherwise quadratic alignment cost.
+        panel distances are computed once per call in bounded parallel chunks,
+        retaining only the nearest neighbors per source. Neighbor storage is
+        O(number of series * n_neighbors); distance computation still examines
+        every pair. The band limits the otherwise quadratic alignment cost.
 
         This panel-aware method caches every usable source series once and
         deliberately bypasses ``_match_autocorrelation``. With the default
@@ -986,24 +986,23 @@ class SynAugment:
         if len(usable_ids) < 2:
             raise ValueError("dba requires at least 2 usable series")
 
-        distance_matrix = pairwise_dtw_distances(
-            [aligned[series_id] for series_id in usable_ids], window_fraction
+        # Native ties use input index; sort by string ID to preserve the
+        # established neighbor ordering even when source IDs are numeric.
+        neighbor_order = sorted(usable_ids, key=str)
+        nearest = nearest_dtw_neighbors(
+            [aligned[series_id] for series_id in neighbor_order],
+            window_fraction,
+            n_neighbors,
         )
+        nearest_by_id = dict(zip(neighbor_order, nearest, strict=True))
         synthetic_dfs: list[nw.DataFrame] = []
-        for reference_index, reference_id in enumerate(usable_ids):
+        for reference_id in usable_ids:
             reference_values = aligned[reference_id]
-            distances: list[tuple[float, Any]] = [
-                (float(distance_matrix[reference_index, other_index]), other_id)
-                for other_index, other_id in enumerate(usable_ids)
-                if other_id != reference_id
-            ]
-            distances.sort(key=lambda item: (item[0], str(item[1])))
             neighbor_ids = [
-                series_id
-                for _, series_id in distances[: min(n_neighbors, len(distances))]
+                neighbor_order[index] for index, _ in nearest_by_id[reference_id]
             ]
             neighbor_distances = np.array(
-                [distance for distance, _ in distances[: len(neighbor_ids)]]
+                [distance for _, distance in nearest_by_id[reference_id]]
             )
             positive = neighbor_distances[neighbor_distances > 0]
             if len(positive):

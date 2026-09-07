@@ -98,6 +98,8 @@ Series without a finite target or with fewer than four observations are
 skipped with a logged warning; at least one series must be usable. Missing
 targets are interpolated before decomposition. Non-target columns are copied
 from the source series.
+The moving-average trend takes linear time, and decomposition is reused across
+all requested copies of a source.
 
 ### SynAugment.dba
 
@@ -136,6 +138,10 @@ augmented = SynAugment(seed=42).dba(
 DBA requires at least two usable series. Synthetic rows retain the reference
 timestamps and non-target columns. Decomposition, block sampling, DTW, and
 barycenter updates execute in native Rust.
+
+DBA evaluates each pair once in bounded chunks and retains only the requested
+nearest neighbors, using O(number of series × `n_neighbors`) neighbor storage.
+Pairwise distance computation still grows quadratically with the series count.
 
 ---
 

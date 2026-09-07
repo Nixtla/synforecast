@@ -62,6 +62,21 @@ fn pairwise_dtw_distances(
 }
 
 #[pyfunction]
+fn nearest_dtw_neighbors(
+    py: Python<'_>,
+    series: Vec<PyReadonlyArray1<'_, f64>>,
+    window_fraction: f64,
+    n_neighbors: usize,
+) -> PyResult<Vec<Vec<(usize, f64)>>> {
+    let series = series
+        .iter()
+        .map(|values| values.as_slice().map(ToOwned::to_owned))
+        .collect::<Result<Vec<_>, _>>()?;
+    py.detach(|| algorithms::nearest_dtw_neighbors(&series, window_fraction, n_neighbors))
+        .map_err(PyValueError::new_err)
+}
+
+#[pyfunction]
 #[pyo3(signature = (reference, neighbors, weights, n_iterations, band=None))]
 fn dba_barycenter(
     py: Python<'_>,
@@ -130,15 +145,36 @@ fn moving_block_bootstrap(
     Ok(PyArray1::from_vec(py, generated).into())
 }
 
+#[pyfunction]
+#[pyo3(signature = (values, block_size, seeds, period=None))]
+fn moving_block_bootstrap_many(
+    py: Python<'_>,
+    values: PyReadonlyArray1<'_, f64>,
+    block_size: usize,
+    seeds: Vec<u64>,
+    period: Option<usize>,
+) -> PyResult<Vec<Py<PyArray1<f64>>>> {
+    let values = values.as_slice()?.to_vec();
+    let generated = py
+        .detach(|| algorithms::moving_block_bootstrap_many(&values, period, block_size, &seeds))
+        .map_err(PyValueError::new_err)?;
+    Ok(generated
+        .into_iter()
+        .map(|values| PyArray1::from_vec(py, values).into())
+        .collect())
+}
+
 pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let module = PyModule::new(parent.py(), "augmentation")?;
     module.add_function(wrap_pyfunction!(dtw_alignment, &module)?)?;
     module.add_function(wrap_pyfunction!(dtw_distance, &module)?)?;
     module.add_function(wrap_pyfunction!(pairwise_dtw_distances, &module)?)?;
+    module.add_function(wrap_pyfunction!(nearest_dtw_neighbors, &module)?)?;
     module.add_function(wrap_pyfunction!(dba_barycenter, &module)?)?;
     module.add_function(wrap_pyfunction!(classical_decompose, &module)?)?;
     module.add_function(wrap_pyfunction!(compute_features, &module)?)?;
     module.add_function(wrap_pyfunction!(moving_block_bootstrap, &module)?)?;
+    module.add_function(wrap_pyfunction!(moving_block_bootstrap_many, &module)?)?;
     parent.add_submodule(&module)?;
     parent
         .py()

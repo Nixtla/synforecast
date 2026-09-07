@@ -235,6 +235,13 @@ pub fn mar(out: &mut [f64], sp: &[f64], ap: &[Vec<f64>], seed: u64) -> Result<()
         ));
     }
     rng.normal_array(out, 0.0, 1.0);
+    if sp[8] != 0.0 && out.len() > 1 {
+        let mean = out.iter().sum::<f64>() / out.len() as f64;
+        let std = population_std(out);
+        for value in out {
+            *value = (*value - mean) / std;
+        }
+    }
     Ok(())
 }
 

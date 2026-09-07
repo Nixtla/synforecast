@@ -3,7 +3,7 @@
 from typing import Any
 
 import numpy as np
-from pydantic import Field, model_validator
+from pydantic import Field, PrivateAttr, model_validator
 
 from synforecast._features import compute_features
 from synforecast.base import BaseGenerator
@@ -91,6 +91,22 @@ class MARGenerator(BaseGenerator):
     noise_scales: list[float] | None = Field(
         default=None, description="Fixed positive innovation scales"
     )
+    _tuning_diagnostics: dict[str, float | int | bool] | None = PrivateAttr(
+        default=None
+    )
+
+    @property
+    def tuning_diagnostics(self) -> dict[str, float | int | bool] | None:
+        """Search distance, convergence, and budget used, or None if untuned.
+
+        ``best_distance`` is the selected candidate's observed training fitness,
+        not a guarantee about new draws. The returned dictionary is a copy.
+        """
+        return (
+            None
+            if self._tuning_diagnostics is None
+            else self._tuning_diagnostics.copy()
+        )
 
     @model_validator(mode="after")
     def validate_mar_parameters(self) -> "MARGenerator":
@@ -349,7 +365,10 @@ class MARGenerator(BaseGenerator):
                 "fixed MAR configuration produced no finite, bounded, non-constant "
                 f"series in {_MAX_RETRIES} attempts"
             )
-        return self.rng.normal(0.0, 1.0, length)
+        values = self.rng.normal(0.0, 1.0, length)
+        if self.standardize and length > 1:
+            values = (values - values.mean()) / values.std()
+        return values
 
     @classmethod
     def tune_to_features(
@@ -382,6 +401,9 @@ class MARGenerator(BaseGenerator):
         return the best candidate after the fixed budget. Candidates whose
         mixture is not second-order stationary, or whose simulation fails the
         output guards, receive infinite fitness.
+        The returned generator's ``tuning_diagnostics`` records the best observed
+        distance, whether tolerance was reached, generations run, and candidates
+        evaluated.
         """
         cls._validate_targeting(
             target_features,
@@ -402,7 +424,10 @@ class MARGenerator(BaseGenerator):
         ]
         best_candidate: dict[str, Any] | None = None
         best_distance = np.inf
+        candidates_evaluated = 0
+        generations_run = 0
         for _ in range(n_generations):
+            generations_run += 1
             ranked: list[tuple[float, dict[str, Any]]] = []
             for candidate in population:
                 distance = cls._candidate_fitness(
@@ -414,6 +439,7 @@ class MARGenerator(BaseGenerator):
                     rng,
                 )
                 ranked.append((distance, candidate))
+                candidates_evaluated += 1
             ranked.sort(key=lambda item: item[0])
             if np.isfinite(ranked[0][0]) and ranked[0][0] < best_distance:
                 best_distance, best_candidate = ranked[0]
@@ -435,7 +461,7 @@ class MARGenerator(BaseGenerator):
                 "budget"
             )
         fixed = cls._candidate_to_fixed(best_candidate, seasonal_period)
-        return cls(
+        generator = cls(
             min_length=min_length,
             max_length=max_length,
             freq=freq,
@@ -446,6 +472,13 @@ class MARGenerator(BaseGenerator):
             intercepts=fixed[2],
             noise_scales=fixed[3],
         )
+        generator._tuning_diagnostics = {
+            "best_distance": float(best_distance),
+            "converged": bool(best_distance <= tolerance),
+            "generations_run": generations_run,
+            "candidates_evaluated": candidates_evaluated,
+        }
+        return generator
 
     @classmethod
     def _validate_targeting(

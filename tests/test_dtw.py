@@ -7,11 +7,40 @@ from synforecast._dtw import (
     dba_barycenter,
     dtw_alignment,
     dtw_distance,
+    nearest_dtw_neighbors,
     pairwise_dtw_distances,
 )
 
 
 class TestDtwAlignment:
+    @pytest.mark.parametrize("n_neighbors", [1, 3, 200])
+    def test_nearest_neighbors_match_full_matrix(self, n_neighbors: int) -> None:
+        # Over 4096 pairs exercises chunk boundaries; duplicates exercise ties.
+        rng = np.random.default_rng(123)
+        series = [rng.normal(size=5 + i % 7) for i in range(94)]
+        series.extend([series[0].copy(), series[0].copy()])
+        matrix = pairwise_dtw_distances(series, 0.1)
+        nearest = nearest_dtw_neighbors(series, 0.1, n_neighbors)
+        for i, neighbors in enumerate(nearest):
+            expected = sorted(
+                ((j, matrix[i, j]) for j in range(len(series)) if i != j),
+                key=lambda item: (item[1], item[0]),
+            )[:n_neighbors]
+            assert [j for j, _ in neighbors] == [j for j, _ in expected]
+            np.testing.assert_allclose(
+                [d for _, d in neighbors], [d for _, d in expected], rtol=1e-12
+            )
+
+    def test_nearest_neighbors_reject_invalid_inputs(self) -> None:
+        with pytest.raises(ValueError, match="n_neighbors"):
+            nearest_dtw_neighbors([np.ones(3)], 0.1, 0)
+        with pytest.raises(ValueError, match="window_fraction"):
+            nearest_dtw_neighbors([np.ones(3)], float("nan"), 1)
+        with pytest.raises(ValueError, match="finite"):
+            nearest_dtw_neighbors([np.array([1.0, np.nan])], 0.1, 1)
+        assert nearest_dtw_neighbors([], 0.1, 1) == []
+        assert nearest_dtw_neighbors([np.ones(3)], 0.1, 1) == [[]]
+
     def test_identical_series_use_zero_cost_diagonal(self) -> None:
         values = np.array([0.0, 1.0, 2.0])
 

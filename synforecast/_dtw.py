@@ -64,6 +64,24 @@ def pairwise_dtw_distances(
     return flat.reshape(len(arrays), len(arrays))
 
 
+def nearest_dtw_neighbors(
+    series: list[np.ndarray], window_fraction: float, n_neighbors: int
+) -> list[list[tuple[int, float]]]:
+    """Return nearest (index, distance) pairs, breaking ties by input index.
+
+    Uses the same bands as ``pairwise_dtw_distances``, retaining only
+    ``n_neighbors`` results per source in bounded parallel chunks.
+    """
+    arrays = [
+        np.ascontiguousarray(np.asarray(values, dtype=float)) for values in series
+    ]
+    if any(values.ndim != 1 or len(values) == 0 for values in arrays):
+        raise ValueError("DTW inputs must be non-empty one-dimensional arrays")
+    if n_neighbors < 1:
+        raise ValueError("n_neighbors must be >= 1")
+    return _rs_augmentation.nearest_dtw_neighbors(arrays, window_fraction, n_neighbors)
+
+
 def dba_barycenter(
     reference: np.ndarray,
     neighbors: list[np.ndarray],
