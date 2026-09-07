@@ -21,7 +21,12 @@
   second-order stationarity of fixed mixtures (Wong and Li 2000), and raises
   instead of substituting noise when a fixed model fails the output guards.
 - MAR random-mode fallback noise now honors `standardize=True` in both paths.
+- Fixed MAR mixtures no longer bypass stationarity validation above AR order
+  32. Trailing zeros are ignored, and larger mixtures require a sufficient
+  stability condition; uncertified mixtures raise an explicit error.
 - `SynAugment.mbb` and `SynAugment.dba` skip unusable series with a logged
   warning instead of raising or silently dropping them.
+- MBB reports explicit seasonal periods that cannot fit two cycles, DBA
+  reports near-zero reference scales, and infinity errors identify the source.
 
 ## 0.1.0 - Initial release

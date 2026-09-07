@@ -249,7 +249,8 @@ class SynAugment:
 
     - :meth:`augment` fits a parametric generator per series and simulates
       from it (IDs ``"{original_id}_aug_{i}"``).
-    - :meth:`mixup` forms convex combinations of z-normalized series
+    - :meth:`mixup` forms convex combinations of scaled series (mean absolute
+      scaling by default; z-normalization is optional)
       (IDs ``"mixup_{i}"``).
     - :meth:`mbb` bootstraps decomposition remainders in moving blocks
       (IDs ``"{original_id}_mbb_{i}"``).
@@ -586,10 +587,15 @@ class SynAugment:
         return window
 
     @staticmethod
-    def _interpolate_missing(values: np.ndarray) -> np.ndarray | None:
+    def _interpolate_missing(
+        values: np.ndarray, *, series_id: Any = None
+    ) -> np.ndarray | None:
         """Linearly interpolate NaNs, or reject a series with no finite values."""
         if np.isinf(values).any():
-            raise ValueError("source series must not contain infinite values")
+            source = (
+                "source series" if series_id is None else f"source series {series_id!r}"
+            )
+            raise ValueError(f"{source} must not contain infinite values")
         observed = ~np.isnan(values)
         if not observed.any():
             return None
@@ -827,6 +833,27 @@ class SynAugment:
         ``max(2, len(series) // 3)``. This keeps multiple remainder blocks in
         play for short inputs; request a smaller value when the exact block
         length matters.
+
+        An explicit period requires at least two cycles per source. Shorter
+        sources use nonseasonal decomposition and are listed in a logged warning.
+        Infinite values reject the call with the offending series ID; NaNs
+        follow the interpolation/skip policy above.
+
+        Args:
+            df: Input frame containing the configured ID, time and target columns.
+            n_augment: Copies per usable source, from 1 to 1000 (default: 1).
+            seasonal_period: Period >= 2, or None to detect it per source.
+            block_size: Block length >= 2, or None for the period/length-based
+                default. Explicit lengths are also capped as described above.
+            include_original: Include unchanged original rows (default: True).
+
+        Returns:
+            Frame containing generated series and, optionally, original rows,
+            using the configured output engine or the input engine.
+
+        Raises:
+            ValueError: For invalid arguments, missing required columns, infinite
+                target values, or no usable source series.
         """
         if n_augment < 1:
             raise ValueError("n_augment must be >= 1")
@@ -849,11 +876,12 @@ class SynAugment:
         reserved_ids = {str(series_id) for series_id in unique_ids}
         synthetic_dfs: list[nw.DataFrame] = []
         skipped: list[Any] = []
+        nonseasonal: list[Any] = []
 
         for series_id in unique_ids:
             sdf = df_nw.filter(nw.col(self.id_col) == series_id).sort(self.time_col)
             raw_values = sdf.select(self.target_col).to_numpy().flatten().astype(float)
-            values = self._interpolate_missing(raw_values)
+            values = self._interpolate_missing(raw_values, series_id=series_id)
             if values is None or len(values) < 4:
                 skipped.append(series_id)
                 continue
@@ -863,6 +891,8 @@ class SynAugment:
                 if seasonal_period is not None
                 else detect_seasonality(values)["period"]
             )
+            if seasonal_period is not None and seasonal_period > len(values) // 2:
+                nonseasonal.append(series_id)
             default_block = (
                 2 * period if period else max(2, int(round(len(values) ** 0.5)))
             )
@@ -884,6 +914,14 @@ class SynAugment:
                 )
 
         self._warn_skipped("mbb", skipped)
+        if nonseasonal:
+            logger.warning(
+                "mbb used nonseasonal decomposition for %s series with fewer than "
+                "two cycles of seasonal_period=%s; first IDs: %s",
+                len(nonseasonal),
+                seasonal_period,
+                nonseasonal[:5],
+            )
         if len(skipped) == len(unique_ids):
             raise ValueError(
                 "mbb requires at least 1 usable series (finite values, >= 4 rows)"
@@ -939,6 +977,31 @@ class SynAugment:
 
         Banded DTW and barycenter updates execute in native Rust. Seed
         determinism is stable within this native path.
+
+        NaNs are interpolated; entirely missing sources are skipped with a
+        warning. Infinite values reject the call with the offending series ID.
+        Reference scaling preserves zero scale for constant sources, producing
+        constant copies. Sources with standard deviation below 1e-8 are listed
+        in a warning because their copies may add little or no variation.
+
+        Args:
+            df: Input frame containing the configured ID, time and target columns.
+            n_augment: Copies per usable reference, from 1 to 1000 (default: 1).
+            n_neighbors: Positive maximum neighbor count (default: 3), capped
+                at the number of other usable sources.
+            n_iterations: Positive number of barycenter updates (default: 5).
+            window_fraction: DTW band fraction in (0, 1] (default: 0.1).
+            scale: "reference" to restore reference scale (default), or "none"
+                to average raw values.
+            include_original: Include unchanged original rows (default: True).
+
+        Returns:
+            Frame containing generated series and, optionally, original rows,
+            using the configured output engine or the input engine.
+
+        Raises:
+            ValueError: For invalid arguments, missing required columns, infinite
+                target values, or fewer than two usable source series.
         """
         if n_augment < 1:
             raise ValueError("n_augment must be >= 1")
@@ -965,16 +1028,19 @@ class SynAugment:
         aligned: dict[Any, np.ndarray] = {}
         moments: dict[Any, tuple[float, float]] = {}
         skipped: list[Any] = []
+        near_constant: list[Any] = []
         for series_id in unique_ids:
             sdf = df_nw.filter(nw.col(self.id_col) == series_id).sort(self.time_col)
             raw_values = sdf.select(self.target_col).to_numpy().flatten().astype(float)
-            values = self._interpolate_missing(raw_values)
+            values = self._interpolate_missing(raw_values, series_id=series_id)
             if values is None:
                 skipped.append(series_id)
                 continue
             output_sdf = self._to_output_backend(sdf, out_engine)
             mean = float(values.mean())
             std = float(values.std())
+            if scale == "reference" and std < 1e-8:
+                near_constant.append(series_id)
             divisor = std if std >= 1e-8 else 1.0
             series[series_id] = (values, output_sdf)
             moments[series_id] = (mean, std)
@@ -983,6 +1049,13 @@ class SynAugment:
             )
         usable_ids = list(series)
         self._warn_skipped("dba", skipped)
+        if near_constant:
+            logger.warning(
+                "dba reference scaling preserves near-zero scale for %s series; "
+                "copies may add little or no variation; first IDs: %s",
+                len(near_constant),
+                near_constant[:5],
+            )
         if len(usable_ids) < 2:
             raise ValueError("dba requires at least 2 usable series")
 

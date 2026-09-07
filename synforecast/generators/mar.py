@@ -41,7 +41,12 @@ class MARGenerator(BaseGenerator):
     of ``weights``, ``ar_coefficients``, ``intercepts``, and ``noise_scales``
     and is used by feature targeting. Every fixed component must be
     stationary, and the mixture must be second-order stationary (Wong and Li
-    2000); the mixture check is skipped for AR orders above 32. A fixed model
+    2000). The exact mixture check handles effective AR orders through 32.
+    Larger mixtures are accepted when all components are identical and stable,
+    or every component's sum of absolute AR coefficients is below one.
+    Other large mixtures raise an error because stationarity could not be
+    verified; this conservative policy can reject valid mixtures. Trailing
+    zero coefficients do not count toward effective order. A fixed model
     that fails the finite, bounded, non-constant output guards raises a
     ``ValueError`` at generation time instead of silently substituting noise.
     Moment handling is explicit: ``standardize=True`` (the default) maps every
@@ -175,7 +180,10 @@ class MARGenerator(BaseGenerator):
     @staticmethod
     def _is_stationary(coefficients: np.ndarray) -> bool:
         """Check AR stationarity through companion-matrix spectral radius."""
+        coefficients = np.trim_zeros(coefficients, "b")
         order = len(coefficients)
+        if order == 0:
+            return True
         companion = np.zeros((order, order))
         companion[0] = coefficients
         if order > 1:
@@ -190,11 +198,32 @@ class MARGenerator(BaseGenerator):
 
         The condition is a spectral radius below one for the second-moment
         operator ``X -> sum_k w_k A_k X A_k^T`` over companion matrices
-        ``A_k``, evaluated exactly on the symmetric-matrix subspace.
+        ``A_k``, evaluated exactly on the symmetric-matrix subspace through
+        effective order 32. At larger orders use sufficient conditions or
+        raise ValueError when the result cannot be certified.
         """
+        coefficients = [np.trim_zeros(component, "b") for component in coefficients]
         order = max(len(component) for component in coefficients)
-        if order > _MAX_MIXTURE_CHECK_ORDER:
+        if order == 0:
             return True
+        if order > _MAX_MIXTURE_CHECK_ORDER:
+            if all(
+                np.array_equal(component, coefficients[0]) for component in coefficients
+            ):
+                return MARGenerator._is_stationary(coefficients[0])
+            # If every absolute coefficient sum is < 1, the companion matrices
+            # share a contracting weighted max norm: use lag weights r**(-j)
+            # with r < 1 sufficiently close to 1. This bounds every switching
+            # sequence geometrically, hence also its second moments. This is
+            # sufficient, not necessary; leave a margin for floating-point error.
+            if all(np.abs(component).sum() < 1.0 - 1e-10 for component in coefficients):
+                return True
+            raise ValueError(
+                "could not verify second-order stationarity for a MAR mixture "
+                f"of effective AR order {order}: above {_MAX_MIXTURE_CHECK_ORDER}, "
+                "components must be identical or each have sum(abs(AR coefficients)) < 1; "
+                "some stationary mixtures do not satisfy these sufficient conditions"
+            )
         companions = []
         for component in coefficients:
             companion = np.zeros((order, order))

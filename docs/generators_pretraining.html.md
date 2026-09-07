@@ -24,3 +24,4 @@ description: TSI, TCM, KernelSynth, and MAR generators for foundation-model pret
       members:
         - generate_single_series
         - tune_to_features
+        - tuning_diagnostics

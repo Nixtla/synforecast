@@ -11,6 +11,58 @@ from synforecast import SynAugment
 from tests.helpers import series_values
 
 
+class TestAugmentationInputPolicy:
+    @pytest.mark.parametrize("method", ["mbb", "dba"])
+    @pytest.mark.parametrize("value", [np.inf, -np.inf])
+    def test_infinity_rejects_panel_and_names_source(self, method, value):
+        frame = pl.DataFrame(
+            {
+                "unique_id": ["good"] * 4 + ["bad-sensor"] * 4,
+                "ds": list(range(4)) * 2,
+                "y": [0.0, 1.0, 2.0, 3.0, 0.0, value, 2.0, 3.0],
+            }
+        )
+        with pytest.raises(ValueError, match="source series 'bad-sensor'.*infinite"):
+            getattr(SynAugment(seed=1), method)(frame)
+
+    def test_explicit_mbb_period_warns_only_for_short_sources(self, caplog):
+        frame = pl.DataFrame(
+            {
+                "unique_id": ["short-a"] * 40 + ["short-b"] * 47 + ["two-cycles"] * 48,
+                "ds": list(range(40)) + list(range(47)) + list(range(48)),
+                "y": np.random.default_rng(1).normal(size=135),
+            }
+        )
+        output = SynAugment(seed=1).mbb(
+            frame, seasonal_period=24, include_original=False
+        )
+        assert output.height == frame.height
+        warnings = [
+            r.message
+            for r in caplog.records
+            if "nonseasonal decomposition" in r.message
+        ]
+        assert len(warnings) == 1
+        assert "for 2 series" in warnings[0]
+        assert "short-a" in warnings[0] and "short-b" in warnings[0]
+        assert "two-cycles" not in warnings[0]
+
+    @pytest.mark.parametrize("scale", ["reference", "none"])
+    def test_near_constant_dba_warning_depends_on_reference_scaling(
+        self, caplog, scale
+    ):
+        frame = pl.DataFrame(
+            {
+                "unique_id": ["tiny"] * 8 + ["wave"] * 8,
+                "ds": list(range(8)) * 2,
+                "y": np.r_[10.0 + np.arange(8) * 1e-10, np.sin(np.arange(8))],
+            }
+        )
+        output = SynAugment(seed=1).dba(frame, scale=scale, include_original=False)
+        assert output.height == frame.height
+        assert ("near-zero scale" in caplog.text) == (scale == "reference")
+
+
 class TestSynAugment:
     """Tests for SynAugment class."""
 
@@ -1247,7 +1299,7 @@ class TestDBA:
         assert "s0_dba_0_1" in ids.to_list()
         assert output.filter(ids == "s0_dba_0").height == 72
 
-    def test_constant_reference_keeps_zero_scale(self) -> None:
+    def test_constant_reference_keeps_zero_scale(self, caplog) -> None:
         length = 48
         time = np.arange(length)
         frame = pl.DataFrame(
@@ -1265,6 +1317,8 @@ class TestDBA:
         ].to_numpy()
 
         np.testing.assert_array_equal(generated, np.full(length, 10.0))
+        assert "preserves near-zero scale for 1 series" in caplog.text
+        assert "constant" in caplog.text
 
     def test_requires_two_usable_series(self) -> None:
         frame = _smooth_panel("polars").filter(pl.col("unique_id") == "s0")

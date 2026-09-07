@@ -98,6 +98,9 @@ Series without a finite target or with fewer than four observations are
 skipped with a logged warning; at least one series must be usable. Missing
 targets are interpolated before decomposition. Non-target columns are copied
 from the source series.
+Infinite targets reject the call with the source ID. An explicit seasonal
+period needs two cycles per source; shorter sources use nonseasonal
+decomposition and are listed in a warning.
 The moving-average trend takes linear time, and decomposition is reused across
 all requested copies of a source.
 
@@ -136,8 +139,9 @@ augmented = SynAugment(seed=42).dba(
 | `include_original` | `True` | Include the input rows in the result |
 
 DBA requires at least two usable series. Synthetic rows retain the reference
-timestamps and non-target columns. Decomposition, block sampling, DTW, and
-barycenter updates execute in native Rust.
+timestamps and non-target columns. DTW and barycenter updates execute in native
+Rust. Reference scaling keeps constant sources constant; near-zero-scale
+references are listed in a warning because copies may add little variation.
 
 DBA evaluates each pair once in bounded chunks and retains only the requested
 nearest neighbors, using O(number of series × `n_neighbors`) neighbor storage.
@@ -754,6 +758,12 @@ the best L2 feature distance is at or below `tolerance` (default `0.05`), so
 the `n_generations * population_size * n_draws_per_candidate` budget is an upper
 bound. In fixed mode, a configuration that fails the finite, bounded,
 non-constant output guards raises `ValueError` rather than substituting noise.
+Fixed mixtures use an exact second-order stationarity check through effective
+AR order 32 (trailing zeros do not count). Above 32, identical stable components
+or components whose absolute AR coefficients each sum to less than one are
+accepted. Other large mixtures raise a "could not verify" error; these sufficient
+conditions can reject valid mixtures. Feature search treats them as invalid
+candidates, so high-period searches may have fewer feasible candidates.
 The reported `tuning_diagnostics.best_distance` measures training draws; fresh
 draws can be farther from the target. An equal-budget random-search comparison
 is available in `benchmarks/benchmark_mar_targeting.py`; validation coverage is

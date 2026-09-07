@@ -41,10 +41,24 @@ class TestMarApi:
             assert np.all(np.isfinite(values))
 
     def test_native_batch_parameter_contract(self) -> None:
-        generator = MARGenerator(**BASE)
+        generator = MARGenerator(
+            **BASE,
+            max_components=2,
+            max_ar_order=4,
+            seasonal_period=7,
+            weights_concentration=0.8,
+            intercept_scale=1.2,
+            noise_scale_range=(0.3, 1.7),
+            burn_in=19,
+            standardize=False,
+            innovation_distribution="t",
+            innovation_params={"df": 6.0},
+        )
         assert generator._batch_gen_type == _GEN_TYPE_MAP["MARGenerator"] == 30
         scalars, arrays = generator._get_batch_params()
-        assert scalars.shape == (12,)
+        np.testing.assert_array_equal(
+            scalars, [2, 4, 7, 0.8, 1.2, 0.3, 1.7, 19, 0, 0, 1, 6]
+        )
         assert arrays == []
 
     def test_native_batch_is_independent_of_worker_count(self) -> None:
@@ -97,12 +111,13 @@ class TestMarBehavior:
             freq=1,
             seed=93,
             burn_in=1000,
-            weights=weights.tolist(),
+            weights=(4 * weights).tolist(),  # Exercise normalization of [1, 3].
             ar_coefficients=phi[:, None].tolist(),
             intercepts=intercepts.tolist(),
             noise_scales=scales.tolist(),
             standardize=False,
         )
+        np.testing.assert_array_equal(generator.weights, weights)
         values = (
             next(iter(series_values(generator.generate(1)).values()))
             if native
@@ -154,6 +169,35 @@ class TestMarBehavior:
         generator = MARGenerator(**BASE, standardize=False)
         scales = [generator.generate_single_series(256).std() for _ in range(12)]
         assert any(abs(scale - 1.0) > 1e-3 for scale in scales)
+
+    @pytest.mark.parametrize("fixed", [False, True])
+    def test_native_standardizes_accepted_draws(self, fixed: bool) -> None:
+        params = (
+            {
+                "weights": [1.0],
+                "ar_coefficients": [[0.5]],
+                "intercepts": [3.0],
+                "noise_scales": [0.2],
+            }
+            if fixed
+            else {
+                "max_components": 1,
+                "max_ar_order": 1,
+                "intercept_scale": 0.0,
+                "noise_scale_range": (0.02, 0.02),
+            }
+        )
+        raw = MARGenerator(**BASE, **params, standardize=False).generate(4)
+        normalized = MARGenerator(**BASE, **params, standardize=True).generate(4)
+        for before, after in zip(
+            series_values(raw).values(), series_values(normalized).values(), strict=True
+        ):
+            assert 0 < before.std() < 0.5  # Far below the N(0,1) fallback scale.
+            np.testing.assert_allclose(
+                after, (before - before.mean()) / before.std(), atol=1e-12
+            )
+            assert after.mean() == pytest.approx(0.0, abs=1e-12)
+            assert after.std() == pytest.approx(1.0, abs=1e-12)
 
     @pytest.mark.parametrize("native", [False, True])
     @pytest.mark.parametrize("length", [1, 2, 128])
@@ -322,6 +366,63 @@ class TestMarBehavior:
 class TestMarValidation:
     """Validation for random and fixed modes."""
 
+    @pytest.mark.parametrize("padding", [0, 31, 166])
+    def test_trailing_zeros_cannot_bypass_stationarity(self, padding: int) -> None:
+        with pytest.raises(ValueError, match="must be second-order stationary"):
+            MARGenerator(
+                **BASE,
+                weights=[1.0, 1.0],
+                ar_coefficients=[
+                    [-1.9, -0.95] + [0.0] * padding,
+                    [1.9, -0.95] + [0.0] * padding,
+                ],
+                intercepts=[0.0, 0.0],
+                noise_scales=[1.0, 1.0],
+            )
+
+    @pytest.mark.parametrize("order", [33, 168])
+    def test_high_order_contractive_mixture_is_accepted(self, order: int) -> None:
+        # Two distinct stable seasonal AR components, including mixed orders.
+        generator = MARGenerator(
+            **BASE,
+            weights=[1.0, 3.0],
+            ar_coefficients=[[0.2], [0.0] * (order - 1) + [-0.4]],
+            intercepts=[0.0, 0.0],
+            noise_scales=[1.0, 1.0],
+        )
+        assert generator.weights == [0.25, 0.75]
+
+    @pytest.mark.parametrize("copies", [1, 2])
+    def test_high_order_identical_stable_components_are_accepted(
+        self, copies: int
+    ) -> None:
+        # (1 - .6 B)(1 - .6 B^33): stable, but absolute coefficients sum > 1.
+        component = [0.6] + [0.0] * 31 + [0.6, -0.36]
+        MARGenerator(
+            **BASE,
+            weights=[1.0] * copies,
+            ar_coefficients=[component] * copies,
+            intercepts=[0.0] * copies,
+            noise_scales=[1.0] * copies,
+        )
+
+    def test_uncertified_high_order_mixture_raises_explicit_error(self) -> None:
+        # A common (1 - .6 B) factor leaves a stable seasonal MAR after
+        # filtering, but this sufficient-condition check cannot certify it.
+        with pytest.raises(
+            ValueError, match="could not verify second-order stationarity"
+        ):
+            MARGenerator(
+                **BASE,
+                weights=[1.0, 1.0],
+                ar_coefficients=[
+                    [0.6] + [0.0] * 31 + [0.6, -0.36],
+                    [0.6] + [0.0] * 31 + [0.5, -0.3],
+                ],
+                intercepts=[0.0, 0.0],
+                noise_scales=[1.0, 1.0],
+            )
+
     def test_pacf_and_seasonal_polynomial(self) -> None:
         np.testing.assert_allclose(
             MARGenerator._pacf_to_ar(np.array([0.5, -0.25, 0.2])), [0.675, -0.375, 0.2]
@@ -344,17 +445,18 @@ class TestMarValidation:
         rng = np.random.default_rng(1)
         outcomes = set()
         for _ in range(100):
-            order = int(rng.integers(1, 5))
             count = int(rng.integers(1, 4))
+            orders = rng.integers(1, 5, count)
+            order = int(max(orders))
             weights = rng.dirichlet(np.ones(count))
             coefficients = [
                 MARGenerator._pacf_to_ar(rng.uniform(-0.9, 0.9, order))
-                for _ in range(count)
+                for order in orders
             ]
             operator = np.zeros((order**2, order**2))
             for weight, component in zip(weights, coefficients, strict=True):
                 companion = np.zeros((order, order))
-                companion[0] = component
+                companion[0, : len(component)] = component
                 companion[1:, :-1] = np.eye(order - 1)
                 operator += weight * np.kron(companion, companion)
             expected = bool(max(abs(np.linalg.eigvals(operator))) < 1 - 1e-10)
@@ -453,6 +555,27 @@ class TestMarValidation:
 
 class TestMarFeatureTargeting:
     """Feature-targeted evolutionary search behavior."""
+
+    def test_uncertified_candidate_is_rejected_before_simulation(self, monkeypatch):
+        def unexpected_draw(*_args):
+            pytest.fail("an uncertified mixture reached simulation")
+
+        monkeypatch.setattr(MARGenerator, "generate_single_series", unexpected_draw)
+        candidate = {
+            "weight_logits": np.array([0.0, 0.0]),
+            "pacf": [np.array([0.6]), np.array([0.6])],
+            "seasonal": [0.6, 0.5],
+            "intercepts": np.array([0.0, 0.0]),
+            "log_scales": np.array([0.0, 0.0]),
+        }
+        assert MARGenerator._candidate_fitness(
+            candidate,
+            {"acf1": 0.5},
+            np.array([66, 80]),
+            1,
+            33,
+            np.random.default_rng(1),
+        ) == float("inf")
 
     def test_fitness_averages_features_before_l2_distance(self, monkeypatch) -> None:
         import synforecast.generators.mar as mar_module
@@ -627,7 +750,12 @@ class TestMarFeatureTargeting:
                 population_size=1,
             )
 
-    def test_all_invalid_candidates_report_search_exhaustion(self) -> None:
+    def test_all_invalid_candidates_report_search_exhaustion(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            MARGenerator,
+            "_candidate_fitness",
+            classmethod(lambda _cls, *_args: float("inf")),
+        )
         with pytest.raises(ValueError, match="no valid MAR candidate"):
             MARGenerator.tune_to_features(
                 {"acf1": 0.5},

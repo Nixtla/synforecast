@@ -20,6 +20,10 @@ then up, then left. Decomposition extends the nearest computed trend value at
 each endpoint. These conventions matter to the expected values above.
 Seeded MAR statistical checks use unstandardized draws; Python and Rust are
 checked against the same identities without requiring identical RNG streams.
+Innovation propagation is checked against all five reference distributions in
+`test_innovations.py`. MAR checks also cover unnormalized weights, mixed AR
+orders, and high-order validation, including trailing-zero bypass prevention
+and conservative rejection when stability cannot be certified.
 
 During this review, temporary wrapper mutations were run in isolated processes:
 forcing MBB block size to 2 failed 8 assertions; replacing DBA weights with ones
