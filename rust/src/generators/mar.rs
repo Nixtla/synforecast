@@ -1,5 +1,10 @@
 //! Native mixture autoregressive (MAR) generator.
 //!
+//! Model: Wong and Li (2000), doi:10.1111/1467-9868.00222. Sampling is inspired
+//! by GRATIS (Kang et al., 2020), https://arxiv.org/abs/1903.02787; the sampler
+//! is not a reproduction of that package. PACF conversion uses the inverse
+//! Levinson-Durbin recursion. Full references and deviations: GENERATORS.md.
+//!
 //! Scalar parameters: max components, max AR order, seasonal period (zero for
 //! none), Dirichlet concentration, intercept scale, innovation-scale lower
 //! and upper bounds, burn-in, standardize flag, fixed-mode flag, innovation
@@ -248,6 +253,45 @@ pub fn mar(out: &mut [f64], sp: &[f64], ap: &[Vec<f64>], seed: u64) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pacf_and_seasonal_polynomials_match_hand_calculation() {
+        let coefficients = pacf_to_ar(&[0.5, -0.25, 0.2]);
+        assert_eq!(coefficients.len(), 3);
+        for (got, expected) in coefficients.iter().zip([0.675, -0.375, 0.2]) {
+            assert!((got - expected).abs() < 1e-12);
+        }
+        for (period, expected) in [
+            (2, vec![0.3, 0.5, -0.21, 0.14]),
+            (4, vec![0.3, -0.2, 0.0, 0.7, -0.21, 0.14]),
+        ] {
+            let got = apply_seasonal_factor(&[0.3, -0.2], period, 0.7);
+            assert_eq!(got.len(), expected.len());
+            for (got, expected) in got.iter().zip(expected) {
+                assert!((got - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn recurrence_preserves_lag_order_and_discards_burn_in() {
+        let mut initial = [0.0; 2];
+        SfRng::new(42).normal_array(&mut initial, 0.0, 1.0);
+        let a = 2.0 + 0.3 * initial[1] - 0.2 * initial[0];
+        let b = 2.0 + 0.3 * a - 0.2 * initial[1];
+        let c = 2.0 + 0.3 * b - 0.2 * a;
+        let d = 2.0 + 0.3 * c - 0.2 * b;
+        let params = Params {
+            weights: vec![1.0],
+            coefficients: vec![vec![0.3, -0.2]],
+            intercepts: vec![2.0],
+            scales: vec![0.0],
+        };
+        let mut out = [0.0; 2];
+        simulate(&mut out, &params, 2, 0, 0.0, &mut SfRng::new(42));
+        assert!((out[0] - c).abs() < 1e-12);
+        assert!((out[1] - d).abs() < 1e-12);
+    }
 
     fn random_scalars() -> Vec<f64> {
         vec![

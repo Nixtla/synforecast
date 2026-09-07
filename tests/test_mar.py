@@ -75,6 +75,67 @@ class TestMarApi:
 class TestMarBehavior:
     """Statistical and fixed-mode behavior."""
 
+    @pytest.mark.parametrize("native", [False, True])
+    def test_unequal_weight_mixture_matches_analytic_moments(
+        self, native: bool
+    ) -> None:
+        weights = np.array([0.25, 0.75])
+        phi = np.array([0.2, 0.7])
+        intercepts = np.array([-1.0, 2.0])
+        scales = np.array([0.4, 1.3])
+        mean_phi = weights @ phi
+        mean = (weights @ intercepts) / (1 - mean_phi)
+        # Take expectations of y = c_k + phi_k*y_prev + sigma_k*eps.
+        second_moment = (
+            weights @ (intercepts**2 + scales**2)
+            + 2 * mean * (weights @ (phi * intercepts))
+        ) / (1 - weights @ phi**2)
+        std = np.sqrt(second_moment - mean**2)
+        generator = MARGenerator(
+            min_length=50_000,
+            max_length=50_000,
+            freq=1,
+            seed=93,
+            burn_in=1000,
+            weights=weights.tolist(),
+            ar_coefficients=phi[:, None].tolist(),
+            intercepts=intercepts.tolist(),
+            noise_scales=scales.tolist(),
+            standardize=False,
+        )
+        values = (
+            next(iter(series_values(generator.generate(1)).values()))
+            if native
+            else generator.generate_single_series(50_000)
+        )
+        # The geometric ACF gives this mean's asymptotic standard error.
+        mean_se = std * np.sqrt((1 + mean_phi) / (1 - mean_phi) / len(values))
+        assert abs(values.mean() - mean) < 5 * mean_se
+        assert values.std() == pytest.approx(std, abs=0.1)
+        assert sample_acf(values, 1) == pytest.approx(mean_phi, abs=0.03)
+
+    def test_python_lag_order_and_burn_in(self, monkeypatch) -> None:
+        generator = MARGenerator(**BASE, burn_in=2)
+        monkeypatch.setattr(
+            MARGenerator, "_sample_innovations", lambda _self, n: np.ones(n)
+        )
+        old, recent = np.random.default_rng(BASE["seed"]).normal(size=2)
+        # y = 2 + .3*y[-1] - .2*y[-2] + .5, using explicit first steps.
+        a = 2.5 + 0.3 * recent - 0.2 * old
+        b = 2.5 + 0.3 * a - 0.2 * recent
+        c = 2.5 + 0.3 * b - 0.2 * a
+        d = 2.5 + 0.3 * c - 0.2 * b
+        actual = generator._simulate(
+            2,
+            (
+                np.array([1.0]),
+                [np.array([0.3, -0.2])],
+                np.array([2.0]),
+                np.array([0.5]),
+            ),
+        )
+        np.testing.assert_allclose(actual, [c, d], atol=1e-12)
+
     def test_finite_and_bounded_across_pool(self) -> None:
         generator = MARGenerator(**{**BASE, "seed": 0})
         for _ in range(64):
@@ -261,6 +322,48 @@ class TestMarBehavior:
 class TestMarValidation:
     """Validation for random and fixed modes."""
 
+    def test_pacf_and_seasonal_polynomial(self) -> None:
+        np.testing.assert_allclose(
+            MARGenerator._pacf_to_ar(np.array([0.5, -0.25, 0.2])), [0.675, -0.375, 0.2]
+        )
+        for period, expected in [
+            (2, [0.3, 0.5, -0.21, 0.14]),
+            (4, [0.3, -0.2, 0.0, 0.7, -0.21, 0.14]),
+        ]:
+            np.testing.assert_allclose(
+                MARGenerator._apply_seasonal_factor(np.array([0.3, -0.2]), period, 0.7),
+                expected,
+                atol=1e-12,
+            )
+        rng = np.random.default_rng(15)
+        for order in range(1, 9):
+            coefficients = MARGenerator._pacf_to_ar(rng.uniform(-0.8, 0.8, order))
+            assert max(abs(np.roots(np.r_[1, -coefficients]))) < 1
+
+    def test_mixture_stationarity_matches_full_kronecker_operator(self) -> None:
+        rng = np.random.default_rng(1)
+        outcomes = set()
+        for _ in range(100):
+            order = int(rng.integers(1, 5))
+            count = int(rng.integers(1, 4))
+            weights = rng.dirichlet(np.ones(count))
+            coefficients = [
+                MARGenerator._pacf_to_ar(rng.uniform(-0.9, 0.9, order))
+                for _ in range(count)
+            ]
+            operator = np.zeros((order**2, order**2))
+            for weight, component in zip(weights, coefficients, strict=True):
+                companion = np.zeros((order, order))
+                companion[0] = component
+                companion[1:, :-1] = np.eye(order - 1)
+                operator += weight * np.kron(companion, companion)
+            expected = bool(max(abs(np.linalg.eigvals(operator))) < 1 - 1e-10)
+            outcomes.add(expected)
+            assert (
+                MARGenerator._is_mixture_stationary(weights, coefficients) == expected
+            )
+        assert outcomes == {False, True}
+
     def test_fixed_fields_are_all_or_nothing(self) -> None:
         with pytest.raises(ValueError, match="provided together"):
             MARGenerator(**BASE, weights=[1.0])
@@ -350,6 +453,83 @@ class TestMarValidation:
 
 class TestMarFeatureTargeting:
     """Feature-targeted evolutionary search behavior."""
+
+    def test_fitness_averages_features_before_l2_distance(self, monkeypatch) -> None:
+        import synforecast.generators.mar as mar_module
+
+        observed_lengths = []
+
+        def draw(_self, length):
+            observed_lengths.append(length)
+            return np.zeros(length)
+
+        def features(values, seasonal_period):
+            assert seasonal_period == 3
+            acf, entropy = {6: (0.1, 0.2), 8: (0.4, 0.7), 10: (0.7, 0.3)}[len(values)]
+            return {"acf1": acf, "spectral_entropy": entropy}
+
+        candidate = {
+            "weight_logits": np.array([0.0]),
+            "pacf": [np.array([0.2])],
+            "seasonal": [None],
+            "intercepts": np.array([0.0]),
+            "log_scales": np.array([0.0]),
+        }
+        monkeypatch.setattr(MARGenerator, "generate_single_series", draw)
+        monkeypatch.setattr(mar_module, "compute_features", features)
+        distance = MARGenerator._candidate_fitness(
+            candidate,
+            {"acf1": 0.1, "spectral_entropy": 0.0},
+            np.array([6, 8, 10]),
+            "D",
+            3,
+            np.random.default_rng(9),
+        )
+        assert observed_lengths == [6, 8, 10]
+        # Mean features (.4, .4) minus target (.1, 0): norm(.3, .4) = .5.
+        assert distance == pytest.approx(0.5)
+
+    @pytest.mark.parametrize(("tolerance", "generations"), [(0.2, 1), (0.05, 2)])
+    def test_search_retains_best_and_obeys_stopping_rule(
+        self, monkeypatch, tolerance, generations
+    ) -> None:
+        from itertools import count
+
+        identifiers = count(1)
+
+        def candidate(_cls, _rng, _period):
+            return {
+                "weight_logits": np.array([0.0]),
+                "pacf": [np.array([0.2])],
+                "seasonal": [None],
+                "intercepts": np.array([next(identifiers)]),
+                "log_scales": np.array([0.0]),
+            }
+
+        scores = iter([0.4, 0.2, 0.3, 0.5, 0.9, 0.8, 0.7, 0.6])
+        monkeypatch.setattr(MARGenerator, "_random_candidate", classmethod(candidate))
+        monkeypatch.setattr(
+            MARGenerator,
+            "_candidate_fitness",
+            classmethod(lambda _cls, *_args: next(scores)),
+        )
+        generator = MARGenerator.tune_to_features(
+            {"acf1": 0.7},
+            64,
+            96,
+            "D",
+            population_size=4,
+            n_generations=2,
+            tolerance=tolerance,
+            seed=9,
+        )
+        assert generator.intercepts == [2.0]
+        assert generator.tuning_diagnostics == {
+            "best_distance": 0.2,
+            "converged": generations == 1,
+            "generations_run": generations,
+            "candidates_evaluated": 4 * generations,
+        }
 
     @pytest.mark.parametrize("tolerance", [1e-15, 2.0])
     def test_search_reports_convergence_and_budget(self, tolerance: float) -> None:

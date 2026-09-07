@@ -754,6 +754,10 @@ the best L2 feature distance is at or below `tolerance` (default `0.05`), so
 the `n_generations * population_size * n_draws_per_candidate` budget is an upper
 bound. In fixed mode, a configuration that fails the finite, bounded,
 non-constant output guards raises `ValueError` rather than substituting noise.
+The reported `tuning_diagnostics.best_distance` measures training draws; fresh
+draws can be farther from the target. An equal-budget random-search comparison
+is available in `benchmarks/benchmark_mar_targeting.py`; validation coverage is
+summarized in [tests/README.md](tests/README.md).
 
 ### Multivariatizer
 
@@ -852,9 +856,10 @@ directory for executable guides to each generator.
 
 ## References and attribution
 
-Unless noted otherwise, SynForecast implements the models and numerical methods
-independently. These are the primary sources for named models or algorithms;
-the KernelSynth entry explicitly identifies its reference implementation:
+These sources describe the mathematical basis of named models and algorithms.
+Implementation references and the limits of the source-provenance review are
+recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); citing an algorithm
+does not establish how its implementation was written.
 
 - Hyndman, Koehler, Ord, and Snyder (2008), *Forecasting with Exponential
   Smoothing: The State Space Approach*,
@@ -910,6 +915,27 @@ the KernelSynth entry explicitly identifies its reference implementation:
   [arXiv:1903.02787](https://arxiv.org/abs/1903.02787) (MAR simulation and
   feature targeting). SynForecast's sampler and search are its own design,
   not a reproduction of the `gratis` R package.
+- Durbin (1960), “The fitting of time-series models,”
+  [doi:10.2307/1401322](https://doi.org/10.2307/1401322)
+  (Levinson-Durbin recursion). The PACF-to-AR direction is also documented in
+  [statsmodels' inverse recursion API](https://www.statsmodels.org/stable/generated/statsmodels.tsa.stattools.levinson_durbin_pacf.html).
+  MAR's seasonal factor multiplies the nonseasonal and seasonal AR polynomials.
+- Wang, Smith, and Hyndman (2006), “Characteristic-based clustering for time
+  series data,” Data Mining and Knowledge Discovery 13(3), 335–364,
+  [author's paper](https://robjhyndman.com/papers/DMKD.pdf) (feature-based
+  characterization). The exact trend/seasonal strength ratios used here are
+  described in Hyndman and Athanasopoulos, *Forecasting: Principles and
+  Practice*, [STL features](https://otexts.com/fpp3/stlfeatures.html).
+  SynForecast uses [classical decomposition](https://otexts.com/fpp3/classical-decomposition.html)
+  with endpoint extension, not STL. Spectral entropy uses the demeaned,
+  unpadded one-sided periodogram, excludes DC, and normalizes Shannon entropy
+  by the log of the number of retained bins; this differs from smoothed-spectrum
+  estimators in other feature packages.
+- Bluestein (1968), “A linear filtering approach to the computation of the
+  discrete Fourier transform,” NEREM Record 10, 218–219 (arbitrary-length FFT),
+  also referenced in [SciPy's CZT documentation](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.CZT.html).
+  Real half-spectrum transforms use the linked RealFFT dependency; see the
+  bundled Rust notices.
 - Bergmeir, Hyndman, and Benitez (2016), “Bagging exponential smoothing
   methods using STL decomposition and Box-Cox transformation,”
   [doi:10.1016/j.ijforecast.2015.07.002](https://doi.org/10.1016/j.ijforecast.2015.07.002),

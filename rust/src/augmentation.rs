@@ -1,4 +1,12 @@
 //! Native algorithms shared by augmentation and feature-targeted generation.
+//!
+//! Sources: Petitjean et al. (2011), doi:10.1016/j.patcog.2010.09.013 (DBA);
+//! Forestier et al. (2017), doi:10.1109/ICDM.2017.106 (weighted augmentation);
+//! Bergmeir et al. (2016), doi:10.1016/j.ijforecast.2015.07.002 (MBB recipe).
+//! Decomposition and strength formulas: https://otexts.com/fpp3/stlfeatures.html
+//! and https://otexts.com/fpp3/classical-decomposition.html. Here decomposition
+//! is classical, with extended endpoints; it is not STL/Box-Cox bagging.
+//! See GENERATORS.md and tests/README.md for conventions and independent checks.
 
 use rayon::prelude::*;
 use std::cmp::Ordering;

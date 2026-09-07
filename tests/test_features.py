@@ -17,6 +17,43 @@ from tests.helpers import sample_acf
 class TestFeatureComputation:
     """Behavior and edge-case tests for private numeric features."""
 
+    @pytest.mark.parametrize(
+        ("period", "values", "trend", "phase", "remainder"),
+        [
+            (
+                3,
+                [-1, 3, 1, 2, 6, 4, 5, 9, 7],
+                [1, 1, 2, 3, 4, 5, 6, 7, 7],
+                [-4 / 3, 2, -2 / 3],
+                [-2 / 3, 0, -1 / 3, 1 / 3, 0, -1 / 3, 1 / 3, 0, 2 / 3],
+            ),
+            (
+                2,
+                [1, 0, 3, 2, 5, 4, 7, 6],
+                [1, 1, 2, 3, 4, 5, 6, 6],
+                [0.75, -0.75],
+                [-0.75, -0.25, 0.25, -0.25, 0.25, -0.25, 0.25, 0.75],
+            ),
+        ],
+    )
+    def test_components_and_strengths_against_hand_calculation(
+        self, period, values, trend, phase, remainder
+    ) -> None:
+        # Linear trend plus a repeating phase pattern. Endpoint extension
+        # changes the phase means, so merely reconstructing y is insufficient.
+        values, trend, remainder = map(np.asarray, (values, trend, remainder))
+        seasonal = np.resize(phase, len(values))
+        actual = classical_decompose(values, period)
+        for got, expected in zip(actual, (trend, seasonal, remainder), strict=True):
+            np.testing.assert_allclose(got, expected, atol=1e-12)
+        features = compute_features(values, period)
+        expected_trend = 1 - np.var(remainder) / np.var(trend + remainder)
+        expected_seasonal = 1 - np.var(remainder) / np.var(seasonal + remainder)
+        assert features["trend_strength"] == pytest.approx(expected_trend)
+        assert features["seasonal_strength"] == pytest.approx(expected_seasonal)
+        assert trend_strength(values, period) == pytest.approx(expected_trend)
+        assert seasonal_strength(values, period) == pytest.approx(expected_seasonal)
+
     @pytest.mark.parametrize("period", [None, 2, 7, 12, 20_000])
     @pytest.mark.parametrize("offset", [0.0, 1e9])
     def test_rolling_trend_matches_direct_convolution(

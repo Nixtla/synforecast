@@ -1,4 +1,9 @@
-"""Minimal native feature computation for feature-targeted generation."""
+"""Minimal native feature computation for feature-targeted generation.
+
+Strength formulas: Hyndman and Athanasopoulos, Forecasting: Principles and
+Practice, https://otexts.com/fpp3/stlfeatures.html. We apply them to classical
+moving-average decomposition with endpoint extension, rather than STL.
+"""
 
 import numpy as np
 
@@ -84,7 +89,7 @@ def spectral_entropy(values: np.ndarray) -> float:
 
 
 def trend_strength(values: np.ndarray, period: int | None) -> float:
-    """Return the Wang-Hyndman trend strength in [0, 1]."""
+    """Return decomposition-based trend strength in [0, 1] (see module sources)."""
     trend, _, remainder = classical_decompose(values, period)
     denominator = float(np.var(trend + remainder))
     if denominator <= np.finfo(float).eps:
@@ -94,7 +99,7 @@ def trend_strength(values: np.ndarray, period: int | None) -> float:
 
 
 def seasonal_strength(values: np.ndarray, period: int | None) -> float:
-    """Return the Wang-Hyndman seasonal strength in [0, 1]."""
+    """Return decomposition-based seasonal strength in [0, 1] (see module sources)."""
     if period is None or len(values) < 2 * period:
         _validate_values(values)
         return 0.0

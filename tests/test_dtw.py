@@ -1,5 +1,7 @@
 """Tests for the private DTW and DBA numeric utilities."""
 
+from functools import lru_cache
+
 import numpy as np
 import pytest
 
@@ -12,7 +14,50 @@ from synforecast._dtw import (
 )
 
 
+@lru_cache(None)
+def _all_paths(n: int, m: int) -> tuple:
+    """Enumerate paths, without using the production dynamic program.
+
+    Enumeration breaks equal-cost ties from the endpoint backwards in
+    diagonal/up/left order, matching the documented native convention.
+    """
+    if n == m == 1:
+        return (((0, 0),),)
+    return tuple(
+        (*path, (n - 1, m - 1))
+        for dn, dm in ((1, 1), (1, 0), (0, 1))
+        if n > dn and m > dm
+        for path in _all_paths(n - dn, m - dm)
+    )
+
+
+def _exhaustive_alignment(a, b, band):
+    width = max(len(a), len(b)) if band is None else max(band, abs(len(a) - len(b)))
+    paths = (
+        p for p in _all_paths(len(a), len(b)) if all(abs(i - j) <= width for i, j in p)
+    )
+    return min(
+        ((sum((a[i] - b[j]) ** 2 for i, j in p), p) for p in paths),
+        key=lambda result: result[0],
+    )
+
+
 class TestDtwAlignment:
+    def test_matches_exhaustive_paths(self) -> None:
+        rng = np.random.default_rng(405)
+        for n in range(1, 6):
+            for m in range(1, 6):
+                for band in range(6):
+                    for _ in range(10):
+                        a = rng.integers(-3, 4, n).astype(float)
+                        b = rng.integers(-3, 4, m).astype(float)
+                        cost, expected_path = _exhaustive_alignment(a, b, band)
+                        distance, path = dtw_alignment(a, b, band)
+                        assert distance**2 == pytest.approx(cost)
+                        np.testing.assert_array_equal(path, expected_path)
+                        assert sum((a[i] - b[j]) ** 2 for i, j in path) == cost
+                        assert dtw_distance(a, b, band) ** 2 == pytest.approx(cost)
+
     @pytest.mark.parametrize("n_neighbors", [1, 3, 200])
     def test_nearest_neighbors_match_full_matrix(self, n_neighbors: int) -> None:
         # Over 4096 pairs exercises chunk boundaries; duplicates exercise ties.
@@ -125,6 +170,41 @@ class TestDtwAlignment:
 
 
 class TestDbaBarycenter:
+    @pytest.mark.parametrize("iterations", [1, 2, 4])
+    @pytest.mark.parametrize("band", [1, None])
+    def test_warped_updates_match_exhaustive_alignment(
+        self, iterations: int, band: int | None
+    ) -> None:
+        series = [
+            np.array(v, dtype=float)
+            for v in ([3, 0, -2, 5], [-3, 1, -2], [4, -3, 0, 0, 2])
+        ]
+        weights = [0.2, 0.3, 0.5]
+        expected = series[0].copy()
+        first = None
+        for _ in range(iterations):
+            # Explicit association lists keep this independent of the native
+            # sums/totals update and its banded path reconstruction.
+            associations = [[] for _ in expected]
+            for weight, values in zip(weights, series, strict=True):
+                _, path = _exhaustive_alignment(expected, values, band)
+                for i, j in path:
+                    associations[i].append((values[j], weight))
+            expected = np.array(
+                [
+                    sum(v * w for v, w in group) / sum(w for _, w in group)
+                    for group in associations
+                ]
+            )
+            if first is None:
+                first = expected.copy()
+        if iterations > 1:
+            assert not np.allclose(expected, first)
+        actual = dba_barycenter(
+            series[0], series[1:], np.array(weights), iterations, band
+        )
+        np.testing.assert_allclose(actual, expected, atol=1e-12)
+
     def test_weighted_diagonal_average(self) -> None:
         result = dba_barycenter(
             reference=np.array([0.0, 2.0]),

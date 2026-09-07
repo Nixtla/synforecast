@@ -1,3 +1,9 @@
+//! Fourier transforms: radix-2 Cooley-Tukey, Bluestein for arbitrary lengths,
+//! and RealFFT for the real half-spectrum. Bluestein (1968), "A linear filtering
+//! approach to the computation of the discrete Fourier transform", NEREM 10,
+//! pp. 218-219; bibliography: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.CZT.html
+//! See GENERATORS.md for references and THIRD_PARTY_NOTICES.md for dependencies.
+
 use num_complex::Complex64;
 use realfft::{RealFftPlanner, RealToComplex};
 use std::collections::{HashMap, VecDeque};
