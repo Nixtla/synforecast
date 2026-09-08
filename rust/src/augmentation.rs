@@ -59,7 +59,16 @@ fn validate_dtw_inputs(a: &[f64], b: &[f64]) -> Result<(), String> {
 }
 
 fn band_width(n: usize, m: usize, band: Option<usize>) -> usize {
-    band.unwrap_or(n.max(m)).max(n.abs_diff(m))
+    band.unwrap_or(n.max(m)).max(n.abs_diff(m)).min(n.max(m))
+}
+
+const MAX_ALIGNMENT_BYTES: usize = 64 * 1024 * 1024;
+pub const MAX_DBA_ITERATIONS: usize = 1000;
+
+fn parent_cells(n: usize, m: usize, width: usize) -> Result<usize, String> {
+    let row_width = width.saturating_mul(2).saturating_add(1).min(m);
+    n.checked_mul(row_width).filter(|&cells| cells <= MAX_ALIGNMENT_BYTES)
+        .ok_or_else(|| "DTW alignment exceeds the 64 MiB parent-storage limit; shorten series or reduce the band".to_string())
 }
 
 /// Banded DTW dynamic program over two rolling rows.
@@ -69,7 +78,7 @@ fn band_width(n: usize, m: usize, band: Option<usize>) -> usize {
 /// `lower..=upper` of its band contiguously, starting at column `lower`.
 fn dtw_core(a: &[f64], b: &[f64], width: usize, mut parents: Option<&mut [u8]>) -> f64 {
     let (n, m) = (a.len(), b.len());
-    let row_width = (2 * width + 1).min(m);
+    let row_width = width.saturating_mul(2).saturating_add(1).min(m);
     let mut previous = vec![f64::INFINITY; m + 1];
     let mut current = vec![f64::INFINITY; m + 1];
     previous[0] = 0.0;
@@ -120,8 +129,13 @@ pub fn dtw_alignment(
     validate_dtw_inputs(a, b)?;
     let (n, m) = (a.len(), b.len());
     let width = band_width(n, m, band);
-    let row_width = (2 * width + 1).min(m);
-    let mut parents = vec![u8::MAX; n * row_width];
+    let row_width = width.saturating_mul(2).saturating_add(1).min(m);
+    let cells = parent_cells(n, m, width)?;
+    let mut parents = Vec::new();
+    parents
+        .try_reserve_exact(cells)
+        .map_err(|_| "unable to allocate DTW parent storage")?;
+    parents.resize(cells, u8::MAX);
     let cost = dtw_core(a, b, width, Some(&mut parents));
     if !cost.is_finite() {
         return Err("DTW alignment is infeasible for the requested band".to_string());
@@ -129,7 +143,13 @@ pub fn dtw_alignment(
 
     let infeasible = || "DTW alignment is infeasible for the requested band".to_string();
     let (mut i, mut j) = (n, m);
-    let mut path = Vec::with_capacity(n + m);
+    let capacity = n
+        .checked_add(m)
+        .filter(|n| *n <= MAX_ALIGNMENT_BYTES / std::mem::size_of::<(usize, usize)>())
+        .ok_or("DTW path exceeds 64 MiB")?;
+    let mut path = Vec::new();
+    path.try_reserve_exact(capacity)
+        .map_err(|_| "unable to allocate DTW path")?;
     while i > 0 && j > 0 {
         path.push((i - 1, j - 1));
         let lower = 1.max(i.saturating_sub(width));
@@ -148,46 +168,6 @@ pub fn dtw_alignment(
     }
     path.reverse();
     Ok((cost.sqrt(), path))
-}
-
-/// Return the symmetric matrix of banded DTW distances between all series.
-///
-/// The band for each pair is `max(ceil(window_fraction * max_len), |len_a -
-/// len_b| + 1)`. Pairs are evaluated in parallel and the result is a
-/// row-major `len(series) x len(series)` matrix with a zero diagonal.
-pub fn pairwise_dtw_distances(
-    series: &[Vec<f64>],
-    window_fraction: f64,
-) -> Result<Vec<f64>, String> {
-    if !(window_fraction > 0.0 && window_fraction <= 1.0) {
-        return Err("window_fraction must satisfy 0 < value <= 1".to_string());
-    }
-    if series
-        .iter()
-        .any(|values| values.is_empty() || values.iter().any(|value| !value.is_finite()))
-    {
-        return Err("DTW inputs must be non-empty and finite".to_string());
-    }
-    let n = series.len();
-    let pairs: Vec<(usize, usize)> = (0..n)
-        .flat_map(|i| ((i + 1)..n).map(move |j| (i, j)))
-        .collect();
-    let distances: Vec<f64> = pairs
-        .par_iter()
-        .map(|&(i, j)| {
-            let (a, b) = (&series[i], &series[j]);
-            let longest = a.len().max(b.len());
-            let band = ((window_fraction * longest as f64).ceil() as usize)
-                .max(a.len().abs_diff(b.len()) + 1);
-            dtw_core(a, b, band_width(a.len(), b.len(), Some(band)), None).sqrt()
-        })
-        .collect();
-    let mut matrix = vec![0.0; n * n];
-    for (&(i, j), &distance) in pairs.iter().zip(&distances) {
-        matrix[i * n + j] = distance;
-        matrix[j * n + i] = distance;
-    }
-    Ok(matrix)
 }
 
 /// Retain only the k nearest neighbors per series, breaking ties by input index.
@@ -259,7 +239,7 @@ pub fn nearest_dtw_neighbors(
         .collect())
 }
 
-/// Compute a weighted DBA barycenter restricted to reference length.
+/// Compute one weighted DBA barycenter restricted to reference length.
 pub fn dba_barycenter(
     reference: &[f64],
     neighbors: &[Vec<f64>],
@@ -267,49 +247,130 @@ pub fn dba_barycenter(
     n_iterations: usize,
     band: Option<usize>,
 ) -> Result<Vec<f64>, String> {
-    let n_series = neighbors.len() + 1;
-    if weights.len() != n_series
-        || weights
-            .iter()
-            .any(|weight| !weight.is_finite() || *weight < 0.0)
-        || weights.iter().sum::<f64>() <= 0.0
-    {
-        return Err("weights must be non-negative and match all input series".to_string());
-    }
-    if n_iterations < 1 {
-        return Err("n_iterations must be >= 1".to_string());
-    }
-    if reference.is_empty()
-        || reference.iter().any(|value| !value.is_finite())
-        || neighbors
-            .iter()
-            .any(|series| series.is_empty() || series.iter().any(|value| !value.is_finite()))
-    {
-        return Err("DBA inputs must be non-empty and finite".to_string());
-    }
+    Ok(dba_barycenters(
+        reference,
+        neighbors,
+        &[weights.to_vec()],
+        n_iterations,
+        band,
+        || Ok(()),
+    )?
+    .remove(0))
+}
 
-    let mut barycenter = reference.to_vec();
-    for _ in 0..n_iterations {
-        let mut sums = vec![0.0; barycenter.len()];
-        let mut totals = vec![0.0; barycenter.len()];
-        for (series_index, values) in std::iter::once(reference)
-            .chain(neighbors.iter().map(Vec::as_slice))
-            .enumerate()
+type Alignment = Vec<(usize, usize)>;
+
+fn alignment_paths(
+    center: &[f64],
+    series: &[&[f64]],
+    band: Option<usize>,
+    parallel: bool,
+) -> Result<Vec<Alignment>, String> {
+    let mut paths = Vec::with_capacity(series.len());
+    // Bound simultaneous parent allocations even on machines with many cores.
+    for chunk in series.chunks(8) {
+        let align = |values: &&[f64]| dtw_alignment(center, values, band).map(|(_, path)| path);
+        let results: Result<Vec<_>, _> = if parallel {
+            chunk.par_iter().map(align).collect()
+        } else {
+            chunk.iter().map(align).collect()
+        };
+        paths.extend(results?);
+    }
+    Ok(paths)
+}
+
+/// Refine all copies together, sharing iteration-one paths. `check` runs on
+/// the calling thread between bounded work chunks (Python signal handling).
+pub fn dba_barycenters(
+    reference: &[f64],
+    neighbors: &[Vec<f64>],
+    weights: &[Vec<f64>],
+    n_iterations: usize,
+    band: Option<usize>,
+    check: impl Fn() -> Result<(), String>,
+) -> Result<Vec<Vec<f64>>, String> {
+    if !(1..=MAX_DBA_ITERATIONS).contains(&n_iterations) {
+        return Err("n_iterations must be in [1, 1000]".to_string());
+    }
+    if weights.is_empty() || weights.len() > 1000 {
+        return Err("DBA requires between 1 and 1000 copies".to_string());
+    }
+    if reference
+        .len()
+        .checked_mul(weights.len())
+        .is_none_or(|n| n > MAX_ALIGNMENT_BYTES / 8)
+    {
+        return Err("DBA output exceeds 64 MiB; reduce copies or series length".to_string());
+    }
+    let series: Vec<&[f64]> = std::iter::once(reference)
+        .chain(neighbors.iter().map(Vec::as_slice))
+        .collect();
+    for values in &series {
+        validate_dtw_inputs(values, values)?;
+    }
+    for row in weights {
+        let total: f64 = row.iter().sum();
+        if row.len() != series.len()
+            || row.iter().any(|w| !w.is_finite() || *w < 0.0)
+            || !total.is_finite()
+            || total <= 0.0
         {
-            let (_, path) = dtw_alignment(&barycenter, values, band)?;
-            let weight = weights[series_index];
-            for (barycenter_index, values_index) in path {
-                sums[barycenter_index] += weight * values[values_index];
-                totals[barycenter_index] += weight;
-            }
-        }
-        for index in 0..barycenter.len() {
-            if totals[index] > 0.0 {
-                barycenter[index] = sums[index] / totals[index];
-            }
+            return Err("weights must be non-negative and match all input series".to_string());
         }
     }
-    Ok(barycenter)
+    // Every path has at most n+m-1 cells. Bound retained paths per copy;
+    // initial paths are shared, later copies execute in chunks of at most 8.
+    let path_cells = series
+        .iter()
+        .try_fold(0usize, |total, values| {
+            total
+                .checked_add(reference.len())?
+                .checked_add(values.len())
+        })
+        .ok_or("DBA alignment cache size overflow")?;
+    if path_cells > MAX_ALIGNMENT_BYTES / std::mem::size_of::<(usize, usize)>() {
+        return Err(
+            "DBA alignment cache exceeds 64 MiB; shorten series or reduce neighbors".to_string(),
+        );
+    }
+    check()?;
+    let initial = alignment_paths(reference, &series, band, true)?;
+    let mut centers = vec![reference.to_vec(); weights.len()];
+    for iteration in 0..n_iterations {
+        for (group, weight_group) in centers.chunks_mut(8).zip(weights.chunks(8)) {
+            check()?;
+            group
+                .par_iter_mut()
+                .zip(weight_group.par_iter())
+                .try_for_each(|(center, row)| -> Result<(), String> {
+                    let next;
+                    let paths = if iteration == 0 {
+                        &initial
+                    } else {
+                        next = alignment_paths(center, &series, band, weights.len() == 1)?;
+                        &next
+                    };
+                    let mut sums = vec![0.0; center.len()];
+                    let mut totals = vec![0.0; center.len()];
+                    // Keep accumulation order independent of worker scheduling.
+                    for ((values, path), weight) in series.iter().zip(paths).zip(row) {
+                        for &(i, j) in path {
+                            sums[i] += weight * values[j];
+                            totals[i] += weight;
+                        }
+                    }
+                    for i in 0..center.len() {
+                        if totals[i] > 0.0 {
+                            center[i] = sums[i] / totals[i];
+                        }
+                    }
+                    Ok(())
+                })?;
+        }
+    }
+    check()?;
+    Ok(centers)
 }
 
 fn moving_average(values: &[f64], period: Option<usize>) -> Vec<f64> {
@@ -563,6 +624,36 @@ mod tests {
     use super::*;
 
     #[test]
+    fn alignment_budget_and_overflow_are_rejected() {
+        assert!(parent_cells(10_000, 10_000, 10_000).is_err());
+        assert!(parent_cells(usize::MAX, usize::MAX, usize::MAX).is_err());
+        assert_eq!(parent_cells(100, 100, 2).unwrap(), 500);
+    }
+
+    #[test]
+    fn dba_checks_cancellation_between_work_chunks() {
+        use std::cell::Cell;
+        let calls = Cell::new(0);
+        let result = dba_barycenters(
+            &[0., 1., 2.],
+            &[vec![1., 2., 3.]],
+            &[vec![0.5, 0.5]],
+            5,
+            Some(1),
+            || {
+                calls.set(calls.get() + 1);
+                if calls.get() == 3 {
+                    Err("cancelled".to_string())
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert_eq!(result.unwrap_err(), "cancelled");
+        assert_eq!(calls.get(), 3);
+    }
+
+    #[test]
     fn dtw_identity_and_path() {
         let values = [1.0, 2.0, 3.0];
         let (distance, path) = dtw_alignment(&values, &values, Some(0)).unwrap();
@@ -582,29 +673,6 @@ mod tests {
         let (narrow, _) = dtw_alignment(&a, &b, Some(4)).unwrap();
         assert!(narrow >= full);
         assert_eq!(dtw_distance(&a, &b, Some(4)).unwrap(), narrow);
-    }
-
-    #[test]
-    fn pairwise_matrix_matches_single_distances() {
-        let series = vec![
-            (0..30)
-                .map(|i| (i as f64 * 0.2).sin())
-                .collect::<Vec<f64>>(),
-            (0..25).map(|i| (i as f64 * 0.25).cos()).collect(),
-            (0..30).map(|i| i as f64 * 0.01).collect(),
-        ];
-        let matrix = pairwise_dtw_distances(&series, 0.1).unwrap();
-        for i in 0..3 {
-            assert_eq!(matrix[i * 3 + i], 0.0);
-            for j in (i + 1)..3 {
-                let longest = series[i].len().max(series[j].len());
-                let band = ((0.1 * longest as f64).ceil() as usize)
-                    .max(series[i].len().abs_diff(series[j].len()) + 1);
-                let expected = dtw_distance(&series[i], &series[j], Some(band)).unwrap();
-                assert_eq!(matrix[i * 3 + j], expected);
-                assert_eq!(matrix[j * 3 + i], expected);
-            }
-        }
     }
 
     #[test]

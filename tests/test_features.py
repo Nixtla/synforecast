@@ -14,6 +14,34 @@ from synforecast._features import (
 from tests.helpers import sample_acf
 
 
+def _moving_average(values: np.ndarray, period: int | None) -> np.ndarray:
+    """Compute a centered moving average with endpoint extension."""
+    n = len(values)
+    period = period if period is not None and period <= n // 2 else None
+    weights: np.ndarray
+    if period is None:
+        window = max(3, (n // 10) | 1)
+        if window > n:
+            window = n if n % 2 else n - 1
+        weights = np.full(window, 1.0 / window)
+    elif period % 2:
+        weights = np.full(period, 1.0 / period)
+    else:
+        weights = np.concatenate(
+            ([0.5 / period], np.full(period - 1, 1.0 / period), [0.5 / period])
+        )
+
+    width = len(weights)
+    if width > n:
+        window = n if n % 2 else n - 1
+        weights = np.full(window, 1.0 / window)
+        width = window
+    computed = np.convolve(values, weights, mode="valid")
+    left = (width - 1) // 2
+    right = n - len(computed) - left
+    return np.pad(computed, (left, right), mode="edge")
+
+
 class TestFeatureComputation:
     """Behavior and edge-case tests for private numeric features."""
 
@@ -59,13 +87,8 @@ class TestFeatureComputation:
     def test_rolling_trend_matches_direct_convolution(
         self, period: int | None, offset: float
     ) -> None:
-        from synforecast._features import _moving_average
-
         values = offset + np.random.default_rng(42).normal(size=10_001)
-        usable_period = (
-            period if period is not None and period <= len(values) // 2 else None
-        )
-        expected = _moving_average(values, usable_period)
+        expected = _moving_average(values, period)
         actual, _, _ = classical_decompose(values, period)
         np.testing.assert_allclose(
             actual, expected, rtol=0.0, atol=1e-12 if offset == 0 else 1e-6

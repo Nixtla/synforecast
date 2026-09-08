@@ -39,17 +39,16 @@ class TestAugmentationBindings:
         assert path[0] == (0, 0)
         assert path[-1] == (2, 3)
 
-    def test_pairwise_dtw_rejects_empty_or_nonfinite_series(self):
-        with pytest.raises(ValueError, match="non-empty and finite"):
-            augmentation.pairwise_dtw_distances([np.ones(3), np.array([])], 0.5)
-        with pytest.raises(ValueError, match="non-empty and finite"):
-            augmentation.pairwise_dtw_distances(
-                [np.ones(3), np.array([0.0, np.nan, 1.0])], 0.5
+    def test_nearest_dtw_rejects_empty_or_nonfinite_series(self):
+        with pytest.raises(ValueError, match="non-empty|finite"):
+            augmentation.nearest_dtw_neighbors([np.ones(3), np.array([])], 0.5, 1)
+        with pytest.raises(ValueError, match="non-empty|finite"):
+            augmentation.nearest_dtw_neighbors(
+                [np.ones(3), np.array([0.0, np.nan, 1.0])], 0.5, 1
             )
 
-    def test_pairwise_dtw_single_series_is_zero_matrix(self):
-        matrix = augmentation.pairwise_dtw_distances([np.arange(5.0)], 0.5)
-        np.testing.assert_array_equal(matrix, [0.0])
+    def test_nearest_dtw_single_series_has_no_neighbors(self):
+        assert augmentation.nearest_dtw_neighbors([np.arange(5.0)], 0.5, 1) == [[]]
 
     @pytest.mark.parametrize("band", [-1, -10])
     def test_dtw_rejects_negative_band(self, band):

@@ -582,14 +582,15 @@ class TestMarFeatureTargeting:
 
         observed_lengths = []
 
-        def draw(_self, length):
-            observed_lengths.append(length)
-            return np.zeros(length)
-
-        def features(values, seasonal_period):
+        def features(_scalars, _arrays, lengths, _seeds, seasonal_period, _workers):
             assert seasonal_period == 3
-            acf, entropy = {6: (0.1, 0.2), 8: (0.4, 0.7), 10: (0.7, 0.3)}[len(values)]
-            return {"acf1": acf, "spectral_entropy": entropy}
+            observed_lengths.extend(lengths)
+            return [
+                [
+                    [entropy, 0, 0, acf]
+                    for acf, entropy in [(0.1, 0.2), (0.4, 0.7), (0.7, 0.3)]
+                ]
+            ]
 
         candidate = {
             "weight_logits": np.array([0.0]),
@@ -598,8 +599,7 @@ class TestMarFeatureTargeting:
             "intercepts": np.array([0.0]),
             "log_scales": np.array([0.0]),
         }
-        monkeypatch.setattr(MARGenerator, "generate_single_series", draw)
-        monkeypatch.setattr(mar_module, "compute_features", features)
+        monkeypatch.setattr(mar_module._rs_augmentation, "mar_features_batch", features)
         distance = MARGenerator._candidate_fitness(
             candidate,
             {"acf1": 0.1, "spectral_entropy": 0.0},
@@ -633,8 +633,10 @@ class TestMarFeatureTargeting:
         monkeypatch.setattr(MARGenerator, "_random_candidate", classmethod(candidate))
         monkeypatch.setattr(
             MARGenerator,
-            "_candidate_fitness",
-            classmethod(lambda _cls, *_args: next(scores)),
+            "_population_fitness",
+            classmethod(
+                lambda _cls, candidates, *_args: [next(scores) for _ in candidates]
+            ),
         )
         generator = MARGenerator.tune_to_features(
             {"acf1": 0.7},
@@ -753,8 +755,10 @@ class TestMarFeatureTargeting:
     def test_all_invalid_candidates_report_search_exhaustion(self, monkeypatch) -> None:
         monkeypatch.setattr(
             MARGenerator,
-            "_candidate_fitness",
-            classmethod(lambda _cls, *_args: float("inf")),
+            "_population_fitness",
+            classmethod(
+                lambda _cls, candidates, *_args: [float("inf")] * len(candidates)
+            ),
         )
         with pytest.raises(ValueError, match="no valid MAR candidate"):
             MARGenerator.tune_to_features(
@@ -816,8 +820,10 @@ class TestMarFeatureTargeting:
             max_length=128,
             freq="D",
             seasonal_period=seasonal_period,
-            n_generations=5,
-            population_size=10,
+            # Exercise the public default search budget, rather than depending
+            # on one favorable RNG stream in a reduced-budget search.
+            n_generations=15,
+            population_size=30,
             n_draws_per_candidate=3,
             seed=seed,
         )

@@ -12,11 +12,19 @@
 - Added `MARGenerator` to `pretraining_pool` after the existing meta-generators.
 - Added native Rust paths for MAR batch generation, feature computation,
   decomposition, MBB sampling, DTW, and DBA updates. Banded DTW stores only
-  the band, spectral entropy uses a cached RealFFT path for
-  non-power-of-two lengths, and `SynAugment.dba` computes pairwise panel
+  the band, spectral entropy uses cached RealFFT plans for all lengths,
+  and `SynAugment.dba` computes pairwise panel
   distances in bounded parallel chunks, retaining only the requested nearest
   neighbors. Moving-average decomposition is linear-time and reused across
   MBB copies.
+- Feature search scores populations in parallel native Rust, isolates candidate
+  failures, and caches stationarity checks. Covariance certificates with a NumPy
+  dense eigenvalue fallback keep validation free of a SciPy runtime dependency.
+  It accepts output, standardization and innovation options and `n_jobs`.
+- Panel methods sort and partition once. DBA copies share initial alignments
+  and refine in parallel, with allocation/iteration limits and interrupt checks.
+- Removed the unused dense pairwise-DTW API and moved the convolution test
+  oracle out of the package. Fixed native MAR coefficient-offset overflow.
 - `MARGenerator` rejects non-finite or oversized parameters, checks
   second-order stationarity of fixed mixtures (Wong and Li 2000), and raises
   instead of substituting noise when a fixed model fails the output guards.

@@ -8,7 +8,7 @@ import numpy as np
 from narwhals.stable.v2.typing import IntoFrameT
 
 from synforecast._analysis import classify_series, detect_seasonality
-from synforecast._dtw import dba_barycenter, nearest_dtw_neighbors
+from synforecast._dtw import nearest_dtw_neighbors
 from synforecast._fitting import fit_generator_params
 from synforecast._lib import augmentation as _rs_augmentation
 from synforecast._lib import batch as _rs_batch
@@ -374,6 +374,17 @@ class SynAugment:
             backend=backend,
         )
 
+    def _partition_series(self, frame: nw.DataFrame) -> dict[Any, nw.DataFrame]:
+        """Sort once, then take contiguous slices without per-ID panel scans."""
+        ordered = frame.sort([self.id_col, self.time_col])
+        ids = ordered[self.id_col].to_numpy()
+        boundaries = np.r_[0, np.flatnonzero(ids[1:] != ids[:-1]) + 1, len(ids)]
+        return {
+            ids[start]: ordered[int(start) : int(stop)]
+            for start, stop in zip(boundaries[:-1], boundaries[1:], strict=True)
+            if start < stop
+        }
+
     def analyze(self, df: IntoFrameT) -> dict[str, dict]:
         """Analyze all series in DataFrame and return properties.
 
@@ -392,17 +403,17 @@ class SynAugment:
         df_nw = nw.from_native(df)
         self._validate_columns(df_nw)
 
-        results = {}
-        unique_ids = df_nw[self.id_col].unique().to_list()
+        return self._analyze_partitions(
+            self._partition_series(df_nw), df_nw[self.id_col].unique().to_list()
+        )
 
+    def _analyze_partitions(
+        self, partitions: dict[Any, nw.DataFrame], unique_ids: list[Any]
+    ) -> dict:
+        results = {}
         for series_id in unique_ids:
-            # Extract series values
             series_data = (
-                df_nw.filter(nw.col(self.id_col) == series_id)
-                .sort(self.time_col)
-                .select(self.target_col)
-                .to_numpy()
-                .flatten()
+                partitions[series_id].select(self.target_col).to_numpy().flatten()
             )
 
             # Classify and get properties
@@ -478,8 +489,9 @@ class SynAugment:
 
         generator_override = generator_override or {}
 
-        # First, analyze all series
-        analysis = self.analyze(df)
+        partitions = self._partition_series(df_nw)
+        unique_ids = df_nw[self.id_col].unique().to_list()
+        analysis = self._analyze_partitions(partitions, unique_ids)
 
         # Collect all series (original + augmented)
         all_dfs = [output_original]
@@ -488,13 +500,8 @@ class SynAugment:
         # made under on_error='ar1', reported once after the loop.
         fallbacks: list[tuple[str, str, str]] = []
 
-        unique_ids = df_nw[self.id_col].unique().to_list()
-
         for series_id in unique_ids:
-            # Get series data
-            series_df = df_nw.filter(nw.col(self.id_col) == series_id).sort(
-                self.time_col
-            )
+            series_df = partitions[series_id]
             series_values = series_df.select(self.target_col).to_numpy().flatten()
             timestamps = series_df.select(self.time_col).to_numpy().flatten()
 
@@ -616,17 +623,17 @@ class SynAugment:
         reserved.add(candidate)
         return candidate
 
-    def _copy_reference_frame(
+    def _copy_reference_frames(
         self,
         reference: nw.DataFrame,
-        generated_id: str,
-        values: np.ndarray,
+        ids: list[str],
+        copies: list[np.ndarray],
         backend: Any,
     ) -> nw.DataFrame:
-        """Copy reference columns while replacing its ID and target values."""
-        return reference.with_columns(
-            nw.lit(generated_id).alias(self.id_col),
-            nw.new_series(self.target_col, values, backend=backend),
+        """Assemble all copies of one source in a single backend operation."""
+        return nw.concat([reference] * len(ids)).with_columns(
+            nw.new_series(self.id_col, np.repeat(ids, len(reference)), backend=backend),
+            nw.new_series(self.target_col, np.concatenate(copies), backend=backend),
         )
 
     def mixup(
@@ -713,8 +720,9 @@ class SynAugment:
         # Cache each series' values and timestamps, sorted by time.
         series: dict[Any, tuple[np.ndarray, np.ndarray]] = {}
         skipped: list[Any] = []
+        partitions = self._partition_series(df_nw)
         for series_id in unique_ids:
-            sdf = df_nw.filter(nw.col(self.id_col) == series_id).sort(self.time_col)
+            sdf = partitions[series_id]
             values = sdf.select(self.target_col).to_numpy().flatten().astype(float)
             timestamps = sdf.select(self.time_col).to_numpy().flatten()
             if (
@@ -878,8 +886,9 @@ class SynAugment:
         skipped: list[Any] = []
         nonseasonal: list[Any] = []
 
+        partitions = self._partition_series(df_nw)
         for series_id in unique_ids:
-            sdf = df_nw.filter(nw.col(self.id_col) == series_id).sort(self.time_col)
+            sdf = partitions[series_id]
             raw_values = sdf.select(self.target_col).to_numpy().flatten().astype(float)
             values = self._interpolate_missing(raw_values, series_id=series_id)
             if values is None or len(values) < 4:
@@ -903,15 +912,15 @@ class SynAugment:
             generated_copies = _rs_augmentation.moving_block_bootstrap_many(
                 np.ascontiguousarray(values), block, native_seeds, period
             )
-            for copy_index, generated in enumerate(generated_copies):
-                generated_id = self._reserve_generated_id(
-                    f"{series_id}_mbb_{copy_index}", reserved_ids
+            generated_ids = [
+                self._reserve_generated_id(f"{series_id}_mbb_{i}", reserved_ids)
+                for i in range(n_augment)
+            ]
+            synthetic_dfs.append(
+                self._copy_reference_frames(
+                    output_sdf, generated_ids, generated_copies, out_engine
                 )
-                synthetic_dfs.append(
-                    self._copy_reference_frame(
-                        output_sdf, generated_id, np.asarray(generated), out_engine
-                    )
-                )
+            )
 
         self._warn_skipped("mbb", skipped)
         if nonseasonal:
@@ -975,7 +984,12 @@ class SynAugment:
         Additional input columns are copied unchanged from the reference
         series; DBA only barycenters the target column.
 
-        Banded DTW and barycenter updates execute in native Rust. Seed
+        Copies share their initial alignment paths and refine in parallel in
+        native Rust. At most eight alignments/copies execute concurrently.
+        Parent storage per alignment, cached paths per copy and returned copies
+        per reference have separate 64 MiB limits; excessive requests raise
+        ValueError. Interrupts are checked
+        between work chunks. Seed
         determinism is stable within this native path.
 
         NaNs are interpolated; entirely missing sources are skipped with a
@@ -989,7 +1003,7 @@ class SynAugment:
             n_augment: Copies per usable reference, from 1 to 1000 (default: 1).
             n_neighbors: Positive maximum neighbor count (default: 3), capped
                 at the number of other usable sources.
-            n_iterations: Positive number of barycenter updates (default: 5).
+            n_iterations: Barycenter updates, from 1 to 1000 (default: 5).
             window_fraction: DTW band fraction in (0, 1] (default: 0.1).
             scale: "reference" to restore reference scale (default), or "none"
                 to average raw values.
@@ -1001,7 +1015,8 @@ class SynAugment:
 
         Raises:
             ValueError: For invalid arguments, missing required columns, infinite
-                target values, or fewer than two usable source series.
+                target values, excessive alignment/output storage, or fewer
+                than two usable source series.
         """
         if n_augment < 1:
             raise ValueError("n_augment must be >= 1")
@@ -1009,8 +1024,8 @@ class SynAugment:
             raise ValueError("n_augment must be <= 1000 to prevent resource exhaustion")
         if n_neighbors < 1:
             raise ValueError("n_neighbors must be >= 1")
-        if n_iterations < 1:
-            raise ValueError("n_iterations must be >= 1")
+        if not 1 <= n_iterations <= 1000:
+            raise ValueError("n_iterations must be in [1, 1000]")
         if not 0 < window_fraction <= 1:
             raise ValueError("window_fraction must satisfy 0 < value <= 1")
         if scale not in ("reference", "none"):
@@ -1029,8 +1044,9 @@ class SynAugment:
         moments: dict[Any, tuple[float, float]] = {}
         skipped: list[Any] = []
         near_constant: list[Any] = []
+        partitions = self._partition_series(df_nw)
         for series_id in unique_ids:
-            sdf = df_nw.filter(nw.col(self.id_col) == series_id).sort(self.time_col)
+            sdf = partitions[series_id]
             raw_values = sdf.select(self.target_col).to_numpy().flatten().astype(float)
             values = self._interpolate_missing(raw_values, series_id=series_id)
             if values is None:
@@ -1090,9 +1106,13 @@ class SynAugment:
             )
             group_band = int(np.ceil(window_fraction * max_length))
 
+            generated_ids = []
+            copy_weights = []
             for copy_index in range(n_augment):
-                generated_id = self._reserve_generated_id(
-                    f"{reference_id}_dba_{copy_index}", reserved_ids
+                generated_ids.append(
+                    self._reserve_generated_id(
+                        f"{reference_id}_dba_{copy_index}", reserved_ids
+                    )
                 )
                 reference_weight = float(self.rng.uniform(0.4, 0.7))
                 randomized = base_weights * self.rng.uniform(
@@ -1101,22 +1121,24 @@ class SynAugment:
                 neighbor_weights = (
                     (1.0 - reference_weight) * randomized / randomized.sum()
                 )
-                weights = np.concatenate(([reference_weight], neighbor_weights))
-                barycenter = dba_barycenter(
-                    reference_values,
-                    neighbors,
-                    weights,
-                    n_iterations,
-                    group_band,
+                copy_weights.append(
+                    np.concatenate(([reference_weight], neighbor_weights)).tolist()
                 )
-                if scale == "reference":
-                    mean, std = moments[reference_id]
-                    barycenter = barycenter * std + mean
-                synthetic_dfs.append(
-                    self._copy_reference_frame(
-                        series[reference_id][1], generated_id, barycenter, out_engine
-                    )
+            copies = _rs_augmentation.dba_barycenters(
+                np.ascontiguousarray(reference_values),
+                [np.ascontiguousarray(v) for v in neighbors],
+                copy_weights,
+                n_iterations,
+                group_band,
+            )
+            if scale == "reference":
+                mean, std = moments[reference_id]
+                copies = [barycenter * std + mean for barycenter in copies]
+            synthetic_dfs.append(
+                self._copy_reference_frames(
+                    series[reference_id][1], generated_ids, copies, out_engine
                 )
+            )
 
         frames = [output_original] if include_original else []
         frames.extend(synthetic_dfs)

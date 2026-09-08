@@ -148,24 +148,13 @@ pub fn rfft(data: &[f64]) -> Vec<Complex64> {
 
 /// Real-to-complex FFT retaining only the non-redundant half spectrum.
 ///
-/// Power-of-two inputs retain the existing radix-2 path. Other lengths use a
-/// cached mixed-radix RealFFT plan, with output and scratch storage allocated
+/// All lengths use a cached RealFFT plan, with output and scratch storage allocated
 /// per call so concurrent feature computations never share mutable buffers.
 pub fn rfft_half(data: &mut [f64]) -> Result<Vec<Complex64>, String> {
     let n = data.len();
     if n == 0 {
         return Ok(Vec::new());
     }
-    if n.is_power_of_two() {
-        let mut spectrum: Vec<Complex64> = data
-            .iter()
-            .map(|&value| Complex64::new(value, 0.0))
-            .collect();
-        fft_radix2(&mut spectrum, false);
-        spectrum.truncate(n / 2 + 1);
-        return Ok(spectrum);
-    }
-
     let plan = real_fft_plan(n);
     let mut spectrum = plan.make_output_vec();
     let mut scratch = plan.make_scratch_vec();
@@ -288,7 +277,7 @@ mod tests {
 
     #[test]
     fn test_half_spectrum_matches_full_transform() {
-        for n in [3usize, 63, 64, 1000, 1001, 4093, 4095, 4096] {
+        for n in [1usize, 2, 3, 63, 64, 1000, 1001, 4093, 4095, 4096] {
             let data: Vec<f64> = (0..n).map(|i| ((i * 7919) % 13) as f64 - 6.0).collect();
             let expected = rfft(&data);
             let actual = rfft_half(&mut data.clone()).unwrap();

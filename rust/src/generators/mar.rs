@@ -102,15 +102,22 @@ fn fixed_params(ap: &[Vec<f64>]) -> Result<Params, String> {
     {
         return Err("mar: inconsistent fixed component counts".to_string());
     }
-    let mut offset = 0;
+    let mut offset = 0usize;
     let mut coefficients = Vec::with_capacity(n_components);
     for &encoded_order in &ap[1] {
         let order = encoded_order as usize;
-        if order == 0 || offset + order > ap[2].len() {
+        let end = offset
+            .checked_add(order)
+            .ok_or_else(|| "mar: fixed AR coefficient offset overflow".to_string())?;
+        if !encoded_order.is_finite()
+            || encoded_order.fract() != 0.0
+            || order == 0
+            || end > ap[2].len()
+        {
             return Err("mar: invalid fixed AR coefficient layout".to_string());
         }
-        coefficients.push(ap[2][offset..offset + order].to_vec());
-        offset += order;
+        coefficients.push(ap[2][offset..end].to_vec());
+        offset = end;
     }
     if offset != ap[2].len() {
         return Err("mar: unused fixed AR coefficients".to_string());
@@ -253,6 +260,20 @@ pub fn mar(out: &mut [f64], sp: &[f64], ap: &[Vec<f64>], seed: u64) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fixed_orders_reject_overflow_and_fractional_values() {
+        let mut arrays = vec![
+            vec![0.5, 0.5],
+            vec![1.0, f64::MAX],
+            vec![0.0],
+            vec![0.0, 0.0],
+            vec![1.0, 1.0],
+        ];
+        assert!(fixed_params(&arrays).err().unwrap().contains("overflow"));
+        arrays[1] = vec![1.0, 1.5];
+        assert!(fixed_params(&arrays).is_err());
+    }
 
     #[test]
     fn pacf_and_seasonal_polynomials_match_hand_calculation() {

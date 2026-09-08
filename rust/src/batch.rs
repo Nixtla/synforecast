@@ -10,7 +10,7 @@ use crate::pattern_injection as pi;
 /// The pool is created once on first use and reused on subsequent calls with
 /// the same `n_workers` value.  If `n_workers` changes, the old pool is
 /// dropped and a new one is built.
-fn get_or_create_pool(n_workers: usize) -> Result<Arc<rayon::ThreadPool>, String> {
+pub(crate) fn get_or_create_pool(n_workers: usize) -> Result<Arc<rayon::ThreadPool>, String> {
     static CACHED: Mutex<Option<(usize, Arc<rayon::ThreadPool>)>> = Mutex::new(None);
     let mut guard = CACHED.lock().unwrap();
     if let Some((w, pool)) = guard.as_ref() {

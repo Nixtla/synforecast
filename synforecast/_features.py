@@ -23,33 +23,6 @@ def _validate_values(values: np.ndarray) -> np.ndarray:
     return values
 
 
-def _moving_average(values: np.ndarray, period: int | None) -> np.ndarray:
-    """Compute a centered moving average with endpoint extension."""
-    n = len(values)
-    weights: np.ndarray
-    if period is None:
-        window = max(3, (n // 10) | 1)
-        if window > n:
-            window = n if n % 2 else n - 1
-        weights = np.full(window, 1.0 / window)
-    elif period % 2:
-        weights = np.full(period, 1.0 / period)
-    else:
-        weights = np.concatenate(
-            ([0.5 / period], np.full(period - 1, 1.0 / period), [0.5 / period])
-        )
-
-    width = len(weights)
-    if width > n:
-        window = n if n % 2 else n - 1
-        weights = np.full(window, 1.0 / window)
-        width = window
-    computed = np.convolve(values, weights, mode="valid")
-    left = (width - 1) // 2
-    right = n - len(computed) - left
-    return np.pad(computed, (left, right), mode="edge")
-
-
 def classical_decompose(
     values: np.ndarray, period: int | None
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:

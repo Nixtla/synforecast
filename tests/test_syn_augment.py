@@ -1595,3 +1595,15 @@ class TestOnErrorPolicy:
                 n_augment=1,
                 generator_override={"series_0": "NopeGenerator"},
             )
+
+
+@pytest.mark.parametrize("method", ["analyze", "augment", "mixup", "mbb", "dba"])
+def test_augmentation_does_not_scan_panel_per_series(monkeypatch, method):
+    import narwhals.stable.v2 as nw
+
+    def scan(*_args, **_kwargs):
+        pytest.fail("per-series full-panel filtering")
+
+    frame = _smooth_panel("polars")
+    monkeypatch.setattr(nw.DataFrame, "filter", scan)
+    getattr(SynAugment(seed=42), method)(frame)

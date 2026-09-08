@@ -17,10 +17,6 @@ class augmentation:
         band: int | None = None,
     ) -> float: ...
     @staticmethod
-    def pairwise_dtw_distances(
-        series: list[npt.NDArray[np.float64]], window_fraction: float
-    ) -> npt.NDArray[np.float64]: ...
-    @staticmethod
     def nearest_dtw_neighbors(
         series: list[npt.NDArray[np.float64]],
         window_fraction: float,
@@ -34,6 +30,23 @@ class augmentation:
         n_iterations: int,
         band: int | None = None,
     ) -> npt.NDArray[np.float64]: ...
+    @staticmethod
+    def dba_barycenters(
+        reference: npt.NDArray[np.float64],
+        neighbors: list[npt.NDArray[np.float64]],
+        weights: list[list[float]],
+        n_iterations: int,
+        band: int | None = None,
+    ) -> list[npt.NDArray[np.float64]]: ...
+    @staticmethod
+    def mar_features_batch(
+        scalars: list[list[float]],
+        arrays: list[list[list[float]]],
+        lengths: list[int],
+        seeds: list[list[int]],
+        period: int | None = None,
+        n_workers: int = 0,
+    ) -> list[list[list[float]] | None]: ...
     @staticmethod
     def classical_decompose(
         values: npt.NDArray[np.float64], period: int | None = None

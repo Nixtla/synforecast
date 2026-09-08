@@ -133,7 +133,7 @@ augmented = SynAugment(seed=42).dba(
 |-----------|---------|-------------|
 | `n_augment` | `1` | Synthetic copies generated around every usable reference |
 | `n_neighbors` | `3` | Nearest panel series included in each barycenter |
-| `n_iterations` | `5` | DBA refinement iterations |
+| `n_iterations` | `5` | DBA refinement iterations, from 1 to 1000 |
 | `window_fraction` | `0.1` | DTW band width as a fraction of the longest series |
 | `scale` | `"reference"` | Reference normalization or raw-value averaging (`"none"`) |
 | `include_original` | `True` | Include the input rows in the result |
@@ -146,6 +146,11 @@ references are listed in a warning because copies may add little variation.
 DBA evaluates each pair once in bounded chunks and retains only the requested
 nearest neighbors, using O(number of series × `n_neighbors`) neighbor storage.
 Pairwise distance computation still grows quadratically with the series count.
+Copies share their first alignment paths and refine in parallel. DTW parent
+storage, cached paths per copy, and batched output each have a 64 MiB limit;
+oversized requests raise `ValueError`. Python interrupts are checked between
+work chunks. Panel methods sort and partition once instead of filtering the
+whole frame for each source.
 
 ---
 
@@ -758,8 +763,15 @@ the best L2 feature distance is at or below `tolerance` (default `0.05`), so
 the `n_generations * population_size * n_draws_per_candidate` budget is an upper
 bound. In fixed mode, a configuration that fails the finite, bounded,
 non-constant output guards raises `ValueError` rather than substituting noise.
-Fixed mixtures use an exact second-order stationarity check through effective
-AR order 32 (trailing zeros do not count). Above 32, identical stable components
+Fixed mixtures use a numerical second-order stationarity check through effective
+AR order 32 (trailing zeros do not count), using NumPy only. Covariance powers
+can certify stability when the absolute row-sum bound of `T^n(I)` falls below
+one, or instability when its smallest eigenvalue exceeds one. Inconclusive
+checks and small models use NumPy's dense eigensolver on symmetric covariance
+coordinates (at most 528 × 528), avoiding periodic power-iteration ambiguity.
+Solver failures and nonfinite eigenvalues raise an error. The dense fallback
+costs more for unresolved models but adds no runtime dependency. Bounded caches reuse
+validation results for repeated candidates. Above 32, identical stable components
 or components whose absolute AR coefficients each sum to less than one are
 accepted. Other large mixtures raise a "could not verify" error; these sufficient
 conditions can reject valid mixtures. Feature search treats them as invalid
@@ -768,6 +780,14 @@ The reported `tuning_diagnostics.best_distance` measures training draws; fresh
 draws can be farther from the target. An equal-budget random-search comparison
 is available in `benchmarks/benchmark_mar_targeting.py`; validation coverage is
 summarized in [tests/README.md](tests/README.md).
+Candidate simulations and feature computation run together in native Rust,
+parallelized with `n_jobs` (`-1` for the default pool). A failed candidate does
+not abort the population. Search lengths are limited to 1,000,000 observations.
+The returned generator retains `engine`, column names, `alias`, `start_datetime`,
+`standardize`, `burn_in`, and innovation options passed to `tune_to_features`.
+Simulation options also apply while scoring candidates. Pattern injection and
+search-owned parameter options are not accepted. Native search changes the
+seeded stream used by the former Python search; worker counts do not change it.
 
 ### Multivariatizer
 

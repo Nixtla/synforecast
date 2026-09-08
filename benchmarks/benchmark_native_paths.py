@@ -210,6 +210,17 @@ def _python_pairwise_dtw(
     return matrix
 
 
+def _python_nearest_dtw(series, window_fraction, n_neighbors):
+    matrix = _python_pairwise_dtw(series, window_fraction)
+    return [
+        sorted(
+            [(j, float(matrix[i, j])) for j in range(len(series)) if j != i],
+            key=lambda item: (item[1], item[0]),
+        )[:n_neighbors]
+        for i in range(len(series))
+    ]
+
+
 def _mar_generate(native_path: bool, n_series: int, length: int, workers: int) -> int:
     """Generate a MAR panel through native batch or Python fallback."""
     original_type = base_module._GEN_TYPE_MAP.pop("MARGenerator", None)
@@ -344,9 +355,9 @@ def run_benchmarks(quick: bool, repeats: int, workers: int) -> dict:
             repeats,
         ),
         _benchmark_case(
-            "pairwise_dtw",
-            lambda: native.pairwise_dtw_distances(pairwise_series, 0.1),
-            lambda: _python_pairwise_dtw(pairwise_series, 0.1),
+            "nearest_dtw",
+            lambda: native.nearest_dtw_neighbors(pairwise_series, 0.1, 3),
+            lambda: _python_nearest_dtw(pairwise_series, 0.1, 3),
             repeats,
         ),
     ]

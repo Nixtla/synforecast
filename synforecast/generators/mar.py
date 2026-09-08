@@ -1,11 +1,12 @@
 """MAR (mixture autoregressive) generator from the GRATIS recipe."""
 
+from functools import lru_cache
 from typing import Any
 
 import numpy as np
 from pydantic import Field, PrivateAttr, model_validator
 
-from synforecast._features import compute_features
+from synforecast._lib import augmentation as _rs_augmentation
 from synforecast.base import BaseGenerator
 
 _MAX_ABS = 1e8
@@ -41,7 +42,9 @@ class MARGenerator(BaseGenerator):
     of ``weights``, ``ar_coefficients``, ``intercepts``, and ``noise_scales``
     and is used by feature targeting. Every fixed component must be
     stationary, and the mixture must be second-order stationary (Wong and Li
-    2000). The exact mixture check handles effective AR orders through 32.
+    2000). The numerical mixture check handles effective AR orders through 32,
+    using covariance contraction certificates and a NumPy dense eigenvalue
+    fallback. Solver failures are rejected. Validation results are cached.
     Larger mixtures are accepted when all components are identical and stable,
     or every component's sum of absolute AR coefficients is below one.
     Other large mixtures raise an error because stationarity could not be
@@ -179,68 +182,117 @@ class MARGenerator(BaseGenerator):
 
     @staticmethod
     def _is_stationary(coefficients: np.ndarray) -> bool:
-        """Check AR stationarity through companion-matrix spectral radius."""
-        coefficients = np.trim_zeros(coefficients, "b")
-        order = len(coefficients)
-        if order == 0:
+        return MARGenerator._component_stationary_cached(
+            tuple(np.trim_zeros(coefficients, "b"))
+        )
+
+    @staticmethod
+    @lru_cache(maxsize=2048)
+    def _component_stationary_cached(coefficients: tuple[float, ...]) -> bool:
+        if not coefficients:
             return True
-        companion = np.zeros((order, order))
-        companion[0] = coefficients
-        if order > 1:
-            companion[1:, :-1] = np.eye(order - 1)
-        return bool(np.max(np.abs(np.linalg.eigvals(companion))) < 1.0 - 1e-10)
+        # A strict absolute-sum bound avoids root finding for simple components.
+        if sum(abs(c) for c in coefficients) < 1.0 - 1e-10:
+            return True
+        return bool(
+            np.max(np.abs(np.roots(np.r_[1.0, -np.asarray(coefficients)])))
+            < 1.0 - 1e-10
+        )
 
     @staticmethod
     def _is_mixture_stationary(
         weights: np.ndarray, coefficients: list[np.ndarray]
     ) -> bool:
-        """Check second-order stationarity of the mixture (Wong and Li 2000).
+        """Wong-Li second-moment check, cached by normalized model parameters."""
+        return MARGenerator._mixture_stationary_cached(
+            tuple(weights), tuple(tuple(np.trim_zeros(c, "b")) for c in coefficients)
+        )
 
-        The condition is a spectral radius below one for the second-moment
-        operator ``X -> sum_k w_k A_k X A_k^T`` over companion matrices
-        ``A_k``, evaluated exactly on the symmetric-matrix subspace through
-        effective order 32. At larger orders use sufficient conditions or
-        raise ValueError when the result cannot be certified.
-        """
-        coefficients = [np.trim_zeros(component, "b") for component in coefficients]
-        order = max(len(component) for component in coefficients)
+    @staticmethod
+    @lru_cache(maxsize=2048)
+    def _mixture_stationary_cached(
+        weights: tuple[float, ...], coefficients: tuple[tuple[float, ...], ...]
+    ) -> bool:
+        order = max(map(len, coefficients))
         if order == 0:
             return True
+        if all(c == coefficients[0] for c in coefficients):
+            return MARGenerator._component_stationary_cached(coefficients[0])
+        # A common contracting weighted max norm proves stability for every
+        # switching sequence when all absolute coefficient sums are below one.
+        if all(sum(abs(v) for v in c) < 1.0 - 1e-10 for c in coefficients):
+            return True
         if order > _MAX_MIXTURE_CHECK_ORDER:
-            if all(
-                np.array_equal(component, coefficients[0]) for component in coefficients
-            ):
-                return MARGenerator._is_stationary(coefficients[0])
-            # If every absolute coefficient sum is < 1, the companion matrices
-            # share a contracting weighted max norm: use lag weights r**(-j)
-            # with r < 1 sufficiently close to 1. This bounds every switching
-            # sequence geometrically, hence also its second moments. This is
-            # sufficient, not necessary; leave a margin for floating-point error.
-            if all(np.abs(component).sum() < 1.0 - 1e-10 for component in coefficients):
-                return True
             raise ValueError(
-                "could not verify second-order stationarity for a MAR mixture "
-                f"of effective AR order {order}: above {_MAX_MIXTURE_CHECK_ORDER}, "
-                "components must be identical or each have sum(abs(AR coefficients)) < 1; "
-                "some stationary mixtures do not satisfy these sufficient conditions"
+                "could not verify second-order stationarity above effective AR order 32; components must be identical or each have sum(abs(AR coefficients)) < 1"
             )
-        companions = []
-        for component in coefficients:
-            companion = np.zeros((order, order))
-            companion[0, : len(component)] = component
-            if order > 1:
-                companion[1:, :-1] = np.eye(order - 1)
-            companions.append(companion)
+        operator = MARGenerator._second_moment_operator(weights, coefficients)
         rows, cols = np.triu_indices(order)
-        basis = np.zeros((len(rows), order, order))
-        basis[np.arange(len(rows)), rows, cols] = 1.0
-        basis[np.arange(len(rows)), cols, rows] = 1.0
-        images = sum(
-            weight * (companion @ basis @ companion.T)
-            for weight, companion in zip(weights, companions, strict=True)
-        )
-        operator = images[:, rows, cols]
-        return bool(np.max(np.abs(np.linalg.eigvals(operator))) < 1.0 - 1e-10)
+        initial = (rows == cols).astype(float)
+        # For a positive covariance map, T^n(I) < I is a stability
+        # certificate. Bound its largest eigenvalue by the absolute row sums.
+        # This inexpensive check handles seasonal models without asking an
+        # eigensolver to separate eigenvalues on a nearly periodic circle.
+        tail = initial.copy()
+        for step in range(4 * order if order > 4 else 0):
+            tail = operator(tail)
+            if not np.isfinite(tail).all() or np.max(np.abs(tail)) > 1e12:
+                break
+            if (step + 1) % order == 0:
+                matrix = np.empty((order, order))
+                matrix[rows, cols] = tail
+                matrix[cols, rows] = tail
+                if np.max(np.abs(matrix).sum(axis=1)) < 1.0 - 1e-8:
+                    return True
+                # Conversely, T^n(I) > I certifies an unstable mixture.
+                if (
+                    np.min(matrix.diagonal()) > 1.0 + 1e-8
+                    and np.linalg.eigvalsh(matrix)[0] > 1.0 + 1e-8
+                ):
+                    return False
+        try:
+            # Symmetric covariance coordinates reduce p² to p(p+1)/2, at
+            # most 528 here. Use the full spectrum when the sufficient
+            # certificate is inconclusive, including near-periodic models.
+            basis = np.eye(len(rows))
+            dense = np.column_stack([operator(column) for column in basis])
+            spectrum = np.linalg.eigvals(dense)
+        except np.linalg.LinAlgError as error:
+            raise ValueError(
+                "could not verify second-order stationarity: eigensolver did not converge"
+            ) from error
+        if not np.isfinite(spectrum).all():
+            raise ValueError(
+                "could not verify second-order stationarity: nonfinite eigenvalues"
+            )
+        # Reject the numerical boundary rather than accepting an uncertain model.
+        margin = 1e-10 if order <= 4 else 1e-8
+        return bool(max(abs(spectrum)) < 1.0 - margin)
+
+    @staticmethod
+    def _second_moment_operator(weights, coefficients):
+        """Return a matvec for sum(w A X A.T) on upper-triangle coordinates."""
+        order = max(map(len, coefficients))
+        rows, cols = np.triu_indices(order)
+        ar = np.zeros((len(coefficients), order))
+        for i, c in enumerate(coefficients):
+            ar[i, : len(c)] = c
+        weights = np.asarray(weights)
+        mean_ar = weights @ ar
+
+        def apply(vector):
+            vector = np.asarray(vector).reshape(-1)
+            matrix = np.empty((order, order), dtype=vector.dtype)
+            matrix[rows, cols] = vector
+            matrix[cols, rows] = vector
+            image = np.empty_like(matrix)
+            image[1:, 1:] = weights.sum() * matrix[:-1, :-1]
+            image[0, 1:] = mean_ar @ matrix[:, :-1]
+            image[1:, 0] = image[0, 1:]
+            image[0, 0] = np.sum(weights * np.sum((ar @ matrix) * ar, axis=1))
+            return image[rows, cols]
+
+        return apply
 
     @staticmethod
     def _pacf_to_ar(pacf: np.ndarray) -> np.ndarray:
@@ -412,6 +464,9 @@ class MARGenerator(BaseGenerator):
         n_draws_per_candidate: int = 3,
         tolerance: float = 0.05,
         seed: int | None = None,
+        *,
+        n_jobs: int = -1,
+        **generator_kwargs: Any,
     ) -> "MARGenerator":
         """Tune fixed MAR parameters toward requested GRATIS-style features.
 
@@ -433,6 +488,19 @@ class MARGenerator(BaseGenerator):
         The returned generator's ``tuning_diagnostics`` records the best observed
         distance, whether tolerance was reached, generations run, and candidates
         evaluated.
+
+        Each generation scores its valid candidates together in native Rust,
+        parallelized across candidates. Failed simulations affect only their
+        own candidate. ``n_jobs=-1`` uses the default Rayon pool; a positive
+        value selects the worker count. Results are independent of worker count.
+        This native search uses a different seeded stream from the former
+        Python simulation loop. Lengths are limited to 1,000,000 observations.
+
+        Additional generator options are forwarded to candidate evaluation and
+        the returned generator: ``standardize``, ``burn_in``,
+        ``innovation_distribution``, ``innovation_params``, ``engine``, ``alias``,
+        ``id_col``, ``time_col``, ``target_col``, and ``start_datetime``.
+        Search-owned model parameters and pattern injection options are rejected.
         """
         cls._validate_targeting(
             target_features,
@@ -443,6 +511,34 @@ class MARGenerator(BaseGenerator):
             population_size,
             n_draws_per_candidate,
             tolerance,
+        )
+        supported_options = {
+            "engine",
+            "alias",
+            "id_col",
+            "time_col",
+            "target_col",
+            "start_datetime",
+            "standardize",
+            "innovation_distribution",
+            "innovation_params",
+            "burn_in",
+        }
+        unsupported = generator_kwargs.keys() - supported_options
+        if unsupported:
+            raise ValueError(
+                f"unsupported tuning generator options: {sorted(unsupported)}"
+            )
+        if n_jobs != -1 and n_jobs < 1:
+            raise ValueError("n_jobs must be -1 or a positive integer")
+        # Validate options before any search, including invalid output engines.
+        cls(
+            min_length=min_length,
+            max_length=max_length,
+            freq=freq,
+            seasonal_period=seasonal_period,
+            seed=seed,
+            **generator_kwargs,
         )
         rng = np.random.default_rng(seed)
         evaluation_lengths = cls._evaluation_lengths(
@@ -457,18 +553,18 @@ class MARGenerator(BaseGenerator):
         generations_run = 0
         for _ in range(n_generations):
             generations_run += 1
-            ranked: list[tuple[float, dict[str, Any]]] = []
-            for candidate in population:
-                distance = cls._candidate_fitness(
-                    candidate,
-                    target_features,
-                    evaluation_lengths,
-                    freq,
-                    seasonal_period,
-                    rng,
-                )
-                ranked.append((distance, candidate))
-                candidates_evaluated += 1
+            distances = cls._population_fitness(
+                population,
+                target_features,
+                evaluation_lengths,
+                freq,
+                seasonal_period,
+                rng,
+                generator_kwargs,
+                0 if n_jobs == -1 else n_jobs,
+            )
+            ranked = list(zip(distances, population, strict=True))
+            candidates_evaluated += len(population)
             ranked.sort(key=lambda item: item[0])
             if np.isfinite(ranked[0][0]) and ranked[0][0] < best_distance:
                 best_distance, best_candidate = ranked[0]
@@ -500,6 +596,7 @@ class MARGenerator(BaseGenerator):
             ar_coefficients=fixed[1],
             intercepts=fixed[2],
             noise_scales=fixed[3],
+            **generator_kwargs,
         )
         generator._tuning_diagnostics = {
             "best_distance": float(best_distance),
@@ -526,6 +623,8 @@ class MARGenerator(BaseGenerator):
             raise ValueError("feature targeting requires min_length >= 3")
         if max_length < min_length:
             raise ValueError("max_length must be >= min_length")
+        if max_length > 1_000_000:
+            raise ValueError("feature targeting requires max_length <= 1000000")
         if not target_features:
             raise ValueError("target_features must not be empty")
         unknown = set(target_features) - _SUPPORTED_FEATURES
@@ -644,39 +743,80 @@ class MARGenerator(BaseGenerator):
     @classmethod
     def _candidate_fitness(
         cls,
-        candidate: dict[str, Any],
-        target_features: dict[str, float],
-        eval_lengths: np.ndarray,
-        freq: str | int,
-        seasonal_period: int | None,
-        rng: np.random.Generator,
+        candidate,
+        target_features,
+        eval_lengths,
+        freq,
+        seasonal_period,
+        rng,
+        **generator_kwargs,
     ) -> float:
-        """Return realized L2 feature distance for one candidate."""
-        fixed = cls._candidate_to_fixed(candidate, seasonal_period)
-        seed = int(rng.integers(0, 2**63))
-        realized = dict.fromkeys(target_features, 0.0)
-        try:
-            generator = cls(
-                min_length=int(eval_lengths.min()),
-                max_length=int(eval_lengths.max()),
-                freq=freq,
-                seed=seed,
-                seasonal_period=seasonal_period,
-                weights=fixed[0],
-                ar_coefficients=fixed[1],
-                intercepts=fixed[2],
-                noise_scales=fixed[3],
-            )
-            for eval_length in eval_lengths:
-                features = compute_features(
-                    generator.generate_single_series(int(eval_length)),
-                    seasonal_period,
+        """Score one candidate with the same native path used by population search."""
+        return cls._population_fitness(
+            [candidate],
+            target_features,
+            eval_lengths,
+            freq,
+            seasonal_period,
+            rng,
+            generator_kwargs,
+            1,
+        )[0]
+
+    @classmethod
+    def _population_fitness(
+        cls,
+        candidates,
+        target_features,
+        eval_lengths,
+        freq,
+        seasonal_period,
+        rng,
+        generator_kwargs,
+        n_workers,
+    ):
+        scalars, arrays, seeds, indices = [], [], [], []
+        distances = [float("inf")] * len(candidates)
+        for i, candidate in enumerate(candidates):
+            draw_seeds = rng.integers(
+                0, 2**63, size=len(eval_lengths), dtype=np.uint64
+            ).tolist()
+            fixed = cls._candidate_to_fixed(candidate, seasonal_period)
+            try:
+                generator = cls(
+                    min_length=int(eval_lengths.min()),
+                    max_length=int(eval_lengths.max()),
+                    freq=freq,
+                    seed=0,
+                    seasonal_period=seasonal_period,
+                    weights=fixed[0],
+                    ar_coefficients=fixed[1],
+                    intercepts=fixed[2],
+                    noise_scales=fixed[3],
+                    **generator_kwargs,
                 )
-                for name in realized:
-                    realized[name] += features[name] / len(eval_lengths)
-        except ValueError:
-            return float("inf")
-        differences = [
-            realized[name] - value for name, value in target_features.items()
+            except ValueError:
+                continue
+            sp, ap = generator._get_batch_params()
+            scalars.append(sp.tolist())
+            arrays.append([a.tolist() for a in ap])
+            seeds.append(draw_seeds)
+            indices.append(i)
+        if not indices:
+            return distances
+        results = _rs_augmentation.mar_features_batch(
+            scalars, arrays, eval_lengths.tolist(), seeds, seasonal_period, n_workers
+        )
+        feature_names = [
+            "spectral_entropy",
+            "trend_strength",
+            "seasonal_strength",
+            "acf1",
         ]
-        return float(np.linalg.norm(differences))
+        selected = [feature_names.index(name) for name in target_features]
+        target = np.asarray(list(target_features.values()))
+        for i, draws in zip(indices, results, strict=True):
+            if draws is not None:
+                realized = np.asarray(draws).mean(axis=0)[selected]
+                distances[i] = float(np.linalg.norm(realized - target))
+        return distances

@@ -10,7 +10,6 @@ from synforecast._dtw import (
     dtw_alignment,
     dtw_distance,
     nearest_dtw_neighbors,
-    pairwise_dtw_distances,
 )
 
 
@@ -42,6 +41,19 @@ def _exhaustive_alignment(a, b, band):
     )
 
 
+def _pairwise_oracle(series, window_fraction):
+    matrix = np.zeros((len(series), len(series)))
+    for i, a in enumerate(series):
+        for j in range(i + 1, len(series)):
+            b = series[j]
+            band = max(
+                int(np.ceil(window_fraction * max(len(a), len(b)))),
+                abs(len(a) - len(b)) + 1,
+            )
+            matrix[i, j] = matrix[j, i] = dtw_distance(a, b, band)
+    return matrix
+
+
 class TestDtwAlignment:
     def test_matches_exhaustive_paths(self) -> None:
         rng = np.random.default_rng(405)
@@ -64,7 +76,7 @@ class TestDtwAlignment:
         rng = np.random.default_rng(123)
         series = [rng.normal(size=5 + i % 7) for i in range(94)]
         series.extend([series[0].copy(), series[0].copy()])
-        matrix = pairwise_dtw_distances(series, 0.1)
+        matrix = _pairwise_oracle(series, 0.1)
         nearest = nearest_dtw_neighbors(series, 0.1, n_neighbors)
         for i, neighbors in enumerate(nearest):
             expected = sorted(
@@ -119,27 +131,10 @@ class TestDtwAlignment:
         assert dtw_distance(first, second, 2) == pytest.approx(0.0)
         assert dtw_distance(first, second, 1) > 1.0
 
-    def test_pairwise_matrix_matches_per_pair_distances(self) -> None:
-        rng = np.random.default_rng(4)
-        series = [rng.normal(size=n).cumsum() for n in (30, 25, 30, 41)]
-        matrix = pairwise_dtw_distances(series, 0.1)
-        assert matrix.shape == (4, 4)
-        np.testing.assert_array_equal(matrix, matrix.T)
-        np.testing.assert_array_equal(np.diag(matrix), 0.0)
-        for i in range(4):
-            for j in range(i + 1, 4):
-                band = max(
-                    int(np.ceil(0.1 * max(len(series[i]), len(series[j])))),
-                    abs(len(series[i]) - len(series[j])) + 1,
-                )
-                assert matrix[i, j] == pytest.approx(
-                    dtw_distance(series[i], series[j], band), rel=1e-12
-                )
-
     @pytest.mark.parametrize("window_fraction", [0.0, 1.5])
-    def test_pairwise_rejects_bad_window_fraction(self, window_fraction: float) -> None:
+    def test_nearest_rejects_bad_window_fraction(self, window_fraction: float) -> None:
         with pytest.raises(ValueError, match="window_fraction"):
-            pairwise_dtw_distances([np.ones(3), np.ones(3)], window_fraction)
+            nearest_dtw_neighbors([np.ones(3), np.ones(3)], window_fraction, 1)
 
     def test_distance_is_symmetric_for_unequal_lengths(self) -> None:
         first = np.array([0.0, 1.0, 1.5, 2.0])
@@ -232,3 +227,67 @@ class TestDbaBarycenter:
                 n_iterations=0,
                 band=None,
             )
+
+
+@pytest.mark.parametrize("iterations", [1, 4])
+def test_batched_dba_matches_individually_verified_updates(iterations):
+    from synforecast._lib import augmentation
+
+    reference = np.array([3.0, 0.0, -2.0, 5.0])
+    neighbors = [np.array([-3.0, 1.0, -2.0]), np.array([4.0, -3.0, 0.0, 0.0, 2.0])]
+    weights = [[0.2, 0.3, 0.5], [0.6, 0.1, 0.3], [0.0, 1.0, 0.0]]
+    actual = augmentation.dba_barycenters(reference, neighbors, weights, iterations, 1)
+    for got, row in zip(actual, weights, strict=True):
+        expected = dba_barycenter(reference, neighbors, np.array(row), iterations, 1)
+        np.testing.assert_array_equal(got, expected)
+
+
+def test_alignment_budget_rejects_before_quadratic_work():
+    values = np.ones(10000)
+    with pytest.raises(ValueError, match="64 MiB"):
+        dtw_alignment(values, values, None)
+    # An enormous explicit band is equivalent to unbanded, not an overflow.
+    np.testing.assert_array_equal(
+        dtw_alignment(np.arange(5.0), np.arange(5.0), 2**63 - 1)[1],
+        np.column_stack([np.arange(5), np.arange(5)]),
+    )
+
+
+@pytest.mark.parametrize("iterations", [0, 1001])
+def test_native_dba_iteration_limit(iterations):
+    from synforecast._lib import augmentation
+
+    with pytest.raises(ValueError, match="n_iterations"):
+        augmentation.dba_barycenters(np.ones(4), [np.ones(4)], [[1.0, 1.0]], iterations)
+
+
+def test_dba_delivers_keyboard_interrupt():
+    import os
+    import subprocess
+    import sys
+
+    if sys.platform == "win32":
+        pytest.skip("POSIX signal delivery")
+    code = """
+import os, signal, threading
+import numpy as np
+from synforecast._lib import augmentation
+values = np.random.default_rng(1).normal(size=512)
+timer = threading.Timer(0.1, lambda: os.kill(os.getpid(), signal.SIGINT))
+timer.start()
+try:
+    augmentation.dba_barycenters(values, [values[::-1].copy()], [[0.6, 0.4]]*16, 1000, 50)
+except KeyboardInterrupt:
+    print("interrupted")
+finally:
+    timer.cancel()
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        env={**os.environ, "RAYON_NUM_THREADS": "2", "OPENBLAS_NUM_THREADS": "1"},
+    )
+    assert result.returncode == 0, result.stderr
+    assert "interrupted" in result.stdout
