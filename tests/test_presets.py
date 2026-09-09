@@ -1,5 +1,8 @@
 """Tests for balanced_pool preset."""
 
+import warnings
+
+import pandas as pd
 import polars as pl
 import pytest
 
@@ -235,6 +238,21 @@ class TestPretrainingPool:
         assert len(df) > 0
 
 
+def _skip_if_alias_unsupported(freq: str) -> None:
+    """Skip when the installed pandas does not know this offset alias.
+
+    Aliases such as "ME"/"YE" appear in pandas 2.2 and legacy ones such as
+    "H"/"T"/"A" are removed later, so each parametrization is only checked
+    where the alias parses.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        try:
+            pd.tseries.frequencies.to_offset(freq)
+        except ValueError:
+            pytest.skip(f"pandas {pd.__version__} does not support alias {freq!r}")
+
+
 class TestSeasonalPeriodFromFreq:
     """Tests for deriving the seasonal period from a frequency."""
 
@@ -264,7 +282,32 @@ class TestSeasonalPeriodFromFreq:
         ],
     )
     def test_calendar_conventions(self, freq: str, expected: int) -> None:
+        _skip_if_alias_unsupported(freq)
         assert _seasonal_period_from_freq(freq) == expected
+
+    @pytest.mark.parametrize(
+        ("freq", "expected"),
+        [
+            ("S", 60),
+            ("T", 60),
+            ("15T", 4),
+            ("H", 24),
+            ("2H", 12),
+            ("M", 12),
+            ("Q", 4),
+            ("Q-DEC", 4),
+            ("A", 1),
+            ("Y", 1),
+            ("A-DEC", 1),
+        ],
+    )
+    def test_legacy_aliases(self, freq: str, expected: int) -> None:
+        # Aliases used by pandas 2.0-2.1 and deprecated since; the lookup must
+        # not depend on the version-specific rule code.
+        _skip_if_alias_unsupported(freq)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            assert _seasonal_period_from_freq(freq) == expected
 
     def test_integer_freq_uses_default(self) -> None:
         assert _seasonal_period_from_freq(1) == 12
@@ -305,10 +348,14 @@ class TestBalancedPoolSeasonalPeriod:
 
     @pytest.mark.parametrize(
         ("freq", "expected"),
-        [("h", 24), ("D", 7), ("W", 52), ("MS", 12), ("QS", 4), (1, 12)],
+        [("h", 24), ("H", 24), ("D", 7), ("W", 52), ("MS", 12), ("QS", 4), (1, 12)],
     )
     def test_derived_from_freq(self, freq: str | int, expected: int) -> None:
-        generators = balanced_pool(freq=freq)
+        if isinstance(freq, str):
+            _skip_if_alias_unsupported(freq)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            generators = balanced_pool(freq=freq)
         assert self._seasonal_periods(generators) == {expected}
 
     def test_covers_every_seasonal_variant(self) -> None:

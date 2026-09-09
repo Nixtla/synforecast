@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import pandas as pd
+from pandas.tseries import offsets as _offsets
 
 from synforecast.base import BaseGenerator
 from synforecast.generators.bounded_process import BoundedProcessGenerator
@@ -30,33 +31,42 @@ from synforecast.generators.tsi import TSIGenerator
 from synforecast.generators.vital_signs import VitalSignsGenerator
 
 # Steps per unit of the next-larger calendar cycle for each pandas offset
-# family. Anchored codes ("W-SUN", "QE-DEC", "YS-JAN", "SME-15") are matched
-# on the part before the dash.
-_CYCLE_STEPS: dict[str, int] = {
-    "s": 60,  # seconds per minute
-    "min": 60,  # minutes per hour
-    "h": 24,  # hours per day
-    "D": 7,  # days per week
-    "B": 5,  # business days per week
-    "C": 5,  # custom business days per week
-    "W": 52,  # weeks per year
-    "SME": 24,  # semi-months per year
-    "SMS": 24,
-    "ME": 12,  # months per year
-    "MS": 12,
-    "BME": 12,
-    "BMS": 12,
-    "CBME": 12,
-    "CBMS": 12,
-    "QE": 4,  # quarters per year
-    "QS": 4,
-    "BQE": 4,
-    "BQS": 4,
-    "YE": 1,  # no sub-annual cycle
-    "YS": 1,
-    "BYE": 1,
-    "BYS": 1,
-}
+# family. Matching on offset classes rather than alias strings keeps the lookup
+# stable across pandas versions, whose rule codes differ ("H"/"h", "T"/"min",
+# "A-DEC"/"YE-DEC").
+_CYCLE_STEPS: list[tuple[tuple[type[_offsets.BaseOffset], ...], int]] = [
+    ((_offsets.Second,), 60),  # seconds per minute
+    ((_offsets.Minute,), 60),  # minutes per hour
+    ((_offsets.Hour,), 24),  # hours per day
+    ((_offsets.Day,), 7),  # days per week
+    ((_offsets.BusinessDay, _offsets.CustomBusinessDay), 5),  # per week
+    ((_offsets.Week,), 52),  # weeks per year
+    ((_offsets.SemiMonthEnd, _offsets.SemiMonthBegin), 24),  # per year
+    (
+        (
+            _offsets.MonthEnd,
+            _offsets.MonthBegin,
+            _offsets.BusinessMonthEnd,
+            _offsets.BusinessMonthBegin,
+            _offsets.CustomBusinessMonthEnd,
+            _offsets.CustomBusinessMonthBegin,
+        ),
+        12,  # months per year
+    ),
+    (
+        (
+            _offsets.QuarterEnd,
+            _offsets.QuarterBegin,
+            _offsets.BQuarterEnd,
+            _offsets.BQuarterBegin,
+        ),
+        4,  # quarters per year
+    ),
+    (
+        (_offsets.YearEnd, _offsets.YearBegin, _offsets.BYearEnd, _offsets.BYearBegin),
+        1,  # no sub-annual cycle
+    ),
+]
 
 _DEFAULT_SEASONAL_PERIOD = 12
 
@@ -83,10 +93,10 @@ def _seasonal_period_from_freq(
     if isinstance(freq, int):
         return default
     offset = pd.tseries.frequencies.to_offset(freq)
-    unit_period = _CYCLE_STEPS.get(offset.rule_code.split("-")[0])
-    if unit_period is None:
-        return default
-    return max(1, round(unit_period / offset.n))
+    for classes, unit_period in _CYCLE_STEPS:
+        if isinstance(offset, classes):
+            return max(1, round(unit_period / offset.n))
+    return default
 
 
 def balanced_pool(
