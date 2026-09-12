@@ -10,6 +10,44 @@ import numpy as np
 from synforecast._analysis import _autocorrelation
 from synforecast._lib import augmentation as _rs_augmentation
 
+# v1 freezes the names, order, formulas, and undefined-value rules below.
+# Period/window settings remain explicit extraction parameters, not new schemas.
+FEATURE_SCHEMA = "native_v1"
+FEATURE_NAMES = (
+    "spectral_entropy",
+    "trend_strength",
+    "seasonal_strength",
+    "acf1",
+    "x_acf10",
+    "diff1_acf1",
+    "seas_acf1",
+    "spike",
+    "lumpiness",
+    "max_level_shift",
+    "max_var_shift",
+    "crossing_points",
+)
+
+
+def compute_feature_set(
+    values: np.ndarray, seasonal_period: int | None, window_size: int | None = None
+) -> dict[str, float]:
+    """Compute the native_v1 coverage features (independent of MAR targeting).
+
+    All features require >=3 observations. Seasonal strength needs two cycles;
+    x_acf10 needs 11 observations; seas_acf1 needs period+1. Window summaries
+    need two complete windows (explicit window_size, period, or otherwise 10).
+    Undefined features return NaN. The original four definitions are retained,
+    except insufficient seasonal cycles are explicitly undefined for evaluation.
+    """
+    values = np.asarray(values, dtype=float)
+    if values.ndim != 1 or not len(values) or not np.all(np.isfinite(values)):
+        raise ValueError("values must be non-empty, finite and one-dimensional")
+    result = _rs_augmentation.compute_feature_set(
+        np.ascontiguousarray(values), seasonal_period, window_size
+    )
+    return dict(zip(FEATURE_NAMES, result, strict=True))
+
 
 def _validate_values(values: np.ndarray) -> np.ndarray:
     """Return a finite one-dimensional float array with at least three values."""

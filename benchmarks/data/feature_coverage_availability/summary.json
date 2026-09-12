@@ -1,0 +1,1747 @@
+{
+  "environment": {
+    "command": "benchmarks/benchmark_feature_coverage.py --availability-only",
+    "timestamp_utc": "2026-09-10T11:39:23+00:00",
+    "python": "3.10.12",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "machine": "x86_64",
+    "cpu_count": 20,
+    "package_versions": {
+      "synforecast": "0.1.0",
+      "numpy": "2.2.6",
+      "pandas": "2.3.3",
+      "polars": "1.35.2",
+      "scipy": "1.15.3",
+      "scikit-learn": "1.7.2",
+      "statsforecast": "2.1.1",
+      "mlforecast": "1.1.0",
+      "neuralforecast": "3.1.7",
+      "utilsforecast": "0.2.15",
+      "datasetsforecast": "1.0.1",
+      "torch": "2.13.0+cpu"
+    },
+    "git_commit": "618dfac73d687d30196adbfe27361dcf34e17bf4",
+    "git_dirty": true,
+    "git_diff_sha256": "4f7d3331a2087b77901a1d3a58f5f9adcb92e9d23f54a61e17ea732be9c8edb3"
+  },
+  "schema": "native_candidate_v1",
+  "features": [
+    "spectral_entropy",
+    "trend_strength",
+    "seasonal_strength",
+    "acf1",
+    "x_acf10",
+    "diff1_acf1",
+    "seas_acf1",
+    "spike",
+    "lumpiness",
+    "max_level_shift",
+    "max_var_shift",
+    "crossing_points"
+  ],
+  "schema_frozen": false,
+  "scope": "all real training rows; availability only, not synthetic coverage",
+  "max_length": 512,
+  "length_policy": "last max_length training observations, matching the pilot",
+  "criteria": {
+    "minimum_overall_retention": 0.95,
+    "minimum_shortest_quartile_retention": 0.9
+  },
+  "groups": {
+    "Yearly": {
+      "source": {
+        "url": "https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Yearly-train.csv",
+        "sha256": "6aa668d4f04654c0bf5f07b266a51c556f0df2faf4709f852653755396a249e4",
+        "split": "train"
+      },
+      "recommended_recipe": "primary",
+      "m4_declared_seasonality": 1,
+      "n_series": 23000,
+      "original_length_quantiles_min_p25_p50_p75_max": [
+        13.0,
+        20.0,
+        29.0,
+        40.0,
+        835.0
+      ],
+      "effective_length_quantiles_min_p25_p50_p75_max": [
+        13.0,
+        20.0,
+        29.0,
+        40.0,
+        512.0
+      ],
+      "n_capped": 12,
+      "recipes": {
+        "primary": {
+          "n_input": 23000,
+          "n_retained": 23000,
+          "n_dropped": 0,
+          "dropped_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "retained_fraction": 1.0,
+          "shortest_quartile_max_length": 20.0,
+          "shortest_quartile_n": 7037,
+          "shortest_quartile_retention": 1.0,
+          "dropped_examples_first_10": [],
+          "features": {
+            "spectral_entropy": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.021894690825052448,
+                0.21174830794347824,
+                0.5344705247330588,
+                0.8809816861741979,
+                0.9964620462713395
+              ],
+              "constant_on_finite_rows": false
+            },
+            "trend_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                0.5169733692384363,
+                0.984597009222909,
+                0.9992932302363532,
+                0.9999145889367416
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seasonal_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "constant_on_finite_rows": true
+            },
+            "acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.45165962610678545,
+                0.23503200403682373,
+                0.8649890218637764,
+                0.9627509439865553,
+                0.9943386751737227
+              ],
+              "constant_on_finite_rows": false
+            },
+            "x_acf10": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.01971926793584308,
+                0.2668909594992981,
+                2.1220419912152795,
+                5.832818129584769,
+                9.310317313765323
+              ],
+              "constant_on_finite_rows": false
+            },
+            "diff1_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.8053601237389446,
+                -0.5060441896412523,
+                0.1763968487795443,
+                0.8693020706435866,
+                0.9817178979652503
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seas_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "constant_on_finite_rows": true
+            },
+            "spike": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                7.678506448149457e-12,
+                1.8326350929204083e-09,
+                1.7756229880364147e-06,
+                0.002984223006230153,
+                0.027051646286211484
+              ],
+              "constant_on_finite_rows": false
+            },
+            "lumpiness": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                3.770023006810961e-05,
+                0.003726301908754214,
+                0.8603199666879299,
+                9.625575911246674
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_level_shift": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.13471074062718041,
+                0.5252277524922837,
+                1.2501476823252613,
+                2.5488838203126565,
+                5.461880032958931
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_var_shift": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0018666436176215662,
+                0.01872033276694986,
+                0.2375514919974636,
+                2.6895015796471218,
+                15.971996768843486
+              ],
+              "constant_on_finite_rows": false
+            },
+            "crossing_points": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                1.0,
+                1.0,
+                12.0,
+                74.0
+              ],
+              "constant_on_finite_rows": false
+            }
+          },
+          "passes_pilot_retention_criteria": true,
+          "seasonal_period": null,
+          "window_size": 5,
+          "minimum_length_for_all_features": 11
+        },
+        "default_window": {
+          "n_input": 23000,
+          "n_retained": 17824,
+          "n_dropped": 5176,
+          "dropped_ids_sha256": "b018c82c0a486db01b341c3d275777eb93c86cf812765ed405e47950427cf273",
+          "retained_fraction": 0.7749565217391304,
+          "shortest_quartile_max_length": 20.0,
+          "shortest_quartile_n": 7037,
+          "shortest_quartile_retention": 0.26445928662782436,
+          "dropped_examples_first_10": [
+            {
+              "id": "Y6",
+              "length": 19,
+              "undefined_features": [
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "Y7",
+              "length": 19,
+              "undefined_features": [
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "Y8",
+              "length": 19,
+              "undefined_features": [
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "Y9",
+              "length": 19,
+              "undefined_features": [
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "Y10",
+              "length": 19,
+              "undefined_features": [
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "Y11",
+              "length": 19,
+              "undefined_features": [
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "Y12",
+              "length": 19,
+              "undefined_features": [
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "Y13",
+              "length": 19,
+              "undefined_features": [
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "Y14",
+              "length": 19,
+              "undefined_features": [
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "Y15",
+              "length": 19,
+              "undefined_features": [
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            }
+          ],
+          "features": {
+            "spectral_entropy": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.021894690825052448,
+                0.21174830794347824,
+                0.5344705247330588,
+                0.8809816861741979,
+                0.9964620462713395
+              ],
+              "constant_on_finite_rows": false
+            },
+            "trend_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                0.5169733692384363,
+                0.984597009222909,
+                0.9992932302363532,
+                0.9999145889367416
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seasonal_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "constant_on_finite_rows": true
+            },
+            "acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.45165962610678545,
+                0.23503200403682373,
+                0.8649890218637764,
+                0.9627509439865553,
+                0.9943386751737227
+              ],
+              "constant_on_finite_rows": false
+            },
+            "x_acf10": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.01971926793584308,
+                0.2668909594992981,
+                2.1220419912152795,
+                5.832818129584769,
+                9.310317313765323
+              ],
+              "constant_on_finite_rows": false
+            },
+            "diff1_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.8053601237389446,
+                -0.5060441896412523,
+                0.1763968487795443,
+                0.8693020706435866,
+                0.9817178979652503
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seas_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "constant_on_finite_rows": true
+            },
+            "spike": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                7.678506448149457e-12,
+                1.8326350929204083e-09,
+                1.7756229880364147e-06,
+                0.002984223006230153,
+                0.027051646286211484
+              ],
+              "constant_on_finite_rows": false
+            },
+            "lumpiness": {
+              "n_undefined": 5176,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                1.4264763634023609e-05,
+                0.007124537285374204,
+                0.648334191361437,
+                5.251136219052166
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_level_shift": {
+              "n_undefined": 5176,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                2.664535259100376e-16,
+                0.40656853265231585,
+                1.429917311541319,
+                2.2649840160756645,
+                5.190257575100735
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_var_shift": {
+              "n_undefined": 5176,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                3.1645041089989334e-05,
+                0.0336551660641722,
+                0.33231006060518575,
+                2.160358932316985,
+                8.382262829103473
+              ],
+              "constant_on_finite_rows": false
+            },
+            "crossing_points": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                1.0,
+                1.0,
+                12.0,
+                74.0
+              ],
+              "constant_on_finite_rows": false
+            }
+          },
+          "passes_pilot_retention_criteria": false,
+          "seasonal_period": null,
+          "window_size": 10,
+          "minimum_length_for_all_features": 20
+        }
+      }
+    },
+    "Quarterly": {
+      "source": {
+        "url": "https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Quarterly-train.csv",
+        "sha256": "4450678cd493aa965c14bde984a5b62a66d8c3b2f7af1e53779bc91ff008ccdc",
+        "split": "train"
+      },
+      "recommended_recipe": "primary",
+      "m4_declared_seasonality": 4,
+      "n_series": 24000,
+      "original_length_quantiles_min_p25_p50_p75_max": [
+        16.0,
+        62.0,
+        88.0,
+        115.0,
+        866.0
+      ],
+      "effective_length_quantiles_min_p25_p50_p75_max": [
+        16.0,
+        62.0,
+        88.0,
+        115.0,
+        512.0
+      ],
+      "n_capped": 43,
+      "recipes": {
+        "primary": {
+          "n_input": 24000,
+          "n_retained": 24000,
+          "n_dropped": 0,
+          "dropped_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "retained_fraction": 1.0,
+          "shortest_quartile_max_length": 62.0,
+          "shortest_quartile_n": 6075,
+          "shortest_quartile_retention": 1.0,
+          "dropped_examples_first_10": [],
+          "features": {
+            "spectral_entropy": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.04434913565793392,
+                0.17034176109423996,
+                0.4470522286164831,
+                0.8758588234317479,
+                0.9796330290099706
+              ],
+              "constant_on_finite_rows": false
+            },
+            "trend_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.09602354170796323,
+                0.4000779255987077,
+                0.9808996654473613,
+                0.9998986148472343,
+                0.9999897981816621
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seasonal_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                4.300421950975686e-05,
+                0.0014810932707702087,
+                0.07154268639658606,
+                0.9195410214166527,
+                0.9978279620382282
+              ],
+              "constant_on_finite_rows": false
+            },
+            "acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.5690074840097215,
+                0.0302988045580455,
+                0.9241730657607035,
+                0.9879038770203987,
+                0.9957613675960992
+              ],
+              "constant_on_finite_rows": false
+            },
+            "x_acf10": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.017774955782425286,
+                0.20324920721376574,
+                4.917064583099506,
+                8.597886044503134,
+                9.529669572018815
+              ],
+              "constant_on_finite_rows": false
+            },
+            "diff1_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.980157132130657,
+                -0.7736588197525895,
+                -0.10276990857313358,
+                0.8150990095416901,
+                0.9772748337035709
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seas_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.494828411612322,
+                -0.04583015843774494,
+                0.776453640760546,
+                0.9490317876959338,
+                0.9830152776862292
+              ],
+              "constant_on_finite_rows": false
+            },
+            "spike": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                1.6859229664191155e-14,
+                4.322729336732178e-12,
+                2.592464245487664e-07,
+                0.0006391971798289491,
+                0.009679738654591253
+              ],
+              "constant_on_finite_rows": false
+            },
+            "lumpiness": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                5.526092115529618e-07,
+                0.0020376080475748275,
+                1.1755877100037826,
+                9.330212585349305
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_level_shift": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.11429985063450764,
+                0.19557116101771918,
+                0.9928702285653906,
+                3.319130922903945,
+                5.67441583282276
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_var_shift": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0009110697865959416,
+                0.0038750456739594097,
+                0.2570358818151518,
+                5.5221814785503724,
+                20.794817403447325
+              ],
+              "constant_on_finite_rows": false
+            },
+            "crossing_points": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                1.0,
+                6.0,
+                48.0,
+                101.0
+              ],
+              "constant_on_finite_rows": false
+            }
+          },
+          "passes_pilot_retention_criteria": true,
+          "seasonal_period": 4,
+          "window_size": 4,
+          "minimum_length_for_all_features": 11
+        }
+      }
+    },
+    "Monthly": {
+      "source": {
+        "url": "https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Monthly-train.csv",
+        "sha256": "63aaa56198b4a22279a2fec541f56921f3bed6d8e0f84e550206df9276f2e9b9",
+        "split": "train"
+      },
+      "recommended_recipe": "primary",
+      "m4_declared_seasonality": 12,
+      "n_series": 48000,
+      "original_length_quantiles_min_p25_p50_p75_max": [
+        42.0,
+        82.0,
+        202.0,
+        306.0,
+        2794.0
+      ],
+      "effective_length_quantiles_min_p25_p50_p75_max": [
+        42.0,
+        82.0,
+        202.0,
+        306.0,
+        512.0
+      ],
+      "n_capped": 1199,
+      "recipes": {
+        "primary": {
+          "n_input": 48000,
+          "n_retained": 48000,
+          "n_dropped": 0,
+          "dropped_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "retained_fraction": 1.0,
+          "shortest_quartile_max_length": 82.0,
+          "shortest_quartile_n": 12522,
+          "shortest_quartile_retention": 1.0,
+          "dropped_examples_first_10": [],
+          "features": {
+            "spectral_entropy": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0167447836074635,
+                0.13194417742869008,
+                0.38551603789615485,
+                0.8945520618696132,
+                0.9991860586068484
+              ],
+              "constant_on_finite_rows": false
+            },
+            "trend_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                0.1086400220299175,
+                0.9561362071868214,
+                0.9994996561746367,
+                0.9999760897217636
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seasonal_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0002122428472255411,
+                0.005395708766159844,
+                0.19488377547107122,
+                0.9472374323132378,
+                0.9943109268890994
+              ],
+              "constant_on_finite_rows": false
+            },
+            "acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.49012794566265605,
+                -0.007871295834668328,
+                0.9518498646931793,
+                0.9946795555246704,
+                0.9983448906972326
+              ],
+              "constant_on_finite_rows": false
+            },
+            "x_acf10": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0003184255969762052,
+                0.1213668038608073,
+                6.1961148532884245,
+                9.336251528927532,
+                9.682518094677132
+              ],
+              "constant_on_finite_rows": false
+            },
+            "diff1_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.8192156979223478,
+                -0.6029563686355659,
+                -0.05587140552325902,
+                0.961783475035952,
+                0.9950339206902419
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seas_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.6480288116663289,
+                -0.16421550648779448,
+                0.6687722284279218,
+                0.9297438043600676,
+                0.9577439985570829
+              ],
+              "constant_on_finite_rows": false
+            },
+            "spike": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                1.114706103084737e-13,
+                1.0451575703953028e-11,
+                2.3670004491820894e-07,
+                0.0006277400431215154,
+                0.005416161368171428
+              ],
+              "constant_on_finite_rows": false
+            },
+            "lumpiness": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                4.9265906252289705e-08,
+                5.040733980635952e-06,
+                0.007655439755266868,
+                1.3206986929597542,
+                19.312189211022556
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_level_shift": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.11905731814211984,
+                0.2626309356159392,
+                1.166884341598553,
+                3.04145088515451,
+                5.976983692721715
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_var_shift": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0011297369834148974,
+                0.010439339816616154,
+                0.42136995020066026,
+                4.401429164074887,
+                28.846626999301233
+              ],
+              "constant_on_finite_rows": false
+            },
+            "crossing_points": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                1.0,
+                13.0,
+                93.0,
+                230.0
+              ],
+              "constant_on_finite_rows": false
+            }
+          },
+          "passes_pilot_retention_criteria": true,
+          "seasonal_period": 12,
+          "window_size": 12,
+          "minimum_length_for_all_features": 24
+        }
+      }
+    },
+    "Weekly": {
+      "source": {
+        "url": "https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Weekly-train.csv",
+        "sha256": "d478d3f6ed673e6ed3c2cb0fbed5425f72eedd51318ebebeb0b5ecfcefc37714",
+        "split": "train"
+      },
+      "recommended_recipe": "m4_nonseasonal",
+      "m4_declared_seasonality": 1,
+      "n_series": 359,
+      "original_length_quantiles_min_p25_p50_p75_max": [
+        80.0,
+        379.0,
+        934.0,
+        1603.0,
+        2597.0
+      ],
+      "effective_length_quantiles_min_p25_p50_p75_max": [
+        80.0,
+        379.0,
+        512.0,
+        512.0,
+        512.0
+      ],
+      "n_capped": 249,
+      "recipes": {
+        "primary": {
+          "n_input": 359,
+          "n_retained": 294,
+          "n_dropped": 65,
+          "dropped_ids_sha256": "e46f8ba40849913e09e120ffdee1371349ff6fed67a070c3cb66951f4117abac",
+          "retained_fraction": 0.8189415041782729,
+          "shortest_quartile_max_length": 379.0,
+          "shortest_quartile_n": 97,
+          "shortest_quartile_retention": 0.32989690721649484,
+          "dropped_examples_first_10": [
+            {
+              "id": "W295",
+              "length": 80,
+              "undefined_features": [
+                "seasonal_strength",
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "W296",
+              "length": 80,
+              "undefined_features": [
+                "seasonal_strength",
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "W297",
+              "length": 80,
+              "undefined_features": [
+                "seasonal_strength",
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "W298",
+              "length": 80,
+              "undefined_features": [
+                "seasonal_strength",
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "W299",
+              "length": 80,
+              "undefined_features": [
+                "seasonal_strength",
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "W300",
+              "length": 80,
+              "undefined_features": [
+                "seasonal_strength",
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "W301",
+              "length": 80,
+              "undefined_features": [
+                "seasonal_strength",
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "W302",
+              "length": 80,
+              "undefined_features": [
+                "seasonal_strength",
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "W303",
+              "length": 80,
+              "undefined_features": [
+                "seasonal_strength",
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            },
+            {
+              "id": "W304",
+              "length": 80,
+              "undefined_features": [
+                "seasonal_strength",
+                "lumpiness",
+                "max_level_shift",
+                "max_var_shift"
+              ]
+            }
+          ],
+          "features": {
+            "spectral_entropy": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.050638917279432885,
+                0.12429770570221939,
+                0.34417678304809113,
+                0.8215134570188819,
+                0.9125902598252845
+              ],
+              "constant_on_finite_rows": false
+            },
+            "trend_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.05798340450276118,
+                0.31819904838133656,
+                0.920244464686647,
+                0.9975473295116396,
+                0.9980017349173163
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seasonal_strength": {
+              "n_undefined": 65,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.02744639274053684,
+                0.03679090875816161,
+                0.15919618874148211,
+                0.9194908873922688,
+                0.9545029958111279
+              ],
+              "constant_on_finite_rows": false
+            },
+            "acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.15145057181813565,
+                0.4055467335141392,
+                0.9832136360067721,
+                0.9969019708739627,
+                0.9984946571905945
+              ],
+              "constant_on_finite_rows": false
+            },
+            "x_acf10": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.05959070867376631,
+                0.4493765419202262,
+                8.405427155064716,
+                9.60086385188077,
+                9.748211407814221
+              ],
+              "constant_on_finite_rows": false
+            },
+            "diff1_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.6740393231580777,
+                -0.4700814428205455,
+                -0.1056708014125725,
+                0.5250510700763785,
+                0.8918705571339149
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seas_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.3540659438024532,
+                -0.2182213799343046,
+                0.47750426908028326,
+                0.7539930154364232,
+                0.7991601399878554
+              ],
+              "constant_on_finite_rows": false
+            },
+            "spike": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                5.673179656709807e-11,
+                1.0832913728088824e-10,
+                1.0315119906700113e-07,
+                0.0001789177948184415,
+                0.00035704920739997216
+              ],
+              "constant_on_finite_rows": false
+            },
+            "lumpiness": {
+              "n_undefined": 65,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                9.300123009682222e-06,
+                3.710584156805855e-05,
+                0.013689054205351537,
+                1.3298903029053606,
+                4.205689659355406
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_level_shift": {
+              "n_undefined": 65,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.45171802466757316,
+                0.4806554881838487,
+                1.5032501928909898,
+                2.7610234191599465,
+                3.023323774724774
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_var_shift": {
+              "n_undefined": 65,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.014998437434387224,
+                0.018888841540889482,
+                0.5458315579051194,
+                3.954145034520671,
+                6.166112643592226
+              ],
+              "constant_on_finite_rows": false
+            },
+            "crossing_points": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                1.0,
+                3.0,
+                20.0,
+                135.9800000000003,
+                201.0
+              ],
+              "constant_on_finite_rows": false
+            }
+          },
+          "passes_pilot_retention_criteria": false,
+          "seasonal_period": 52,
+          "window_size": 52,
+          "minimum_length_for_all_features": 104
+        },
+        "m4_nonseasonal": {
+          "n_input": 359,
+          "n_retained": 359,
+          "n_dropped": 0,
+          "dropped_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "retained_fraction": 1.0,
+          "shortest_quartile_max_length": 379.0,
+          "shortest_quartile_n": 97,
+          "shortest_quartile_retention": 1.0,
+          "dropped_examples_first_10": [],
+          "features": {
+            "spectral_entropy": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.050638917279432885,
+                0.12429770570221939,
+                0.34417678304809113,
+                0.8215134570188819,
+                0.9125902598252845
+              ],
+              "constant_on_finite_rows": false
+            },
+            "trend_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.043415147536994714,
+                0.19221324821229227,
+                0.9027775471310352,
+                0.9967956867498915,
+                0.9978498523662638
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seasonal_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "constant_on_finite_rows": true
+            },
+            "acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.15145057181813565,
+                0.4055467335141392,
+                0.9832136360067721,
+                0.9969019708739627,
+                0.9984946571905945
+              ],
+              "constant_on_finite_rows": false
+            },
+            "x_acf10": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.05959070867376631,
+                0.4493765419202262,
+                8.405427155064716,
+                9.60086385188077,
+                9.748211407814221
+              ],
+              "constant_on_finite_rows": false
+            },
+            "diff1_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.6740393231580777,
+                -0.4700814428205455,
+                -0.1056708014125725,
+                0.5250510700763785,
+                0.8918705571339149
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seas_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "constant_on_finite_rows": true
+            },
+            "spike": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                7.82029792390543e-11,
+                1.2598357543436858e-10,
+                1.7003357004121549e-07,
+                0.0001789177948184415,
+                0.0005704647377801591
+              ],
+              "constant_on_finite_rows": false
+            },
+            "lumpiness": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                9.451460799537805e-07,
+                2.0361302633821885e-06,
+                0.004624977183431588,
+                0.9759201042384071,
+                16.214061257391183
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_level_shift": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.1566954716432608,
+                0.1941639434161091,
+                1.4767206558613848,
+                4.1272763136396335,
+                4.696523000846288
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_var_shift": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.004258649067357068,
+                0.006626913501616291,
+                0.5277020608570466,
+                5.4535716609181595,
+                27.451624349371226
+              ],
+              "constant_on_finite_rows": false
+            },
+            "crossing_points": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                1.0,
+                3.0,
+                20.0,
+                135.9800000000003,
+                201.0
+              ],
+              "constant_on_finite_rows": false
+            }
+          },
+          "passes_pilot_retention_criteria": true,
+          "seasonal_period": null,
+          "window_size": 10,
+          "minimum_length_for_all_features": 20
+        }
+      }
+    },
+    "Daily": {
+      "source": {
+        "url": "https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Daily-train.csv",
+        "sha256": "78e94591c60c06309f1e544fd7b2ccba28f3616b01913dd336a1d1d98483a1ec",
+        "split": "train"
+      },
+      "recommended_recipe": "primary",
+      "m4_declared_seasonality": 1,
+      "n_series": 4227,
+      "original_length_quantiles_min_p25_p50_p75_max": [
+        93.0,
+        323.0,
+        2940.0,
+        4197.0,
+        9919.0
+      ],
+      "effective_length_quantiles_min_p25_p50_p75_max": [
+        93.0,
+        323.0,
+        512.0,
+        512.0,
+        512.0
+      ],
+      "n_capped": 2944,
+      "recipes": {
+        "primary": {
+          "n_input": 4227,
+          "n_retained": 4227,
+          "n_dropped": 0,
+          "dropped_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "retained_fraction": 1.0,
+          "shortest_quartile_max_length": 323.0,
+          "shortest_quartile_n": 1060,
+          "shortest_quartile_retention": 1.0,
+          "dropped_examples_first_10": [],
+          "features": {
+            "spectral_entropy": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.06906238165801136,
+                0.12215984754619146,
+                0.2821370030473369,
+                0.5962642730404588,
+                0.9999930321175979
+              ],
+              "constant_on_finite_rows": false
+            },
+            "trend_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.20311658765877894,
+                0.893033021723272,
+                0.9895123718635055,
+                0.998482231139766,
+                0.9994795395161854
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seasonal_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0002860369201646007,
+                0.001451461927821518,
+                0.011372406338388985,
+                0.08856755037264268,
+                0.21223991851838753
+              ],
+              "constant_on_finite_rows": false
+            },
+            "acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.0005768390204587475,
+                0.8859017669246283,
+                0.9865541055953042,
+                0.9959461008883258,
+                0.9984433011900817
+              ],
+              "constant_on_finite_rows": false
+            },
+            "x_acf10": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                1.0525825739103708e-07,
+                3.5334606796420593,
+                8.668913999714903,
+                9.562442708463893,
+                9.686089228609584
+              ],
+              "constant_on_finite_rows": false
+            },
+            "diff1_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.5272179362062412,
+                -0.23124238038016545,
+                0.018385358421458838,
+                0.22702234559576978,
+                0.6532430887880593
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seas_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.042051196473694055,
+                0.4606320103429476,
+                0.9124373190894478,
+                0.9720142279482625,
+                0.979591372801704
+              ],
+              "constant_on_finite_rows": false
+            },
+            "spike": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                5.780011685895926e-12,
+                3.2956299672927925e-11,
+                3.1871816953142533e-09,
+                3.406761568860467e-06,
+                0.002496353158944995
+              ],
+              "constant_on_finite_rows": false
+            },
+            "lumpiness": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                4.117777145493692e-08,
+                1.058070643147406e-05,
+                0.0007325811953911092,
+                0.19441743243796245,
+                39.079060625360775
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_level_shift": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.20993747138393035,
+                0.3402979054955375,
+                0.9432541506429967,
+                3.8133400848346453,
+                6.986276241613777
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_var_shift": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.007306291269725054,
+                0.02292768713387704,
+                0.19066823602585792,
+                4.947831887594944,
+                47.61823827494469
+              ],
+              "constant_on_finite_rows": false
+            },
+            "crossing_points": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                1.0,
+                17.0,
+                49.0,
+                95.0
+              ],
+              "constant_on_finite_rows": false
+            }
+          },
+          "passes_pilot_retention_criteria": true,
+          "seasonal_period": 7,
+          "window_size": 7,
+          "minimum_length_for_all_features": 14
+        },
+        "m4_nonseasonal": {
+          "n_input": 4227,
+          "n_retained": 4227,
+          "n_dropped": 0,
+          "dropped_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "retained_fraction": 1.0,
+          "shortest_quartile_max_length": 323.0,
+          "shortest_quartile_n": 1060,
+          "shortest_quartile_retention": 1.0,
+          "dropped_examples_first_10": [],
+          "features": {
+            "spectral_entropy": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.06906238165801136,
+                0.12215984754619146,
+                0.2821370030473369,
+                0.5962642730404588,
+                0.9999930321175979
+              ],
+              "constant_on_finite_rows": false
+            },
+            "trend_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.04157942199823317,
+                0.6049422681606673,
+                0.9394230544683251,
+                0.9888243217851052,
+                0.9941316867987117
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seasonal_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "constant_on_finite_rows": true
+            },
+            "acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.0005768390204587475,
+                0.8859017669246283,
+                0.9865541055953042,
+                0.9959461008883258,
+                0.9984433011900817
+              ],
+              "constant_on_finite_rows": false
+            },
+            "x_acf10": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                1.0525825739103708e-07,
+                3.5334606796420593,
+                8.668913999714903,
+                9.562442708463893,
+                9.686089228609584
+              ],
+              "constant_on_finite_rows": false
+            },
+            "diff1_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.5272179362062412,
+                -0.23124238038016545,
+                0.018385358421458838,
+                0.22702234559576978,
+                0.6532430887880593
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seas_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "constant_on_finite_rows": true
+            },
+            "spike": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                3.717881672049901e-10,
+                1.3781313985580312e-09,
+                6.814960767911746e-08,
+                1.9254370804731937e-05,
+                0.004121880373612427
+              ],
+              "constant_on_finite_rows": false
+            },
+            "lumpiness": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                2.0949616818267506e-07,
+                1.6798774262168662e-05,
+                0.001063197909882194,
+                0.32811809340893683,
+                30.04315550838901
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_level_shift": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.2747309123432522,
+                0.37662088947297584,
+                1.0391212957628704,
+                3.7032378013633562,
+                5.886068574357244
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_var_shift": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.008633410030909866,
+                0.02803055465432695,
+                0.21691290316872752,
+                4.716162432195522,
+                35.11151408998939
+              ],
+              "constant_on_finite_rows": false
+            },
+            "crossing_points": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                1.0,
+                17.0,
+                49.0,
+                95.0
+              ],
+              "constant_on_finite_rows": false
+            }
+          },
+          "passes_pilot_retention_criteria": true,
+          "seasonal_period": null,
+          "window_size": 10,
+          "minimum_length_for_all_features": 20
+        }
+      }
+    },
+    "Hourly": {
+      "source": {
+        "url": "https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Hourly-train.csv",
+        "sha256": "ea59b7783573c49077a835ab6465c7d66f1474783360f310988a9a737fbca62f",
+        "split": "train"
+      },
+      "recommended_recipe": "primary",
+      "m4_declared_seasonality": 24,
+      "n_series": 414,
+      "original_length_quantiles_min_p25_p50_p75_max": [
+        700.0,
+        700.0,
+        960.0,
+        960.0,
+        960.0
+      ],
+      "effective_length_quantiles_min_p25_p50_p75_max": [
+        512.0,
+        512.0,
+        512.0,
+        512.0,
+        512.0
+      ],
+      "n_capped": 414,
+      "recipes": {
+        "primary": {
+          "n_input": 414,
+          "n_retained": 414,
+          "n_dropped": 0,
+          "dropped_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "retained_fraction": 1.0,
+          "shortest_quartile_max_length": 512.0,
+          "shortest_quartile_n": 414,
+          "shortest_quartile_retention": 1.0,
+          "dropped_examples_first_10": [],
+          "features": {
+            "spectral_entropy": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.13679128225627873,
+                0.2015268140234043,
+                0.32867149989421873,
+                0.6357010534659001,
+                0.8152874288604777
+              ],
+              "constant_on_finite_rows": false
+            },
+            "trend_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0,
+                0.0,
+                0.689887612252449,
+                0.9971706610572056,
+                0.997865587070928
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seasonal_strength": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.0010522157470085336,
+                0.004832997710320134,
+                0.9429729584384348,
+                0.9997337962426824,
+                0.9998337885920283
+              ],
+              "constant_on_finite_rows": false
+            },
+            "acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.5697400510799007,
+                0.6791002293495418,
+                0.9574973909731388,
+                0.9704319472467243,
+                0.971937208762487
+              ],
+              "constant_on_finite_rows": false
+            },
+            "x_acf10": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.4805426574029996,
+                0.7384989902972786,
+                3.2442321155949214,
+                3.9477612979366614,
+                6.026580130949532
+              ],
+              "constant_on_finite_rows": false
+            },
+            "diff1_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.357699768041832,
+                -0.1829792198736623,
+                0.8219755659476011,
+                0.9405150112688085,
+                0.9492845964924287
+              ],
+              "constant_on_finite_rows": false
+            },
+            "seas_acf1": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                -0.6760498868081187,
+                0.21352757899201635,
+                0.8814299863226299,
+                0.953774867815063,
+                0.9544133878053331
+              ],
+              "constant_on_finite_rows": false
+            },
+            "spike": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                1.585000168759972e-13,
+                5.083863630662691e-13,
+                3.007795303997011e-08,
+                7.122554261213026e-06,
+                4.983829462530821e-05
+              ],
+              "constant_on_finite_rows": false
+            },
+            "lumpiness": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                7.530541227054471e-05,
+                0.0001263482769497894,
+                0.04178661816526696,
+                1.062454735880145,
+                2.849000702505842
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_level_shift": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.013316200901762172,
+                0.02718337548276088,
+                0.6029022111006472,
+                2.0999988590472336,
+                2.635386923092935
+              ],
+              "constant_on_finite_rows": false
+            },
+            "max_var_shift": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                0.020505597627935357,
+                0.024540500253416947,
+                0.6880654106936317,
+                4.975026629539981,
+                8.419625951956752
+              ],
+              "constant_on_finite_rows": false
+            },
+            "crossing_points": {
+              "n_undefined": 0,
+              "finite_quantiles_min_p01_p50_p99_max": [
+                25.0,
+                37.0,
+                43.0,
+                95.61000000000001,
+                163.0
+              ],
+              "constant_on_finite_rows": false
+            }
+          },
+          "passes_pilot_retention_criteria": true,
+          "seasonal_period": 24,
+          "window_size": 24,
+          "minimum_length_for_all_features": 48
+        }
+      }
+    }
+  }
+}

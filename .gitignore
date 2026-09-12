@@ -222,3 +222,19 @@ lightning_logs/
 .claude/
 .codex/
 .agents/
+
+# Reproducible feature-coverage caches and detailed run traces.
+# Keep scripts, summary JSON, reports, and small report figures reviewable.
+/benchmarks/data/feature_coverage_pilot/**/*.parquet
+/benchmarks/data/feature_coverage_pilot/**/*_space.json
+/benchmarks/data/feature_coverage_validation/*_details.json.gz
+/benchmarks/data/feature_coverage_smoke/*_details.json.gz
+/benchmarks/data/feature_coverage_hourly/*_details.json.gz
+/benchmarks/data/feature_coverage_hourly_splits/*_details.json.gz
+/benchmarks/data/feature_coverage_hourly_composition/*_details.json.gz
+/benchmarks/data/feature_coverage_traffic_composition/*_details.json.gz
+/benchmarks/data/feature_coverage_cross_frequency/*_details.json.gz
+/benchmarks/data/feature_coverage_third_panels/*_details.json.gz
+/benchmarks/data/feature_coverage_seasonal_composition/*_details.json.gz
+/benchmarks/data/feature_coverage_seasonal_preset/*_details.json.gz
+/benchmarks/data/feature_coverage_pretraining_seasonal_default/*_details.json.gz

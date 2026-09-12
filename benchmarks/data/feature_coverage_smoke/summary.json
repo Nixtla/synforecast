@@ -1,0 +1,4505 @@
+{
+  "environment": {
+    "command": "benchmarks/benchmark_feature_coverage.py --smoke --seed 20260913",
+    "timestamp_utc": "2026-09-10T11:56:15+00:00",
+    "python": "3.10.12",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "machine": "x86_64",
+    "cpu_count": 20,
+    "package_versions": {
+      "synforecast": "0.1.0",
+      "numpy": "2.2.6",
+      "pandas": "2.3.3",
+      "polars": "1.35.2",
+      "scipy": "1.15.3",
+      "scikit-learn": "1.7.2",
+      "statsforecast": "2.1.1",
+      "mlforecast": "1.1.0",
+      "neuralforecast": "3.1.7",
+      "utilsforecast": "0.2.15",
+      "datasetsforecast": "1.0.1",
+      "torch": "2.13.0+cpu"
+    },
+    "git_commit": "618dfac73d687d30196adbfe27361dcf34e17bf4",
+    "git_dirty": true,
+    "git_diff_sha256": "e580664b80f88c6af1b35ca968efd59bc0739c688f6fcf5c791b2d2f6b902d46"
+  },
+  "schema": "native_v1",
+  "schema_frozen": true,
+  "seed": 20260913,
+  "max_length": 512,
+  "protocol": "one generation seed; 64 real fitting/generation lengths, 32 calibration and 32 evaluation queries; exact length/count matching on shared complete IDs; q50/q90/q95 real-calibrated Euclidean coverage; exploratory real-fit PCA grids",
+  "scope": "small benchmark, not full M4 or repeated-generator uncertainty",
+  "groups": {
+    "Yearly": {
+      "source": {
+        "url": "https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Yearly-train.csv",
+        "sha256": "6aa668d4f04654c0bf5f07b266a51c556f0df2faf4709f852653755396a249e4",
+        "split": "train"
+      },
+      "extraction": {
+        "schema": "native_v1",
+        "features": [
+          "spectral_entropy",
+          "trend_strength",
+          "seasonal_strength",
+          "acf1",
+          "x_acf10",
+          "diff1_acf1",
+          "seas_acf1",
+          "spike",
+          "lumpiness",
+          "max_level_shift",
+          "max_var_shift",
+          "crossing_points"
+        ],
+        "seasonal_period": null,
+        "window_size": 5,
+        "frequency": "YS"
+      },
+      "original_lengths": {
+        "Y852": 20,
+        "Y995": 20,
+        "Y1051": 40,
+        "Y1334": 21,
+        "Y1428": 21,
+        "Y1726": 29,
+        "Y1772": 23,
+        "Y1980": 15,
+        "Y2015": 29,
+        "Y2249": 29,
+        "Y2252": 15,
+        "Y2283": 15,
+        "Y2735": 15,
+        "Y2923": 29,
+        "Y3072": 15,
+        "Y3252": 19,
+        "Y3299": 44,
+        "Y3419": 34,
+        "Y3978": 16,
+        "Y3979": 16,
+        "Y4176": 48,
+        "Y4589": 20,
+        "Y4594": 20,
+        "Y4792": 20,
+        "Y4906": 40,
+        "Y5372": 40,
+        "Y5634": 40,
+        "Y6044": 40,
+        "Y6137": 40,
+        "Y6312": 20,
+        "Y6818": 40,
+        "Y6890": 40,
+        "Y7328": 20,
+        "Y7425": 40,
+        "Y7441": 20,
+        "Y7507": 20,
+        "Y7758": 21,
+        "Y7839": 21,
+        "Y7903": 41,
+        "Y8033": 15,
+        "Y8083": 29,
+        "Y8259": 29,
+        "Y8348": 29,
+        "Y8984": 29,
+        "Y9078": 33,
+        "Y9351": 17,
+        "Y9378": 34,
+        "Y9468": 21,
+        "Y9562": 27,
+        "Y9629": 15,
+        "Y9724": 15,
+        "Y9729": 15,
+        "Y9746": 15,
+        "Y9757": 15,
+        "Y9759": 15,
+        "Y9810": 15,
+        "Y10129": 24,
+        "Y10283": 22,
+        "Y10339": 37,
+        "Y10618": 40,
+        "Y10633": 111,
+        "Y10709": 15,
+        "Y11452": 19,
+        "Y11563": 22,
+        "Y11682": 80,
+        "Y12281": 51,
+        "Y12399": 42,
+        "Y12468": 15,
+        "Y12487": 29,
+        "Y12556": 29,
+        "Y12655": 15,
+        "Y12865": 29,
+        "Y13344": 22,
+        "Y13513": 17,
+        "Y13544": 34,
+        "Y13600": 19,
+        "Y13654": 35,
+        "Y13710": 36,
+        "Y13806": 32,
+        "Y13851": 15,
+        "Y15063": 19,
+        "Y15234": 20,
+        "Y15446": 55,
+        "Y15706": 55,
+        "Y15727": 46,
+        "Y15764": 39,
+        "Y15892": 49,
+        "Y16230": 36,
+        "Y16265": 29,
+        "Y16359": 49,
+        "Y16441": 20,
+        "Y16632": 20,
+        "Y16814": 15,
+        "Y17139": 36,
+        "Y17346": 22,
+        "Y17630": 21,
+        "Y17885": 29,
+        "Y17992": 29,
+        "Y18133": 29,
+        "Y18301": 29,
+        "Y18558": 29,
+        "Y18592": 26,
+        "Y18820": 29,
+        "Y18875": 24,
+        "Y19009": 20,
+        "Y19635": 23,
+        "Y19700": 28,
+        "Y20256": 19,
+        "Y20291": 17,
+        "Y20308": 40,
+        "Y20364": 15,
+        "Y20387": 16,
+        "Y20427": 54,
+        "Y20477": 15,
+        "Y20972": 15,
+        "Y21137": 24,
+        "Y21292": 33,
+        "Y21442": 32,
+        "Y21465": 32,
+        "Y21558": 22,
+        "Y21672": 15,
+        "Y21740": 15,
+        "Y21939": 15,
+        "Y21966": 15,
+        "Y22496": 26,
+        "Y22517": 26,
+        "Y22644": 24,
+        "Y22791": 13
+      },
+      "effective_lengths": {
+        "Y852": 20,
+        "Y995": 20,
+        "Y1051": 40,
+        "Y1334": 21,
+        "Y1428": 21,
+        "Y1726": 29,
+        "Y1772": 23,
+        "Y1980": 15,
+        "Y2015": 29,
+        "Y2249": 29,
+        "Y2252": 15,
+        "Y2283": 15,
+        "Y2735": 15,
+        "Y2923": 29,
+        "Y3072": 15,
+        "Y3252": 19,
+        "Y3299": 44,
+        "Y3419": 34,
+        "Y3978": 16,
+        "Y3979": 16,
+        "Y4176": 48,
+        "Y4589": 20,
+        "Y4594": 20,
+        "Y4792": 20,
+        "Y4906": 40,
+        "Y5372": 40,
+        "Y5634": 40,
+        "Y6044": 40,
+        "Y6137": 40,
+        "Y6312": 20,
+        "Y6818": 40,
+        "Y6890": 40,
+        "Y7328": 20,
+        "Y7425": 40,
+        "Y7441": 20,
+        "Y7507": 20,
+        "Y7758": 21,
+        "Y7839": 21,
+        "Y7903": 41,
+        "Y8033": 15,
+        "Y8083": 29,
+        "Y8259": 29,
+        "Y8348": 29,
+        "Y8984": 29,
+        "Y9078": 33,
+        "Y9351": 17,
+        "Y9378": 34,
+        "Y9468": 21,
+        "Y9562": 27,
+        "Y9629": 15,
+        "Y9724": 15,
+        "Y9729": 15,
+        "Y9746": 15,
+        "Y9757": 15,
+        "Y9759": 15,
+        "Y9810": 15,
+        "Y10129": 24,
+        "Y10283": 22,
+        "Y10339": 37,
+        "Y10618": 40,
+        "Y10633": 111,
+        "Y10709": 15,
+        "Y11452": 19,
+        "Y11563": 22,
+        "Y11682": 80,
+        "Y12281": 51,
+        "Y12399": 42,
+        "Y12468": 15,
+        "Y12487": 29,
+        "Y12556": 29,
+        "Y12655": 15,
+        "Y12865": 29,
+        "Y13344": 22,
+        "Y13513": 17,
+        "Y13544": 34,
+        "Y13600": 19,
+        "Y13654": 35,
+        "Y13710": 36,
+        "Y13806": 32,
+        "Y13851": 15,
+        "Y15063": 19,
+        "Y15234": 20,
+        "Y15446": 55,
+        "Y15706": 55,
+        "Y15727": 46,
+        "Y15764": 39,
+        "Y15892": 49,
+        "Y16230": 36,
+        "Y16265": 29,
+        "Y16359": 49,
+        "Y16441": 20,
+        "Y16632": 20,
+        "Y16814": 15,
+        "Y17139": 36,
+        "Y17346": 22,
+        "Y17630": 21,
+        "Y17885": 29,
+        "Y17992": 29,
+        "Y18133": 29,
+        "Y18301": 29,
+        "Y18558": 29,
+        "Y18592": 26,
+        "Y18820": 29,
+        "Y18875": 24,
+        "Y19009": 20,
+        "Y19635": 23,
+        "Y19700": 28,
+        "Y20256": 19,
+        "Y20291": 17,
+        "Y20308": 40,
+        "Y20364": 15,
+        "Y20387": 16,
+        "Y20427": 54,
+        "Y20477": 15,
+        "Y20972": 15,
+        "Y21137": 24,
+        "Y21292": 33,
+        "Y21442": 32,
+        "Y21465": 32,
+        "Y21558": 22,
+        "Y21672": 15,
+        "Y21740": 15,
+        "Y21939": 15,
+        "Y21966": 15,
+        "Y22496": 26,
+        "Y22517": 26,
+        "Y22644": 24,
+        "Y22791": 13
+      },
+      "retention": {
+        "real": {
+          "n_input": 64,
+          "n_retained": 64,
+          "fraction": 1.0,
+          "shortest_quartile_max_length": 20.0,
+          "shortest_quartile_n": 21,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 0,
+            "trend_strength": 0,
+            "seasonal_strength": 0,
+            "acf1": 0,
+            "x_acf10": 0,
+            "diff1_acf1": 0,
+            "seas_acf1": 0,
+            "spike": 0,
+            "lumpiness": 0,
+            "max_level_shift": 0,
+            "max_var_shift": 0,
+            "crossing_points": 0
+          },
+          "dropped_ids": []
+        },
+        "balanced_pool": {
+          "n_input": 64,
+          "n_retained": 62,
+          "fraction": 0.96875,
+          "shortest_quartile_max_length": 20.0,
+          "shortest_quartile_n": 21,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 2,
+            "trend_strength": 2,
+            "seasonal_strength": 2,
+            "acf1": 2,
+            "x_acf10": 2,
+            "diff1_acf1": 2,
+            "seas_acf1": 2,
+            "spike": 2,
+            "lumpiness": 2,
+            "max_level_shift": 2,
+            "max_var_shift": 2,
+            "crossing_points": 2
+          },
+          "dropped_ids": [
+            "Y13806",
+            "Y17992"
+          ]
+        },
+        "pretraining_pool": {
+          "n_input": 64,
+          "n_retained": 63,
+          "fraction": 0.984375,
+          "shortest_quartile_max_length": 20.0,
+          "shortest_quartile_n": 21,
+          "shortest_quartile_retention": 0.9523809523809523,
+          "undefined_per_feature": {
+            "spectral_entropy": 1,
+            "trend_strength": 1,
+            "seasonal_strength": 1,
+            "acf1": 1,
+            "x_acf10": 1,
+            "diff1_acf1": 1,
+            "seas_acf1": 1,
+            "spike": 1,
+            "lumpiness": 1,
+            "max_level_shift": 1,
+            "max_var_shift": 1,
+            "crossing_points": 1
+          },
+          "dropped_ids": [
+            "Y3072"
+          ]
+        },
+        "synforecast_mar": {
+          "n_input": 64,
+          "n_retained": 64,
+          "fraction": 1.0,
+          "shortest_quartile_max_length": 20.0,
+          "shortest_quartile_n": 21,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 0,
+            "trend_strength": 0,
+            "seasonal_strength": 0,
+            "acf1": 0,
+            "x_acf10": 0,
+            "diff1_acf1": 0,
+            "seas_acf1": 0,
+            "spike": 0,
+            "lumpiness": 0,
+            "max_level_shift": 0,
+            "max_var_shift": 0,
+            "crossing_points": 0
+          },
+          "dropped_ids": []
+        }
+      },
+      "generation_failures": {
+        "balanced_pool": {
+          "Y13806": "Generated length=32, expected=32; non-finite observations=20",
+          "Y17992": "Generated length=29, expected=29; non-finite observations=10"
+        },
+        "pretraining_pool": {
+          "Y3072": "Generated length=15, expected=15; non-finite observations=9"
+        },
+        "synforecast_mar": {}
+      },
+      "n_requested_per_corpus": 64,
+      "n_matched_candidates_per_corpus": 61,
+      "excluded_from_matched_comparison": {
+        "real": [
+          "Y13806",
+          "Y17992",
+          "Y3072"
+        ],
+        "balanced_pool": [
+          "Y13806",
+          "Y17992",
+          "Y3072"
+        ],
+        "pretraining_pool": [
+          "Y13806",
+          "Y17992",
+          "Y3072"
+        ],
+        "synforecast_mar": [
+          "Y13806",
+          "Y17992",
+          "Y3072"
+        ]
+      },
+      "n_reference_fit": 64,
+      "n_calibration": 32,
+      "n_evaluation": 32,
+      "pca_explained_variance": [
+        0.5421070867153712,
+        0.1379171147219919
+      ],
+      "synthetic_reference_constant_departures": {
+        "balanced_pool": {
+          "seasonal_strength": 0,
+          "seas_acf1": 0
+        },
+        "pretraining_pool": {
+          "seasonal_strength": 0,
+          "seas_acf1": 0
+        },
+        "synforecast_mar": {
+          "seasonal_strength": 0,
+          "seas_acf1": 0
+        }
+      },
+      "distances": {
+        "full": {
+          "balanced_pool": {
+            "calibration_radii": [
+              0.8620121478937568,
+              1.7109515818772665,
+              2.557644408902785
+            ],
+            "real_baseline_covered": [
+              0.4375,
+              0.90625,
+              1.0
+            ],
+            "synthetic_covered": [
+              0.09375,
+              0.8125,
+              1.0
+            ],
+            "median_distance": 1.2727400036576797,
+            "real_baseline_median_distance": 0.9165687901219903,
+            "distance_p10_p50_p90": [
+              0.8671697886098622,
+              1.2727400036576797,
+              2.046015427125014
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.4205228714491896,
+              0.9165687901219903,
+              1.6787289327192454
+            ]
+          },
+          "pretraining_pool": {
+            "calibration_radii": [
+              0.8620121478937568,
+              1.7109515818772665,
+              2.557644408902785
+            ],
+            "real_baseline_covered": [
+              0.4375,
+              0.90625,
+              1.0
+            ],
+            "synthetic_covered": [
+              0.1875,
+              0.875,
+              1.0
+            ],
+            "median_distance": 1.3113205942057768,
+            "real_baseline_median_distance": 0.9165687901219903,
+            "distance_p10_p50_p90": [
+              0.7727499626801003,
+              1.3113205942057768,
+              1.7706711039111178
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.4205228714491896,
+              0.9165687901219903,
+              1.6787289327192454
+            ]
+          },
+          "synforecast_mar": {
+            "calibration_radii": [
+              0.8620121478937568,
+              1.7109515818772665,
+              2.557644408902785
+            ],
+            "real_baseline_covered": [
+              0.4375,
+              0.90625,
+              1.0
+            ],
+            "synthetic_covered": [
+              0.0,
+              0.09375,
+              0.875
+            ],
+            "median_distance": 2.1952115156409944,
+            "real_baseline_median_distance": 0.9165687901219903,
+            "distance_p10_p50_p90": [
+              1.7501060541498525,
+              2.1952115156409944,
+              2.595239929271285
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.4205228714491896,
+              0.9165687901219903,
+              1.6787289327192454
+            ]
+          }
+        },
+        "pca2": {
+          "balanced_pool": {
+            "calibration_radii": [
+              0.23257053673821335,
+              0.7018124605662331,
+              0.8332610472732732
+            ],
+            "real_baseline_covered": [
+              0.5625,
+              0.96875,
+              0.96875
+            ],
+            "synthetic_covered": [
+              0.40625,
+              0.9375,
+              0.9375
+            ],
+            "median_distance": 0.28371801577157524,
+            "real_baseline_median_distance": 0.21933781166337413,
+            "distance_p10_p50_p90": [
+              0.11161966919841008,
+              0.28371801577157524,
+              0.5428868904756693
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.0654774736922412,
+              0.21933781166337413,
+              0.407379165421828
+            ]
+          },
+          "pretraining_pool": {
+            "calibration_radii": [
+              0.23257053673821335,
+              0.7018124605662331,
+              0.8332610472732732
+            ],
+            "real_baseline_covered": [
+              0.5625,
+              0.96875,
+              0.96875
+            ],
+            "synthetic_covered": [
+              0.25,
+              0.90625,
+              0.9375
+            ],
+            "median_distance": 0.3085630940867222,
+            "real_baseline_median_distance": 0.21933781166337413,
+            "distance_p10_p50_p90": [
+              0.19069487495415252,
+              0.3085630940867222,
+              0.685152046413105
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.0654774736922412,
+              0.21933781166337413,
+              0.407379165421828
+            ]
+          },
+          "synforecast_mar": {
+            "calibration_radii": [
+              0.23257053673821335,
+              0.7018124605662331,
+              0.8332610472732732
+            ],
+            "real_baseline_covered": [
+              0.5625,
+              0.96875,
+              0.96875
+            ],
+            "synthetic_covered": [
+              0.03125,
+              0.28125,
+              0.3125
+            ],
+            "median_distance": 1.1545345208716324,
+            "real_baseline_median_distance": 0.21933781166337413,
+            "distance_p10_p50_p90": [
+              0.4744628494808727,
+              1.1545345208716324,
+              2.216554136829391
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.0654774736922412,
+              0.21933781166337413,
+              0.407379165421828
+            ]
+          }
+        }
+      },
+      "grids": {
+        "15": {
+          "balanced_pool": {
+            "miscoverage": 0.11555555555555555,
+            "reverse_miscoverage": 0.10666666666666667,
+            "uncovered_real_cell_fraction": 0.6666666666666666,
+            "uncovered_real_series_fraction": 0.640625,
+            "n_synthetic_out_of_range": 20,
+            "synthetic_out_of_range_fraction": 0.32786885245901637,
+            "space_id": "c0bde9c5299f1486f19a6dd8b89bc9135bf0a38ca6e67c3f00fd0a2b7946f2df",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 39,
+            "synthetic_occupied_cells": 37
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.12,
+            "reverse_miscoverage": 0.09333333333333334,
+            "uncovered_real_cell_fraction": 0.6923076923076923,
+            "uncovered_real_series_fraction": 0.5625,
+            "n_synthetic_out_of_range": 23,
+            "synthetic_out_of_range_fraction": 0.3770491803278688,
+            "space_id": "c0bde9c5299f1486f19a6dd8b89bc9135bf0a38ca6e67c3f00fd0a2b7946f2df",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 39,
+            "synthetic_occupied_cells": 33
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.16444444444444445,
+            "reverse_miscoverage": 0.057777777777777775,
+            "uncovered_real_cell_fraction": 0.9487179487179487,
+            "uncovered_real_series_fraction": 0.96875,
+            "n_synthetic_out_of_range": 45,
+            "synthetic_out_of_range_fraction": 0.7377049180327869,
+            "space_id": "c0bde9c5299f1486f19a6dd8b89bc9135bf0a38ca6e67c3f00fd0a2b7946f2df",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 39,
+            "synthetic_occupied_cells": 15
+          }
+        },
+        "30": {
+          "balanced_pool": {
+            "miscoverage": 0.052222222222222225,
+            "reverse_miscoverage": 0.03777777777777778,
+            "uncovered_real_cell_fraction": 0.8703703703703703,
+            "uncovered_real_series_fraction": 0.875,
+            "n_synthetic_out_of_range": 20,
+            "synthetic_out_of_range_fraction": 0.32786885245901637,
+            "space_id": "e87a390521e57ac2174c13bfc93f47c8d5d45788489f7bf8a5d367318bf867be",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 54,
+            "synthetic_occupied_cells": 41
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.05,
+            "reverse_miscoverage": 0.03222222222222222,
+            "uncovered_real_cell_fraction": 0.8333333333333334,
+            "uncovered_real_series_fraction": 0.84375,
+            "n_synthetic_out_of_range": 23,
+            "synthetic_out_of_range_fraction": 0.3770491803278688,
+            "space_id": "e87a390521e57ac2174c13bfc93f47c8d5d45788489f7bf8a5d367318bf867be",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 54,
+            "synthetic_occupied_cells": 38
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.06,
+            "reverse_miscoverage": 0.017777777777777778,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 45,
+            "synthetic_out_of_range_fraction": 0.7377049180327869,
+            "space_id": "e87a390521e57ac2174c13bfc93f47c8d5d45788489f7bf8a5d367318bf867be",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 54,
+            "synthetic_occupied_cells": 16
+          }
+        },
+        "45": {
+          "balanced_pool": {
+            "miscoverage": 0.027160493827160494,
+            "reverse_miscoverage": 0.017777777777777778,
+            "uncovered_real_cell_fraction": 0.9166666666666666,
+            "uncovered_real_series_fraction": 0.921875,
+            "n_synthetic_out_of_range": 20,
+            "synthetic_out_of_range_fraction": 0.32786885245901637,
+            "space_id": "a1b14acfd02b27228d2d3b4144decdeacd48573247e76e4d8a5846d2bd05e036",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 60,
+            "synthetic_occupied_cells": 41
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.027160493827160494,
+            "reverse_miscoverage": 0.016296296296296295,
+            "uncovered_real_cell_fraction": 0.9166666666666666,
+            "uncovered_real_series_fraction": 0.921875,
+            "n_synthetic_out_of_range": 23,
+            "synthetic_out_of_range_fraction": 0.3770491803278688,
+            "space_id": "a1b14acfd02b27228d2d3b4144decdeacd48573247e76e4d8a5846d2bd05e036",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 60,
+            "synthetic_occupied_cells": 38
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.02962962962962963,
+            "reverse_miscoverage": 0.007901234567901235,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 45,
+            "synthetic_out_of_range_fraction": 0.7377049180327869,
+            "space_id": "a1b14acfd02b27228d2d3b4144decdeacd48573247e76e4d8a5846d2bd05e036",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 60,
+            "synthetic_occupied_cells": 16
+          }
+        }
+      },
+      "details": {
+        "file": "Yearly_details.json.gz",
+        "sha256": "90f05a35b58f6dcc8a54d5ca7035ffcd07f426e0f1685648cecc3b593afe9e66"
+      },
+      "elapsed_seconds": 0.5655940459109843
+    },
+    "Quarterly": {
+      "source": {
+        "url": "https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Quarterly-train.csv",
+        "sha256": "4450678cd493aa965c14bde984a5b62a66d8c3b2f7af1e53779bc91ff008ccdc",
+        "split": "train"
+      },
+      "extraction": {
+        "schema": "native_v1",
+        "features": [
+          "spectral_entropy",
+          "trend_strength",
+          "seasonal_strength",
+          "acf1",
+          "x_acf10",
+          "diff1_acf1",
+          "seas_acf1",
+          "spike",
+          "lumpiness",
+          "max_level_shift",
+          "max_var_shift",
+          "crossing_points"
+        ],
+        "seasonal_period": 4,
+        "window_size": 4,
+        "frequency": "QS"
+      },
+      "original_lengths": {
+        "Q889": 98,
+        "Q1039": 67,
+        "Q1097": 39,
+        "Q1392": 98,
+        "Q1490": 59,
+        "Q1802": 23,
+        "Q1849": 126,
+        "Q2066": 94,
+        "Q2103": 115,
+        "Q2347": 150,
+        "Q2350": 116,
+        "Q2383": 170,
+        "Q2854": 157,
+        "Q3051": 121,
+        "Q3206": 138,
+        "Q3395": 121,
+        "Q3442": 53,
+        "Q3568": 117,
+        "Q4151": 111,
+        "Q4153": 111,
+        "Q4359": 126,
+        "Q4789": 184,
+        "Q4795": 184,
+        "Q5001": 70,
+        "Q5120": 66,
+        "Q5606": 59,
+        "Q5879": 117,
+        "Q6308": 39,
+        "Q6404": 103,
+        "Q6587": 67,
+        "Q7116": 69,
+        "Q7190": 53,
+        "Q7649": 97,
+        "Q7749": 115,
+        "Q7764": 75,
+        "Q7834": 99,
+        "Q8096": 97,
+        "Q8181": 97,
+        "Q8248": 75,
+        "Q8384": 179,
+        "Q8436": 113,
+        "Q8618": 74,
+        "Q8712": 53,
+        "Q9376": 56,
+        "Q9473": 106,
+        "Q9758": 106,
+        "Q9786": 106,
+        "Q9881": 94,
+        "Q9979": 37,
+        "Q10048": 37,
+        "Q10148": 106,
+        "Q10154": 103,
+        "Q10171": 68,
+        "Q10183": 68,
+        "Q10184": 68,
+        "Q10238": 51,
+        "Q10572": 74,
+        "Q10730": 70,
+        "Q10789": 66,
+        "Q11081": 114,
+        "Q11095": 78,
+        "Q11176": 74,
+        "Q11952": 150,
+        "Q12069": 88,
+        "Q12190": 32,
+        "Q12817": 121,
+        "Q12940": 55,
+        "Q13011": 93,
+        "Q13033": 93,
+        "Q13105": 117,
+        "Q13206": 25,
+        "Q13427": 55,
+        "Q13925": 97,
+        "Q14102": 58,
+        "Q14133": 99,
+        "Q14194": 126,
+        "Q14248": 126,
+        "Q14307": 102,
+        "Q14408": 115,
+        "Q14456": 107,
+        "Q15720": 56,
+        "Q15899": 83,
+        "Q16120": 122,
+        "Q16389": 78,
+        "Q16415": 78,
+        "Q16453": 78,
+        "Q16582": 42,
+        "Q16936": 70,
+        "Q16972": 70,
+        "Q17074": 70,
+        "Q17159": 70,
+        "Q17357": 70,
+        "Q17545": 70,
+        "Q17884": 107,
+        "Q18102": 71,
+        "Q18397": 149,
+        "Q18663": 99,
+        "Q18775": 89,
+        "Q18925": 135,
+        "Q19099": 58,
+        "Q19367": 32,
+        "Q19403": 123,
+        "Q19639": 123,
+        "Q19700": 64,
+        "Q19837": 23,
+        "Q20492": 97,
+        "Q20560": 83,
+        "Q21141": 106,
+        "Q21174": 118,
+        "Q21193": 106,
+        "Q21250": 118,
+        "Q21273": 126,
+        "Q21316": 90,
+        "Q21371": 82,
+        "Q21887": 105,
+        "Q22058": 74,
+        "Q22222": 140,
+        "Q22374": 122,
+        "Q22398": 209,
+        "Q22497": 70,
+        "Q22619": 70,
+        "Q22688": 114,
+        "Q22896": 105,
+        "Q22925": 43,
+        "Q23475": 122,
+        "Q23498": 122,
+        "Q23633": 78,
+        "Q23783": 70
+      },
+      "effective_lengths": {
+        "Q889": 98,
+        "Q1039": 67,
+        "Q1097": 39,
+        "Q1392": 98,
+        "Q1490": 59,
+        "Q1802": 23,
+        "Q1849": 126,
+        "Q2066": 94,
+        "Q2103": 115,
+        "Q2347": 150,
+        "Q2350": 116,
+        "Q2383": 170,
+        "Q2854": 157,
+        "Q3051": 121,
+        "Q3206": 138,
+        "Q3395": 121,
+        "Q3442": 53,
+        "Q3568": 117,
+        "Q4151": 111,
+        "Q4153": 111,
+        "Q4359": 126,
+        "Q4789": 184,
+        "Q4795": 184,
+        "Q5001": 70,
+        "Q5120": 66,
+        "Q5606": 59,
+        "Q5879": 117,
+        "Q6308": 39,
+        "Q6404": 103,
+        "Q6587": 67,
+        "Q7116": 69,
+        "Q7190": 53,
+        "Q7649": 97,
+        "Q7749": 115,
+        "Q7764": 75,
+        "Q7834": 99,
+        "Q8096": 97,
+        "Q8181": 97,
+        "Q8248": 75,
+        "Q8384": 179,
+        "Q8436": 113,
+        "Q8618": 74,
+        "Q8712": 53,
+        "Q9376": 56,
+        "Q9473": 106,
+        "Q9758": 106,
+        "Q9786": 106,
+        "Q9881": 94,
+        "Q9979": 37,
+        "Q10048": 37,
+        "Q10148": 106,
+        "Q10154": 103,
+        "Q10171": 68,
+        "Q10183": 68,
+        "Q10184": 68,
+        "Q10238": 51,
+        "Q10572": 74,
+        "Q10730": 70,
+        "Q10789": 66,
+        "Q11081": 114,
+        "Q11095": 78,
+        "Q11176": 74,
+        "Q11952": 150,
+        "Q12069": 88,
+        "Q12190": 32,
+        "Q12817": 121,
+        "Q12940": 55,
+        "Q13011": 93,
+        "Q13033": 93,
+        "Q13105": 117,
+        "Q13206": 25,
+        "Q13427": 55,
+        "Q13925": 97,
+        "Q14102": 58,
+        "Q14133": 99,
+        "Q14194": 126,
+        "Q14248": 126,
+        "Q14307": 102,
+        "Q14408": 115,
+        "Q14456": 107,
+        "Q15720": 56,
+        "Q15899": 83,
+        "Q16120": 122,
+        "Q16389": 78,
+        "Q16415": 78,
+        "Q16453": 78,
+        "Q16582": 42,
+        "Q16936": 70,
+        "Q16972": 70,
+        "Q17074": 70,
+        "Q17159": 70,
+        "Q17357": 70,
+        "Q17545": 70,
+        "Q17884": 107,
+        "Q18102": 71,
+        "Q18397": 149,
+        "Q18663": 99,
+        "Q18775": 89,
+        "Q18925": 135,
+        "Q19099": 58,
+        "Q19367": 32,
+        "Q19403": 123,
+        "Q19639": 123,
+        "Q19700": 64,
+        "Q19837": 23,
+        "Q20492": 97,
+        "Q20560": 83,
+        "Q21141": 106,
+        "Q21174": 118,
+        "Q21193": 106,
+        "Q21250": 118,
+        "Q21273": 126,
+        "Q21316": 90,
+        "Q21371": 82,
+        "Q21887": 105,
+        "Q22058": 74,
+        "Q22222": 140,
+        "Q22374": 122,
+        "Q22398": 209,
+        "Q22497": 70,
+        "Q22619": 70,
+        "Q22688": 114,
+        "Q22896": 105,
+        "Q22925": 43,
+        "Q23475": 122,
+        "Q23498": 122,
+        "Q23633": 78,
+        "Q23783": 70
+      },
+      "retention": {
+        "real": {
+          "n_input": 64,
+          "n_retained": 64,
+          "fraction": 1.0,
+          "shortest_quartile_max_length": 68.0,
+          "shortest_quartile_n": 17,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 0,
+            "trend_strength": 0,
+            "seasonal_strength": 0,
+            "acf1": 0,
+            "x_acf10": 0,
+            "diff1_acf1": 0,
+            "seas_acf1": 0,
+            "spike": 0,
+            "lumpiness": 0,
+            "max_level_shift": 0,
+            "max_var_shift": 0,
+            "crossing_points": 0
+          },
+          "dropped_ids": []
+        },
+        "balanced_pool": {
+          "n_input": 64,
+          "n_retained": 62,
+          "fraction": 0.96875,
+          "shortest_quartile_max_length": 68.0,
+          "shortest_quartile_n": 17,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 2,
+            "trend_strength": 2,
+            "seasonal_strength": 2,
+            "acf1": 2,
+            "x_acf10": 2,
+            "diff1_acf1": 2,
+            "seas_acf1": 2,
+            "spike": 2,
+            "lumpiness": 2,
+            "max_level_shift": 2,
+            "max_var_shift": 2,
+            "crossing_points": 2
+          },
+          "dropped_ids": [
+            "Q14408",
+            "Q18775"
+          ]
+        },
+        "pretraining_pool": {
+          "n_input": 64,
+          "n_retained": 63,
+          "fraction": 0.984375,
+          "shortest_quartile_max_length": 68.0,
+          "shortest_quartile_n": 17,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 1,
+            "trend_strength": 1,
+            "seasonal_strength": 1,
+            "acf1": 1,
+            "x_acf10": 1,
+            "diff1_acf1": 1,
+            "seas_acf1": 1,
+            "spike": 1,
+            "lumpiness": 1,
+            "max_level_shift": 1,
+            "max_var_shift": 1,
+            "crossing_points": 1
+          },
+          "dropped_ids": [
+            "Q3206"
+          ]
+        },
+        "synforecast_mar": {
+          "n_input": 64,
+          "n_retained": 64,
+          "fraction": 1.0,
+          "shortest_quartile_max_length": 68.0,
+          "shortest_quartile_n": 17,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 0,
+            "trend_strength": 0,
+            "seasonal_strength": 0,
+            "acf1": 0,
+            "x_acf10": 0,
+            "diff1_acf1": 0,
+            "seas_acf1": 0,
+            "spike": 0,
+            "lumpiness": 0,
+            "max_level_shift": 0,
+            "max_var_shift": 0,
+            "crossing_points": 0
+          },
+          "dropped_ids": []
+        }
+      },
+      "generation_failures": {
+        "balanced_pool": {
+          "Q14408": "Generated length=115, expected=115; non-finite observations=40",
+          "Q18775": "Generated length=89, expected=89; non-finite observations=20"
+        },
+        "pretraining_pool": {
+          "Q3206": "Generated length=138, expected=138; non-finite observations=50"
+        },
+        "synforecast_mar": {}
+      },
+      "n_requested_per_corpus": 64,
+      "n_matched_candidates_per_corpus": 61,
+      "excluded_from_matched_comparison": {
+        "real": [
+          "Q14408",
+          "Q18775",
+          "Q3206"
+        ],
+        "balanced_pool": [
+          "Q14408",
+          "Q18775",
+          "Q3206"
+        ],
+        "pretraining_pool": [
+          "Q14408",
+          "Q18775",
+          "Q3206"
+        ],
+        "synforecast_mar": [
+          "Q14408",
+          "Q18775",
+          "Q3206"
+        ]
+      },
+      "n_reference_fit": 64,
+      "n_calibration": 32,
+      "n_evaluation": 32,
+      "pca_explained_variance": [
+        0.5359683596084526,
+        0.15084978054251194
+      ],
+      "synthetic_reference_constant_departures": {
+        "balanced_pool": {},
+        "pretraining_pool": {},
+        "synforecast_mar": {}
+      },
+      "distances": {
+        "full": {
+          "balanced_pool": {
+            "calibration_radii": [
+              1.367920767536785,
+              1.9223298315555066,
+              2.7788809861924646
+            ],
+            "real_baseline_covered": [
+              0.59375,
+              0.875,
+              0.9375
+            ],
+            "synthetic_covered": [
+              0.40625,
+              0.71875,
+              0.90625
+            ],
+            "median_distance": 1.6140647616589514,
+            "real_baseline_median_distance": 1.1641571816352256,
+            "distance_p10_p50_p90": [
+              1.0063334970448732,
+              1.6140647616589514,
+              2.3454606904384177
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.7940741175120077,
+              1.1641571816352256,
+              2.0191599123480732
+            ]
+          },
+          "pretraining_pool": {
+            "calibration_radii": [
+              1.367920767536785,
+              1.9223298315555066,
+              2.7788809861924646
+            ],
+            "real_baseline_covered": [
+              0.59375,
+              0.875,
+              0.9375
+            ],
+            "synthetic_covered": [
+              0.28125,
+              0.6875,
+              0.90625
+            ],
+            "median_distance": 1.7524183761163536,
+            "real_baseline_median_distance": 1.1641571816352256,
+            "distance_p10_p50_p90": [
+              1.0076156136565364,
+              1.7524183761163536,
+              2.6245300360093404
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.7940741175120077,
+              1.1641571816352256,
+              2.0191599123480732
+            ]
+          },
+          "synforecast_mar": {
+            "calibration_radii": [
+              1.367920767536785,
+              1.9223298315555066,
+              2.7788809861924646
+            ],
+            "real_baseline_covered": [
+              0.59375,
+              0.875,
+              0.9375
+            ],
+            "synthetic_covered": [
+              0.0,
+              0.0625,
+              0.28125
+            ],
+            "median_distance": 3.4378779203727627,
+            "real_baseline_median_distance": 1.1641571816352256,
+            "distance_p10_p50_p90": [
+              2.0018834933918077,
+              3.4378779203727627,
+              5.892025824323242
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.7940741175120077,
+              1.1641571816352256,
+              2.0191599123480732
+            ]
+          }
+        },
+        "pca2": {
+          "balanced_pool": {
+            "calibration_radii": [
+              0.28616248916677445,
+              0.9680082149692258,
+              1.7719048481585147
+            ],
+            "real_baseline_covered": [
+              0.5,
+              0.875,
+              0.96875
+            ],
+            "synthetic_covered": [
+              0.28125,
+              0.8125,
+              1.0
+            ],
+            "median_distance": 0.5989028775251477,
+            "real_baseline_median_distance": 0.28312302773559894,
+            "distance_p10_p50_p90": [
+              0.15590595224531953,
+              0.5989028775251477,
+              1.12774945716479
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.1329860714526867,
+              0.28312302773559894,
+              0.9946860766636031
+            ]
+          },
+          "pretraining_pool": {
+            "calibration_radii": [
+              0.28616248916677445,
+              0.9680082149692258,
+              1.7719048481585147
+            ],
+            "real_baseline_covered": [
+              0.5,
+              0.875,
+              0.96875
+            ],
+            "synthetic_covered": [
+              0.125,
+              0.75,
+              0.90625
+            ],
+            "median_distance": 0.5928296807318177,
+            "real_baseline_median_distance": 0.28312302773559894,
+            "distance_p10_p50_p90": [
+              0.2783865109954275,
+              0.5928296807318177,
+              1.7154912821243837
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.1329860714526867,
+              0.28312302773559894,
+              0.9946860766636031
+            ]
+          },
+          "synforecast_mar": {
+            "calibration_radii": [
+              0.28616248916677445,
+              0.9680082149692258,
+              1.7719048481585147
+            ],
+            "real_baseline_covered": [
+              0.5,
+              0.875,
+              0.96875
+            ],
+            "synthetic_covered": [
+              0.0625,
+              0.1875,
+              0.5
+            ],
+            "median_distance": 1.8431165774289116,
+            "real_baseline_median_distance": 0.28312302773559894,
+            "distance_p10_p50_p90": [
+              0.41014369574286424,
+              1.8431165774289116,
+              3.7792437854813863
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.1329860714526867,
+              0.28312302773559894,
+              0.9946860766636031
+            ]
+          }
+        }
+      },
+      "grids": {
+        "15": {
+          "balanced_pool": {
+            "miscoverage": 0.10222222222222223,
+            "reverse_miscoverage": 0.11555555555555555,
+            "uncovered_real_cell_fraction": 0.6571428571428571,
+            "uncovered_real_series_fraction": 0.59375,
+            "n_synthetic_out_of_range": 10,
+            "synthetic_out_of_range_fraction": 0.16393442622950818,
+            "space_id": "d4e19d9c81c35067d0d8348cec01ac2b9e6ed1303ca8c02897589bec952e48e5",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 35,
+            "synthetic_occupied_cells": 38
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.1111111111111111,
+            "reverse_miscoverage": 0.12444444444444444,
+            "uncovered_real_cell_fraction": 0.7142857142857143,
+            "uncovered_real_series_fraction": 0.703125,
+            "n_synthetic_out_of_range": 16,
+            "synthetic_out_of_range_fraction": 0.26229508196721313,
+            "space_id": "d4e19d9c81c35067d0d8348cec01ac2b9e6ed1303ca8c02897589bec952e48e5",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 35,
+            "synthetic_occupied_cells": 38
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.1511111111111111,
+            "reverse_miscoverage": 0.12444444444444444,
+            "uncovered_real_cell_fraction": 0.9714285714285714,
+            "uncovered_real_series_fraction": 0.984375,
+            "n_synthetic_out_of_range": 29,
+            "synthetic_out_of_range_fraction": 0.47540983606557374,
+            "space_id": "d4e19d9c81c35067d0d8348cec01ac2b9e6ed1303ca8c02897589bec952e48e5",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 35,
+            "synthetic_occupied_cells": 29
+          }
+        },
+        "30": {
+          "balanced_pool": {
+            "miscoverage": 0.051111111111111114,
+            "reverse_miscoverage": 0.04111111111111111,
+            "uncovered_real_cell_fraction": 0.8214285714285714,
+            "uncovered_real_series_fraction": 0.8125,
+            "n_synthetic_out_of_range": 10,
+            "synthetic_out_of_range_fraction": 0.16393442622950818,
+            "space_id": "196fe05c0f8da06757a903a155fefc84ebca9770af119d0f0a9840a25de922d6",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 56,
+            "synthetic_occupied_cells": 47
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.05555555555555555,
+            "reverse_miscoverage": 0.042222222222222223,
+            "uncovered_real_cell_fraction": 0.8928571428571429,
+            "uncovered_real_series_fraction": 0.875,
+            "n_synthetic_out_of_range": 16,
+            "synthetic_out_of_range_fraction": 0.26229508196721313,
+            "space_id": "196fe05c0f8da06757a903a155fefc84ebca9770af119d0f0a9840a25de922d6",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 56,
+            "synthetic_occupied_cells": 44
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.06222222222222222,
+            "reverse_miscoverage": 0.035555555555555556,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 29,
+            "synthetic_out_of_range_fraction": 0.47540983606557374,
+            "space_id": "196fe05c0f8da06757a903a155fefc84ebca9770af119d0f0a9840a25de922d6",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 56,
+            "synthetic_occupied_cells": 32
+          }
+        },
+        "45": {
+          "balanced_pool": {
+            "miscoverage": 0.025185185185185185,
+            "reverse_miscoverage": 0.020246913580246915,
+            "uncovered_real_cell_fraction": 0.8793103448275862,
+            "uncovered_real_series_fraction": 0.859375,
+            "n_synthetic_out_of_range": 10,
+            "synthetic_out_of_range_fraction": 0.16393442622950818,
+            "space_id": "30ed2c92cee32bf8ed3aff08c1769cbef5243bdd5f8da34fb08d0bd4a6b6b3c0",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 58,
+            "synthetic_occupied_cells": 48
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.02666666666666667,
+            "reverse_miscoverage": 0.020246913580246915,
+            "uncovered_real_cell_fraction": 0.9310344827586207,
+            "uncovered_real_series_fraction": 0.921875,
+            "n_synthetic_out_of_range": 16,
+            "synthetic_out_of_range_fraction": 0.26229508196721313,
+            "space_id": "30ed2c92cee32bf8ed3aff08c1769cbef5243bdd5f8da34fb08d0bd4a6b6b3c0",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 58,
+            "synthetic_occupied_cells": 45
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.028641975308641977,
+            "reverse_miscoverage": 0.01580246913580247,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 29,
+            "synthetic_out_of_range_fraction": 0.47540983606557374,
+            "space_id": "30ed2c92cee32bf8ed3aff08c1769cbef5243bdd5f8da34fb08d0bd4a6b6b3c0",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 58,
+            "synthetic_occupied_cells": 32
+          }
+        }
+      },
+      "details": {
+        "file": "Quarterly_details.json.gz",
+        "sha256": "e927ba79641d462495d1928b3111c852997efc1bc7d703bfd6f9634a190481aa"
+      },
+      "elapsed_seconds": 0.7389832569751889
+    },
+    "Monthly": {
+      "source": {
+        "url": "https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Monthly-train.csv",
+        "sha256": "63aaa56198b4a22279a2fec541f56921f3bed6d8e0f84e550206df9276f2e9b9",
+        "split": "train"
+      },
+      "extraction": {
+        "schema": "native_v1",
+        "features": [
+          "spectral_entropy",
+          "trend_strength",
+          "seasonal_strength",
+          "acf1",
+          "x_acf10",
+          "diff1_acf1",
+          "seas_acf1",
+          "spike",
+          "lumpiness",
+          "max_level_shift",
+          "max_var_shift",
+          "crossing_points"
+        ],
+        "seasonal_period": 12,
+        "window_size": 12,
+        "frequency": "MS"
+      },
+      "original_lengths": {
+        "M1781": 150,
+        "M2080": 306,
+        "M2198": 306,
+        "M2788": 70,
+        "M2984": 199,
+        "M3608": 240,
+        "M3697": 432,
+        "M4139": 164,
+        "M4210": 312,
+        "M4699": 330,
+        "M4704": 330,
+        "M4773": 120,
+        "M5717": 352,
+        "M6117": 243,
+        "M6416": 230,
+        "M6806": 312,
+        "M6898": 337,
+        "M7138": 69,
+        "M8309": 69,
+        "M8311": 69,
+        "M8729": 69,
+        "M9596": 69,
+        "M9613": 69,
+        "M10018": 328,
+        "M10267": 269,
+        "M11231": 306,
+        "M11760": 306,
+        "M12637": 306,
+        "M12825": 102,
+        "M13205": 102,
+        "M14268": 272,
+        "M14392": 366,
+        "M15331": 175,
+        "M15522": 230,
+        "M15535": 338,
+        "M15687": 190,
+        "M16207": 317,
+        "M16370": 317,
+        "M16527": 317,
+        "M16801": 69,
+        "M16915": 69,
+        "M17241": 69,
+        "M17445": 69,
+        "M18786": 69,
+        "M18957": 69,
+        "M19536": 69,
+        "M19576": 69,
+        "M19800": 69,
+        "M19993": 69,
+        "M20110": 69,
+        "M20316": 69,
+        "M20340": 69,
+        "M20364": 69,
+        "M20394": 69,
+        "M20410": 69,
+        "M20519": 69,
+        "M21184": 186,
+        "M21467": 427,
+        "M21592": 224,
+        "M22180": 306,
+        "M22197": 306,
+        "M22373": 306,
+        "M23947": 334,
+        "M24199": 224,
+        "M24399": 432,
+        "M25693": 154,
+        "M25927": 450,
+        "M26039": 450,
+        "M26131": 172,
+        "M26265": 294,
+        "M26426": 285,
+        "M26918": 281,
+        "M27870": 438,
+        "M28242": 234,
+        "M28292": 175,
+        "M28457": 234,
+        "M28514": 234,
+        "M28632": 234,
+        "M28855": 234,
+        "M28970": 222,
+        "M31484": 514,
+        "M31861": 247,
+        "M32285": 82,
+        "M32777": 73,
+        "M32909": 175,
+        "M32978": 115,
+        "M33164": 175,
+        "M33873": 91,
+        "M33949": 68,
+        "M34219": 139,
+        "M34398": 82,
+        "M34748": 68,
+        "M35095": 175,
+        "M35779": 218,
+        "M36260": 104,
+        "M36807": 201,
+        "M37342": 223,
+        "M37582": 234,
+        "M37937": 234,
+        "M38242": 306,
+        "M38798": 77,
+        "M38848": 233,
+        "M39309": 213,
+        "M39500": 213,
+        "M39722": 70,
+        "M41070": 219,
+        "M41193": 198,
+        "M42349": 548,
+        "M42386": 69,
+        "M42425": 83,
+        "M42518": 83,
+        "M42551": 414,
+        "M42647": 175,
+        "M42841": 175,
+        "M43851": 317,
+        "M44163": 69,
+        "M44550": 206,
+        "M44757": 110,
+        "M44806": 137,
+        "M45014": 66,
+        "M45338": 237,
+        "M45434": 109,
+        "M45862": 66,
+        "M45918": 75,
+        "M46978": 67,
+        "M47020": 67,
+        "M47368": 67,
+        "M47571": 67
+      },
+      "effective_lengths": {
+        "M1781": 150,
+        "M2080": 306,
+        "M2198": 306,
+        "M2788": 70,
+        "M2984": 199,
+        "M3608": 240,
+        "M3697": 432,
+        "M4139": 164,
+        "M4210": 312,
+        "M4699": 330,
+        "M4704": 330,
+        "M4773": 120,
+        "M5717": 352,
+        "M6117": 243,
+        "M6416": 230,
+        "M6806": 312,
+        "M6898": 337,
+        "M7138": 69,
+        "M8309": 69,
+        "M8311": 69,
+        "M8729": 69,
+        "M9596": 69,
+        "M9613": 69,
+        "M10018": 328,
+        "M10267": 269,
+        "M11231": 306,
+        "M11760": 306,
+        "M12637": 306,
+        "M12825": 102,
+        "M13205": 102,
+        "M14268": 272,
+        "M14392": 366,
+        "M15331": 175,
+        "M15522": 230,
+        "M15535": 338,
+        "M15687": 190,
+        "M16207": 317,
+        "M16370": 317,
+        "M16527": 317,
+        "M16801": 69,
+        "M16915": 69,
+        "M17241": 69,
+        "M17445": 69,
+        "M18786": 69,
+        "M18957": 69,
+        "M19536": 69,
+        "M19576": 69,
+        "M19800": 69,
+        "M19993": 69,
+        "M20110": 69,
+        "M20316": 69,
+        "M20340": 69,
+        "M20364": 69,
+        "M20394": 69,
+        "M20410": 69,
+        "M20519": 69,
+        "M21184": 186,
+        "M21467": 427,
+        "M21592": 224,
+        "M22180": 306,
+        "M22197": 306,
+        "M22373": 306,
+        "M23947": 334,
+        "M24199": 224,
+        "M24399": 432,
+        "M25693": 154,
+        "M25927": 450,
+        "M26039": 450,
+        "M26131": 172,
+        "M26265": 294,
+        "M26426": 285,
+        "M26918": 281,
+        "M27870": 438,
+        "M28242": 234,
+        "M28292": 175,
+        "M28457": 234,
+        "M28514": 234,
+        "M28632": 234,
+        "M28855": 234,
+        "M28970": 222,
+        "M31484": 512,
+        "M31861": 247,
+        "M32285": 82,
+        "M32777": 73,
+        "M32909": 175,
+        "M32978": 115,
+        "M33164": 175,
+        "M33873": 91,
+        "M33949": 68,
+        "M34219": 139,
+        "M34398": 82,
+        "M34748": 68,
+        "M35095": 175,
+        "M35779": 218,
+        "M36260": 104,
+        "M36807": 201,
+        "M37342": 223,
+        "M37582": 234,
+        "M37937": 234,
+        "M38242": 306,
+        "M38798": 77,
+        "M38848": 233,
+        "M39309": 213,
+        "M39500": 213,
+        "M39722": 70,
+        "M41070": 219,
+        "M41193": 198,
+        "M42349": 512,
+        "M42386": 69,
+        "M42425": 83,
+        "M42518": 83,
+        "M42551": 414,
+        "M42647": 175,
+        "M42841": 175,
+        "M43851": 317,
+        "M44163": 69,
+        "M44550": 206,
+        "M44757": 110,
+        "M44806": 137,
+        "M45014": 66,
+        "M45338": 237,
+        "M45434": 109,
+        "M45862": 66,
+        "M45918": 75,
+        "M46978": 67,
+        "M47020": 67,
+        "M47368": 67,
+        "M47571": 67
+      },
+      "retention": {
+        "real": {
+          "n_input": 64,
+          "n_retained": 64,
+          "fraction": 1.0,
+          "shortest_quartile_max_length": 69.75,
+          "shortest_quartile_n": 16,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 0,
+            "trend_strength": 0,
+            "seasonal_strength": 0,
+            "acf1": 0,
+            "x_acf10": 0,
+            "diff1_acf1": 0,
+            "seas_acf1": 0,
+            "spike": 0,
+            "lumpiness": 0,
+            "max_level_shift": 0,
+            "max_var_shift": 0,
+            "crossing_points": 0
+          },
+          "dropped_ids": []
+        },
+        "balanced_pool": {
+          "n_input": 64,
+          "n_retained": 62,
+          "fraction": 0.96875,
+          "shortest_quartile_max_length": 69.75,
+          "shortest_quartile_n": 16,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 2,
+            "trend_strength": 2,
+            "seasonal_strength": 2,
+            "acf1": 2,
+            "x_acf10": 2,
+            "diff1_acf1": 2,
+            "seas_acf1": 2,
+            "spike": 2,
+            "lumpiness": 2,
+            "max_level_shift": 2,
+            "max_var_shift": 2,
+            "crossing_points": 2
+          },
+          "dropped_ids": [
+            "M28855",
+            "M37582"
+          ]
+        },
+        "pretraining_pool": {
+          "n_input": 64,
+          "n_retained": 63,
+          "fraction": 0.984375,
+          "shortest_quartile_max_length": 69.75,
+          "shortest_quartile_n": 16,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 1,
+            "trend_strength": 1,
+            "seasonal_strength": 1,
+            "acf1": 1,
+            "x_acf10": 1,
+            "diff1_acf1": 1,
+            "seas_acf1": 1,
+            "spike": 1,
+            "lumpiness": 1,
+            "max_level_shift": 1,
+            "max_var_shift": 1,
+            "crossing_points": 1
+          },
+          "dropped_ids": [
+            "M6416"
+          ]
+        },
+        "synforecast_mar": {
+          "n_input": 64,
+          "n_retained": 64,
+          "fraction": 1.0,
+          "shortest_quartile_max_length": 69.75,
+          "shortest_quartile_n": 16,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 0,
+            "trend_strength": 0,
+            "seasonal_strength": 0,
+            "acf1": 0,
+            "x_acf10": 0,
+            "diff1_acf1": 0,
+            "seas_acf1": 0,
+            "spike": 0,
+            "lumpiness": 0,
+            "max_level_shift": 0,
+            "max_var_shift": 0,
+            "crossing_points": 0
+          },
+          "dropped_ids": []
+        }
+      },
+      "generation_failures": {
+        "balanced_pool": {
+          "M28855": "Generated length=234, expected=234; non-finite observations=70",
+          "M37582": "Generated length=234, expected=234; non-finite observations=60"
+        },
+        "pretraining_pool": {
+          "M6416": "Generated length=230, expected=230; non-finite observations=70"
+        },
+        "synforecast_mar": {}
+      },
+      "n_requested_per_corpus": 64,
+      "n_matched_candidates_per_corpus": 61,
+      "excluded_from_matched_comparison": {
+        "real": [
+          "M28855",
+          "M37582",
+          "M6416"
+        ],
+        "balanced_pool": [
+          "M28855",
+          "M37582",
+          "M6416"
+        ],
+        "pretraining_pool": [
+          "M28855",
+          "M37582",
+          "M6416"
+        ],
+        "synforecast_mar": [
+          "M28855",
+          "M37582",
+          "M6416"
+        ]
+      },
+      "n_reference_fit": 64,
+      "n_calibration": 32,
+      "n_evaluation": 32,
+      "pca_explained_variance": [
+        0.5127175975064755,
+        0.155203158176185
+      ],
+      "synthetic_reference_constant_departures": {
+        "balanced_pool": {},
+        "pretraining_pool": {},
+        "synforecast_mar": {}
+      },
+      "distances": {
+        "full": {
+          "balanced_pool": {
+            "calibration_radii": [
+              1.0385039448159619,
+              2.066906770956611,
+              2.4646663560018514
+            ],
+            "real_baseline_covered": [
+              0.34375,
+              0.78125,
+              0.875
+            ],
+            "synthetic_covered": [
+              0.0625,
+              0.71875,
+              0.96875
+            ],
+            "median_distance": 1.747008009368246,
+            "real_baseline_median_distance": 1.403260248745058,
+            "distance_p10_p50_p90": [
+              1.1168893511425937,
+              1.747008009368246,
+              2.38859147878041
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.6126448745854368,
+              1.403260248745058,
+              2.5498450870888987
+            ]
+          },
+          "pretraining_pool": {
+            "calibration_radii": [
+              1.0385039448159619,
+              2.066906770956611,
+              2.4646663560018514
+            ],
+            "real_baseline_covered": [
+              0.34375,
+              0.78125,
+              0.875
+            ],
+            "synthetic_covered": [
+              0.125,
+              0.71875,
+              0.875
+            ],
+            "median_distance": 1.4964484051204858,
+            "real_baseline_median_distance": 1.403260248745058,
+            "distance_p10_p50_p90": [
+              1.001593661758822,
+              1.4964484051204858,
+              2.483463431654502
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.6126448745854368,
+              1.403260248745058,
+              2.5498450870888987
+            ]
+          },
+          "synforecast_mar": {
+            "calibration_radii": [
+              1.0385039448159619,
+              2.066906770956611,
+              2.4646663560018514
+            ],
+            "real_baseline_covered": [
+              0.34375,
+              0.78125,
+              0.875
+            ],
+            "synthetic_covered": [
+              0.03125,
+              0.34375,
+              0.5
+            ],
+            "median_distance": 2.485995048685789,
+            "real_baseline_median_distance": 1.403260248745058,
+            "distance_p10_p50_p90": [
+              1.6842568993257714,
+              2.485995048685789,
+              3.569706253516641
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.6126448745854368,
+              1.403260248745058,
+              2.5498450870888987
+            ]
+          }
+        },
+        "pca2": {
+          "balanced_pool": {
+            "calibration_radii": [
+              0.32667291940140936,
+              0.8200985767940866,
+              0.9662148949074425
+            ],
+            "real_baseline_covered": [
+              0.5,
+              0.8125,
+              0.90625
+            ],
+            "synthetic_covered": [
+              0.25,
+              0.9375,
+              1.0
+            ],
+            "median_distance": 0.4852771425802058,
+            "real_baseline_median_distance": 0.31168245736611444,
+            "distance_p10_p50_p90": [
+              0.24009562740340276,
+              0.4852771425802058,
+              0.7842584605741892
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.13288999849735178,
+              0.31168245736611444,
+              0.9346777726602301
+            ]
+          },
+          "pretraining_pool": {
+            "calibration_radii": [
+              0.32667291940140936,
+              0.8200985767940866,
+              0.9662148949074425
+            ],
+            "real_baseline_covered": [
+              0.5,
+              0.8125,
+              0.90625
+            ],
+            "synthetic_covered": [
+              0.3125,
+              0.75,
+              0.90625
+            ],
+            "median_distance": 0.6473464468720771,
+            "real_baseline_median_distance": 0.31168245736611444,
+            "distance_p10_p50_p90": [
+              0.1925765635487246,
+              0.6473464468720771,
+              0.9464412992478836
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.13288999849735178,
+              0.31168245736611444,
+              0.9346777726602301
+            ]
+          },
+          "synforecast_mar": {
+            "calibration_radii": [
+              0.32667291940140936,
+              0.8200985767940866,
+              0.9662148949074425
+            ],
+            "real_baseline_covered": [
+              0.5,
+              0.8125,
+              0.90625
+            ],
+            "synthetic_covered": [
+              0.0625,
+              0.3125,
+              0.40625
+            ],
+            "median_distance": 1.0464712716854623,
+            "real_baseline_median_distance": 0.31168245736611444,
+            "distance_p10_p50_p90": [
+              0.4199416608552279,
+              1.0464712716854623,
+              2.241516093745393
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.13288999849735178,
+              0.31168245736611444,
+              0.9346777726602301
+            ]
+          }
+        }
+      },
+      "grids": {
+        "15": {
+          "balanced_pool": {
+            "miscoverage": 0.12,
+            "reverse_miscoverage": 0.09777777777777778,
+            "uncovered_real_cell_fraction": 0.6585365853658537,
+            "uncovered_real_series_fraction": 0.65625,
+            "n_synthetic_out_of_range": 8,
+            "synthetic_out_of_range_fraction": 0.13114754098360656,
+            "space_id": "ce694881fe386d3cb3fec5edef6ba45a0fd7b4909f757a874fe2749e7314fae5",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 41,
+            "synthetic_occupied_cells": 36
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.11555555555555555,
+            "reverse_miscoverage": 0.14222222222222222,
+            "uncovered_real_cell_fraction": 0.6341463414634146,
+            "uncovered_real_series_fraction": 0.65625,
+            "n_synthetic_out_of_range": 4,
+            "synthetic_out_of_range_fraction": 0.06557377049180328,
+            "space_id": "ce694881fe386d3cb3fec5edef6ba45a0fd7b4909f757a874fe2749e7314fae5",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 41,
+            "synthetic_occupied_cells": 47
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.16,
+            "reverse_miscoverage": 0.1288888888888889,
+            "uncovered_real_cell_fraction": 0.8780487804878049,
+            "uncovered_real_series_fraction": 0.921875,
+            "n_synthetic_out_of_range": 10,
+            "synthetic_out_of_range_fraction": 0.16393442622950818,
+            "space_id": "ce694881fe386d3cb3fec5edef6ba45a0fd7b4909f757a874fe2749e7314fae5",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 41,
+            "synthetic_occupied_cells": 34
+          }
+        },
+        "30": {
+          "balanced_pool": {
+            "miscoverage": 0.05333333333333334,
+            "reverse_miscoverage": 0.043333333333333335,
+            "uncovered_real_cell_fraction": 0.8727272727272727,
+            "uncovered_real_series_fraction": 0.84375,
+            "n_synthetic_out_of_range": 8,
+            "synthetic_out_of_range_fraction": 0.13114754098360656,
+            "space_id": "f7152dd08d2f765ad6ab2a539d16fb29b6a15721906f9bcb55d9f625b4b230c9",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 55,
+            "synthetic_occupied_cells": 46
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.058888888888888886,
+            "reverse_miscoverage": 0.058888888888888886,
+            "uncovered_real_cell_fraction": 0.9636363636363636,
+            "uncovered_real_series_fraction": 0.953125,
+            "n_synthetic_out_of_range": 4,
+            "synthetic_out_of_range_fraction": 0.06557377049180328,
+            "space_id": "f7152dd08d2f765ad6ab2a539d16fb29b6a15721906f9bcb55d9f625b4b230c9",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 55,
+            "synthetic_occupied_cells": 55
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.057777777777777775,
+            "reverse_miscoverage": 0.04777777777777778,
+            "uncovered_real_cell_fraction": 0.9454545454545454,
+            "uncovered_real_series_fraction": 0.953125,
+            "n_synthetic_out_of_range": 10,
+            "synthetic_out_of_range_fraction": 0.16393442622950818,
+            "space_id": "f7152dd08d2f765ad6ab2a539d16fb29b6a15721906f9bcb55d9f625b4b230c9",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 55,
+            "synthetic_occupied_cells": 46
+          }
+        },
+        "45": {
+          "balanced_pool": {
+            "miscoverage": 0.027654320987654323,
+            "reverse_miscoverage": 0.022222222222222223,
+            "uncovered_real_cell_fraction": 0.9333333333333333,
+            "uncovered_real_series_fraction": 0.9375,
+            "n_synthetic_out_of_range": 8,
+            "synthetic_out_of_range_fraction": 0.13114754098360656,
+            "space_id": "e55ea63d0afb4d67934ce9cab353afb09fc1af4a7e9e50517dd8f8e53940bbea",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 60,
+            "synthetic_occupied_cells": 49
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.028641975308641977,
+            "reverse_miscoverage": 0.02666666666666667,
+            "uncovered_real_cell_fraction": 0.9666666666666667,
+            "uncovered_real_series_fraction": 0.96875,
+            "n_synthetic_out_of_range": 4,
+            "synthetic_out_of_range_fraction": 0.06557377049180328,
+            "space_id": "e55ea63d0afb4d67934ce9cab353afb09fc1af4a7e9e50517dd8f8e53940bbea",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 60,
+            "synthetic_occupied_cells": 56
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.02962962962962963,
+            "reverse_miscoverage": 0.02419753086419753,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 10,
+            "synthetic_out_of_range_fraction": 0.16393442622950818,
+            "space_id": "e55ea63d0afb4d67934ce9cab353afb09fc1af4a7e9e50517dd8f8e53940bbea",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 60,
+            "synthetic_occupied_cells": 49
+          }
+        }
+      },
+      "details": {
+        "file": "Monthly_details.json.gz",
+        "sha256": "4c890c898866fe219e89ad85339cb5bb21f8661570460460cd8d7b73d82ae5fb"
+      },
+      "elapsed_seconds": 1.0858134489972144
+    },
+    "Weekly": {
+      "source": {
+        "url": "https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Weekly-train.csv",
+        "sha256": "d478d3f6ed673e6ed3c2cb0fbed5425f72eedd51318ebebeb0b5ecfcefc37714",
+        "split": "train"
+      },
+      "extraction": {
+        "schema": "native_v1",
+        "features": [
+          "spectral_entropy",
+          "trend_strength",
+          "seasonal_strength",
+          "acf1",
+          "x_acf10",
+          "diff1_acf1",
+          "seas_acf1",
+          "spike",
+          "lumpiness",
+          "max_level_shift",
+          "max_var_shift",
+          "crossing_points"
+        ],
+        "seasonal_period": null,
+        "window_size": 10,
+        "frequency": "W"
+      },
+      "original_lengths": {
+        "W11": 934,
+        "W12": 457,
+        "W13": 721,
+        "W17": 721,
+        "W20": 1602,
+        "W22": 1607,
+        "W24": 1602,
+        "W28": 1602,
+        "W30": 1602,
+        "W32": 1603,
+        "W34": 1623,
+        "W39": 1512,
+        "W44": 1512,
+        "W49": 1006,
+        "W50": 1006,
+        "W51": 1024,
+        "W53": 1207,
+        "W54": 824,
+        "W59": 343,
+        "W60": 2284,
+        "W66": 2178,
+        "W69": 504,
+        "W71": 487,
+        "W74": 721,
+        "W80": 721,
+        "W81": 721,
+        "W84": 484,
+        "W86": 721,
+        "W92": 2283,
+        "W97": 2283,
+        "W99": 2283,
+        "W106": 644,
+        "W107": 2283,
+        "W109": 2283,
+        "W110": 379,
+        "W111": 379,
+        "W112": 2283,
+        "W113": 1044,
+        "W115": 2283,
+        "W118": 644,
+        "W120": 275,
+        "W125": 2283,
+        "W126": 379,
+        "W127": 2283,
+        "W129": 379,
+        "W131": 644,
+        "W132": 2283,
+        "W134": 2283,
+        "W135": 379,
+        "W136": 379,
+        "W138": 1044,
+        "W141": 1644,
+        "W142": 849,
+        "W145": 940,
+        "W146": 1644,
+        "W147": 1644,
+        "W148": 1644,
+        "W154": 1044,
+        "W158": 1644,
+        "W159": 1644,
+        "W164": 1644,
+        "W167": 1644,
+        "W174": 379,
+        "W175": 1644,
+        "W177": 1644,
+        "W178": 379,
+        "W184": 1644,
+        "W186": 379,
+        "W187": 824,
+        "W189": 824,
+        "W192": 824,
+        "W196": 824,
+        "W197": 824,
+        "W199": 824,
+        "W213": 934,
+        "W216": 934,
+        "W222": 1087,
+        "W226": 1602,
+        "W227": 1602,
+        "W228": 1607,
+        "W235": 1602,
+        "W239": 1602,
+        "W243": 1623,
+        "W245": 1603,
+        "W248": 2179,
+        "W249": 2179,
+        "W250": 2178,
+        "W251": 1913,
+        "W252": 2178,
+        "W254": 1311,
+        "W257": 721,
+        "W258": 721,
+        "W263": 275,
+        "W264": 275,
+        "W266": 379,
+        "W274": 379,
+        "W275": 1044,
+        "W278": 379,
+        "W281": 824,
+        "W282": 824,
+        "W283": 824,
+        "W284": 934,
+        "W294": 1207,
+        "W297": 80,
+        "W299": 80,
+        "W301": 80,
+        "W302": 80,
+        "W304": 80,
+        "W305": 80,
+        "W313": 80,
+        "W314": 80,
+        "W315": 80,
+        "W316": 80,
+        "W324": 80,
+        "W325": 80,
+        "W326": 80,
+        "W327": 80,
+        "W328": 80,
+        "W329": 80,
+        "W332": 80,
+        "W338": 80,
+        "W339": 80,
+        "W342": 80,
+        "W345": 80,
+        "W350": 80,
+        "W353": 80,
+        "W355": 80,
+        "W359": 80
+      },
+      "effective_lengths": {
+        "W11": 512,
+        "W12": 457,
+        "W13": 512,
+        "W17": 512,
+        "W20": 512,
+        "W22": 512,
+        "W24": 512,
+        "W28": 512,
+        "W30": 512,
+        "W32": 512,
+        "W34": 512,
+        "W39": 512,
+        "W44": 512,
+        "W49": 512,
+        "W50": 512,
+        "W51": 512,
+        "W53": 512,
+        "W54": 512,
+        "W59": 343,
+        "W60": 512,
+        "W66": 512,
+        "W69": 504,
+        "W71": 487,
+        "W74": 512,
+        "W80": 512,
+        "W81": 512,
+        "W84": 484,
+        "W86": 512,
+        "W92": 512,
+        "W97": 512,
+        "W99": 512,
+        "W106": 512,
+        "W107": 512,
+        "W109": 512,
+        "W110": 379,
+        "W111": 379,
+        "W112": 512,
+        "W113": 512,
+        "W115": 512,
+        "W118": 512,
+        "W120": 275,
+        "W125": 512,
+        "W126": 379,
+        "W127": 512,
+        "W129": 379,
+        "W131": 512,
+        "W132": 512,
+        "W134": 512,
+        "W135": 379,
+        "W136": 379,
+        "W138": 512,
+        "W141": 512,
+        "W142": 512,
+        "W145": 512,
+        "W146": 512,
+        "W147": 512,
+        "W148": 512,
+        "W154": 512,
+        "W158": 512,
+        "W159": 512,
+        "W164": 512,
+        "W167": 512,
+        "W174": 379,
+        "W175": 512,
+        "W177": 512,
+        "W178": 379,
+        "W184": 512,
+        "W186": 379,
+        "W187": 512,
+        "W189": 512,
+        "W192": 512,
+        "W196": 512,
+        "W197": 512,
+        "W199": 512,
+        "W213": 512,
+        "W216": 512,
+        "W222": 512,
+        "W226": 512,
+        "W227": 512,
+        "W228": 512,
+        "W235": 512,
+        "W239": 512,
+        "W243": 512,
+        "W245": 512,
+        "W248": 512,
+        "W249": 512,
+        "W250": 512,
+        "W251": 512,
+        "W252": 512,
+        "W254": 512,
+        "W257": 512,
+        "W258": 512,
+        "W263": 275,
+        "W264": 275,
+        "W266": 379,
+        "W274": 379,
+        "W275": 512,
+        "W278": 379,
+        "W281": 512,
+        "W282": 512,
+        "W283": 512,
+        "W284": 512,
+        "W294": 512,
+        "W297": 80,
+        "W299": 80,
+        "W301": 80,
+        "W302": 80,
+        "W304": 80,
+        "W305": 80,
+        "W313": 80,
+        "W314": 80,
+        "W315": 80,
+        "W316": 80,
+        "W324": 80,
+        "W325": 80,
+        "W326": 80,
+        "W327": 80,
+        "W328": 80,
+        "W329": 80,
+        "W332": 80,
+        "W338": 80,
+        "W339": 80,
+        "W342": 80,
+        "W345": 80,
+        "W350": 80,
+        "W353": 80,
+        "W355": 80,
+        "W359": 80
+      },
+      "retention": {
+        "real": {
+          "n_input": 64,
+          "n_retained": 64,
+          "fraction": 1.0,
+          "shortest_quartile_max_length": 379.0,
+          "shortest_quartile_n": 18,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 0,
+            "trend_strength": 0,
+            "seasonal_strength": 0,
+            "acf1": 0,
+            "x_acf10": 0,
+            "diff1_acf1": 0,
+            "seas_acf1": 0,
+            "spike": 0,
+            "lumpiness": 0,
+            "max_level_shift": 0,
+            "max_var_shift": 0,
+            "crossing_points": 0
+          },
+          "dropped_ids": []
+        },
+        "balanced_pool": {
+          "n_input": 64,
+          "n_retained": 62,
+          "fraction": 0.96875,
+          "shortest_quartile_max_length": 379.0,
+          "shortest_quartile_n": 18,
+          "shortest_quartile_retention": 0.9444444444444444,
+          "undefined_per_feature": {
+            "spectral_entropy": 2,
+            "trend_strength": 2,
+            "seasonal_strength": 2,
+            "acf1": 2,
+            "x_acf10": 2,
+            "diff1_acf1": 2,
+            "seas_acf1": 2,
+            "spike": 2,
+            "lumpiness": 2,
+            "max_level_shift": 2,
+            "max_var_shift": 2,
+            "crossing_points": 2
+          },
+          "dropped_ids": [
+            "W227",
+            "W278"
+          ]
+        },
+        "pretraining_pool": {
+          "n_input": 64,
+          "n_retained": 63,
+          "fraction": 0.984375,
+          "shortest_quartile_max_length": 379.0,
+          "shortest_quartile_n": 18,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 1,
+            "trend_strength": 1,
+            "seasonal_strength": 1,
+            "acf1": 1,
+            "x_acf10": 1,
+            "diff1_acf1": 1,
+            "seas_acf1": 1,
+            "spike": 1,
+            "lumpiness": 1,
+            "max_level_shift": 1,
+            "max_var_shift": 1,
+            "crossing_points": 1
+          },
+          "dropped_ids": [
+            "W50"
+          ]
+        },
+        "synforecast_mar": {
+          "n_input": 64,
+          "n_retained": 64,
+          "fraction": 1.0,
+          "shortest_quartile_max_length": 379.0,
+          "shortest_quartile_n": 18,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 0,
+            "trend_strength": 0,
+            "seasonal_strength": 0,
+            "acf1": 0,
+            "x_acf10": 0,
+            "diff1_acf1": 0,
+            "seas_acf1": 0,
+            "spike": 0,
+            "lumpiness": 0,
+            "max_level_shift": 0,
+            "max_var_shift": 0,
+            "crossing_points": 0
+          },
+          "dropped_ids": []
+        }
+      },
+      "generation_failures": {
+        "balanced_pool": {
+          "W227": "Generated length=512, expected=512; non-finite observations=143",
+          "W278": "Generated length=379, expected=379; non-finite observations=90"
+        },
+        "pretraining_pool": {
+          "W50": "Generated length=512, expected=512; non-finite observations=170"
+        },
+        "synforecast_mar": {}
+      },
+      "n_requested_per_corpus": 64,
+      "n_matched_candidates_per_corpus": 61,
+      "excluded_from_matched_comparison": {
+        "real": [
+          "W227",
+          "W278",
+          "W50"
+        ],
+        "balanced_pool": [
+          "W227",
+          "W278",
+          "W50"
+        ],
+        "pretraining_pool": [
+          "W227",
+          "W278",
+          "W50"
+        ],
+        "synforecast_mar": [
+          "W227",
+          "W278",
+          "W50"
+        ]
+      },
+      "n_reference_fit": 64,
+      "n_calibration": 32,
+      "n_evaluation": 32,
+      "pca_explained_variance": [
+        0.6336526401099816,
+        0.1748676737153244
+      ],
+      "synthetic_reference_constant_departures": {
+        "balanced_pool": {
+          "seasonal_strength": 0,
+          "seas_acf1": 0
+        },
+        "pretraining_pool": {
+          "seasonal_strength": 0,
+          "seas_acf1": 0
+        },
+        "synforecast_mar": {
+          "seasonal_strength": 0,
+          "seas_acf1": 0
+        }
+      },
+      "distances": {
+        "full": {
+          "balanced_pool": {
+            "calibration_radii": [
+              1.2974367520510734,
+              2.3102991608179817,
+              2.71945007903609
+            ],
+            "real_baseline_covered": [
+              0.59375,
+              0.96875,
+              0.96875
+            ],
+            "synthetic_covered": [
+              0.40625,
+              0.75,
+              0.8125
+            ],
+            "median_distance": 1.6488598575744837,
+            "real_baseline_median_distance": 1.192333886350284,
+            "distance_p10_p50_p90": [
+              0.886878568948544,
+              1.6488598575744837,
+              3.0269294604028048
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.48940321793750485,
+              1.192333886350284,
+              1.8793644816924033
+            ]
+          },
+          "pretraining_pool": {
+            "calibration_radii": [
+              1.2974367520510734,
+              2.3102991608179817,
+              2.71945007903609
+            ],
+            "real_baseline_covered": [
+              0.59375,
+              0.96875,
+              0.96875
+            ],
+            "synthetic_covered": [
+              0.34375,
+              0.84375,
+              0.875
+            ],
+            "median_distance": 1.684773172863813,
+            "real_baseline_median_distance": 1.192333886350284,
+            "distance_p10_p50_p90": [
+              0.8446950402204878,
+              1.684773172863813,
+              2.967538719325828
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.48940321793750485,
+              1.192333886350284,
+              1.8793644816924033
+            ]
+          },
+          "synforecast_mar": {
+            "calibration_radii": [
+              1.2974367520510734,
+              2.3102991608179817,
+              2.71945007903609
+            ],
+            "real_baseline_covered": [
+              0.59375,
+              0.96875,
+              0.96875
+            ],
+            "synthetic_covered": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "median_distance": 5.5573197799918095,
+            "real_baseline_median_distance": 1.192333886350284,
+            "distance_p10_p50_p90": [
+              4.042093856219854,
+              5.5573197799918095,
+              7.0445824728829
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.48940321793750485,
+              1.192333886350284,
+              1.8793644816924033
+            ]
+          }
+        },
+        "pca2": {
+          "balanced_pool": {
+            "calibration_radii": [
+              0.37687045463669205,
+              0.8571680608314945,
+              1.104351953746118
+            ],
+            "real_baseline_covered": [
+              0.6875,
+              0.90625,
+              0.96875
+            ],
+            "synthetic_covered": [
+              0.40625,
+              0.78125,
+              0.84375
+            ],
+            "median_distance": 0.5618334797193484,
+            "real_baseline_median_distance": 0.2969572270686314,
+            "distance_p10_p50_p90": [
+              0.17800941290027728,
+              0.5618334797193484,
+              1.4717432890814441
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.07735807020660017,
+              0.2969572270686314,
+              0.6879189999022908
+            ]
+          },
+          "pretraining_pool": {
+            "calibration_radii": [
+              0.37687045463669205,
+              0.8571680608314945,
+              1.104351953746118
+            ],
+            "real_baseline_covered": [
+              0.6875,
+              0.90625,
+              0.96875
+            ],
+            "synthetic_covered": [
+              0.28125,
+              0.75,
+              0.8125
+            ],
+            "median_distance": 0.520246985216312,
+            "real_baseline_median_distance": 0.2969572270686314,
+            "distance_p10_p50_p90": [
+              0.17197863869289007,
+              0.520246985216312,
+              1.3434682966788418
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.07735807020660017,
+              0.2969572270686314,
+              0.6879189999022908
+            ]
+          },
+          "synforecast_mar": {
+            "calibration_radii": [
+              0.37687045463669205,
+              0.8571680608314945,
+              1.104351953746118
+            ],
+            "real_baseline_covered": [
+              0.6875,
+              0.90625,
+              0.96875
+            ],
+            "synthetic_covered": [
+              0.0,
+              0.125,
+              0.25
+            ],
+            "median_distance": 1.7059945661624747,
+            "real_baseline_median_distance": 0.2969572270686314,
+            "distance_p10_p50_p90": [
+              0.815518926336199,
+              1.7059945661624747,
+              3.4408555788087867
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.07735807020660017,
+              0.2969572270686314,
+              0.6879189999022908
+            ]
+          }
+        }
+      },
+      "grids": {
+        "15": {
+          "balanced_pool": {
+            "miscoverage": 0.11555555555555555,
+            "reverse_miscoverage": 0.08888888888888889,
+            "uncovered_real_cell_fraction": 0.7428571428571429,
+            "uncovered_real_series_fraction": 0.75,
+            "n_synthetic_out_of_range": 29,
+            "synthetic_out_of_range_fraction": 0.47540983606557374,
+            "space_id": "48f853efeb219896185a9431d2acebe36ebd678a228b98a2428677e4b532cf25",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 35,
+            "synthetic_occupied_cells": 29
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.13333333333333333,
+            "reverse_miscoverage": 0.07555555555555556,
+            "uncovered_real_cell_fraction": 0.8571428571428571,
+            "uncovered_real_series_fraction": 0.828125,
+            "n_synthetic_out_of_range": 35,
+            "synthetic_out_of_range_fraction": 0.5737704918032787,
+            "space_id": "48f853efeb219896185a9431d2acebe36ebd678a228b98a2428677e4b532cf25",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 35,
+            "synthetic_occupied_cells": 22
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.15555555555555556,
+            "reverse_miscoverage": 0.008888888888888889,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 58,
+            "synthetic_out_of_range_fraction": 0.9508196721311475,
+            "space_id": "48f853efeb219896185a9431d2acebe36ebd678a228b98a2428677e4b532cf25",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 35,
+            "synthetic_occupied_cells": 2
+          }
+        },
+        "30": {
+          "balanced_pool": {
+            "miscoverage": 0.04888888888888889,
+            "reverse_miscoverage": 0.03,
+            "uncovered_real_cell_fraction": 0.9166666666666666,
+            "uncovered_real_series_fraction": 0.921875,
+            "n_synthetic_out_of_range": 29,
+            "synthetic_out_of_range_fraction": 0.47540983606557374,
+            "space_id": "c8ec3b9b29177e13bb6858cb0056a91128c90ed3b06efdb89ac7f07e08d6f8b3",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 48,
+            "synthetic_occupied_cells": 31
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.051111111111111114,
+            "reverse_miscoverage": 0.025555555555555557,
+            "uncovered_real_cell_fraction": 0.9583333333333334,
+            "uncovered_real_series_fraction": 0.921875,
+            "n_synthetic_out_of_range": 35,
+            "synthetic_out_of_range_fraction": 0.5737704918032787,
+            "space_id": "c8ec3b9b29177e13bb6858cb0056a91128c90ed3b06efdb89ac7f07e08d6f8b3",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 48,
+            "synthetic_occupied_cells": 25
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.05333333333333334,
+            "reverse_miscoverage": 0.0033333333333333335,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 58,
+            "synthetic_out_of_range_fraction": 0.9508196721311475,
+            "space_id": "c8ec3b9b29177e13bb6858cb0056a91128c90ed3b06efdb89ac7f07e08d6f8b3",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 48,
+            "synthetic_occupied_cells": 3
+          }
+        },
+        "45": {
+          "balanced_pool": {
+            "miscoverage": 0.02617283950617284,
+            "reverse_miscoverage": 0.015308641975308642,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 29,
+            "synthetic_out_of_range_fraction": 0.47540983606557374,
+            "space_id": "3cecf4918df089a26051b81789b9fd04b81f1f7cacbc411929c005d262f0f9ee",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 53,
+            "synthetic_occupied_cells": 31
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.024691358024691357,
+            "reverse_miscoverage": 0.010864197530864197,
+            "uncovered_real_cell_fraction": 0.9433962264150944,
+            "uncovered_real_series_fraction": 0.9375,
+            "n_synthetic_out_of_range": 35,
+            "synthetic_out_of_range_fraction": 0.5737704918032787,
+            "space_id": "3cecf4918df089a26051b81789b9fd04b81f1f7cacbc411929c005d262f0f9ee",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 53,
+            "synthetic_occupied_cells": 25
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.02617283950617284,
+            "reverse_miscoverage": 0.0014814814814814814,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 58,
+            "synthetic_out_of_range_fraction": 0.9508196721311475,
+            "space_id": "3cecf4918df089a26051b81789b9fd04b81f1f7cacbc411929c005d262f0f9ee",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 53,
+            "synthetic_occupied_cells": 3
+          }
+        }
+      },
+      "details": {
+        "file": "Weekly_details.json.gz",
+        "sha256": "a02a61f807af1a72f024d981766bc7b44f83a2711e8c5fbc46c82b1707fc5631"
+      },
+      "elapsed_seconds": 0.8992086958605796
+    },
+    "Daily": {
+      "source": {
+        "url": "https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Daily-train.csv",
+        "sha256": "78e94591c60c06309f1e544fd7b2ccba28f3616b01913dd336a1d1d98483a1ec",
+        "split": "train"
+      },
+      "extraction": {
+        "schema": "native_v1",
+        "features": [
+          "spectral_entropy",
+          "trend_strength",
+          "seasonal_strength",
+          "acf1",
+          "x_acf10",
+          "diff1_acf1",
+          "seas_acf1",
+          "spike",
+          "lumpiness",
+          "max_level_shift",
+          "max_var_shift",
+          "crossing_points"
+        ],
+        "seasonal_period": 7,
+        "window_size": 7,
+        "frequency": "D"
+      },
+      "original_lengths": {
+        "D155": 4315,
+        "D181": 673,
+        "D190": 681,
+        "D242": 177,
+        "D260": 272,
+        "D314": 681,
+        "D326": 679,
+        "D358": 635,
+        "D367": 678,
+        "D409": 676,
+        "D411": 676,
+        "D413": 615,
+        "D496": 4196,
+        "D524": 2059,
+        "D561": 2938,
+        "D584": 1101,
+        "D596": 2563,
+        "D626": 2565,
+        "D723": 4197,
+        "D728": 4197,
+        "D758": 4197,
+        "D825": 3698,
+        "D828": 3698,
+        "D868": 4197,
+        "D880": 3951,
+        "D972": 4197,
+        "D1034": 2440,
+        "D1094": 3066,
+        "D1114": 4197,
+        "D1135": 4197,
+        "D1224": 4197,
+        "D1257": 4197,
+        "D1319": 4197,
+        "D1345": 3066,
+        "D1362": 1187,
+        "D1364": 3066,
+        "D1414": 3066,
+        "D1427": 3066,
+        "D1433": 4197,
+        "D1449": 4197,
+        "D1450": 4195,
+        "D1514": 2187,
+        "D1517": 2187,
+        "D1623": 463,
+        "D1660": 274,
+        "D1702": 269,
+        "D1709": 343,
+        "D1720": 411,
+        "D1729": 260,
+        "D1757": 215,
+        "D1758": 615,
+        "D1761": 191,
+        "D1769": 264,
+        "D1771": 283,
+        "D1772": 491,
+        "D1773": 245,
+        "D1828": 211,
+        "D1885": 226,
+        "D1888": 227,
+        "D1936": 232,
+        "D1948": 324,
+        "D1951": 326,
+        "D2069": 172,
+        "D2075": 347,
+        "D2132": 384,
+        "D2209": 107,
+        "D2240": 4196,
+        "D2242": 4196,
+        "D2262": 3697,
+        "D2278": 4196,
+        "D2312": 4196,
+        "D2315": 3495,
+        "D2437": 2938,
+        "D2444": 4196,
+        "D2453": 4194,
+        "D2469": 2187,
+        "D2495": 3445,
+        "D2498": 1303,
+        "D2505": 4197,
+        "D2506": 4197,
+        "D2732": 4197,
+        "D2748": 3445,
+        "D2801": 3194,
+        "D2825": 2440,
+        "D2838": 3571,
+        "D2886": 3194,
+        "D2921": 4197,
+        "D2949": 4197,
+        "D2956": 4197,
+        "D2982": 4197,
+        "D2986": 4197,
+        "D3029": 3194,
+        "D3086": 3317,
+        "D3142": 4197,
+        "D3143": 4195,
+        "D3230": 3319,
+        "D3263": 4197,
+        "D3274": 4195,
+        "D3281": 4197,
+        "D3328": 4197,
+        "D3359": 1051,
+        "D3382": 2941,
+        "D3388": 4197,
+        "D3434": 4197,
+        "D3455": 4197,
+        "D3538": 921,
+        "D3561": 1101,
+        "D3637": 617,
+        "D3683": 312,
+        "D3700": 265,
+        "D3728": 237,
+        "D3729": 237,
+        "D3741": 483,
+        "D3744": 1147,
+        "D3791": 236,
+        "D3827": 488,
+        "D3847": 321,
+        "D3901": 320,
+        "D3934": 279,
+        "D3937": 273,
+        "D3945": 238,
+        "D3948": 301,
+        "D3975": 317,
+        "D3981": 302,
+        "D4079": 111,
+        "D4112": 303,
+        "D4118": 280,
+        "D4184": 303
+      },
+      "effective_lengths": {
+        "D155": 512,
+        "D181": 512,
+        "D190": 512,
+        "D242": 177,
+        "D260": 272,
+        "D314": 512,
+        "D326": 512,
+        "D358": 512,
+        "D367": 512,
+        "D409": 512,
+        "D411": 512,
+        "D413": 512,
+        "D496": 512,
+        "D524": 512,
+        "D561": 512,
+        "D584": 512,
+        "D596": 512,
+        "D626": 512,
+        "D723": 512,
+        "D728": 512,
+        "D758": 512,
+        "D825": 512,
+        "D828": 512,
+        "D868": 512,
+        "D880": 512,
+        "D972": 512,
+        "D1034": 512,
+        "D1094": 512,
+        "D1114": 512,
+        "D1135": 512,
+        "D1224": 512,
+        "D1257": 512,
+        "D1319": 512,
+        "D1345": 512,
+        "D1362": 512,
+        "D1364": 512,
+        "D1414": 512,
+        "D1427": 512,
+        "D1433": 512,
+        "D1449": 512,
+        "D1450": 512,
+        "D1514": 512,
+        "D1517": 512,
+        "D1623": 463,
+        "D1660": 274,
+        "D1702": 269,
+        "D1709": 343,
+        "D1720": 411,
+        "D1729": 260,
+        "D1757": 215,
+        "D1758": 512,
+        "D1761": 191,
+        "D1769": 264,
+        "D1771": 283,
+        "D1772": 491,
+        "D1773": 245,
+        "D1828": 211,
+        "D1885": 226,
+        "D1888": 227,
+        "D1936": 232,
+        "D1948": 324,
+        "D1951": 326,
+        "D2069": 172,
+        "D2075": 347,
+        "D2132": 384,
+        "D2209": 107,
+        "D2240": 512,
+        "D2242": 512,
+        "D2262": 512,
+        "D2278": 512,
+        "D2312": 512,
+        "D2315": 512,
+        "D2437": 512,
+        "D2444": 512,
+        "D2453": 512,
+        "D2469": 512,
+        "D2495": 512,
+        "D2498": 512,
+        "D2505": 512,
+        "D2506": 512,
+        "D2732": 512,
+        "D2748": 512,
+        "D2801": 512,
+        "D2825": 512,
+        "D2838": 512,
+        "D2886": 512,
+        "D2921": 512,
+        "D2949": 512,
+        "D2956": 512,
+        "D2982": 512,
+        "D2986": 512,
+        "D3029": 512,
+        "D3086": 512,
+        "D3142": 512,
+        "D3143": 512,
+        "D3230": 512,
+        "D3263": 512,
+        "D3274": 512,
+        "D3281": 512,
+        "D3328": 512,
+        "D3359": 512,
+        "D3382": 512,
+        "D3388": 512,
+        "D3434": 512,
+        "D3455": 512,
+        "D3538": 512,
+        "D3561": 512,
+        "D3637": 512,
+        "D3683": 312,
+        "D3700": 265,
+        "D3728": 237,
+        "D3729": 237,
+        "D3741": 483,
+        "D3744": 512,
+        "D3791": 236,
+        "D3827": 488,
+        "D3847": 321,
+        "D3901": 320,
+        "D3934": 279,
+        "D3937": 273,
+        "D3945": 238,
+        "D3948": 301,
+        "D3975": 317,
+        "D3981": 302,
+        "D4079": 111,
+        "D4112": 303,
+        "D4118": 280,
+        "D4184": 303
+      },
+      "retention": {
+        "real": {
+          "n_input": 64,
+          "n_retained": 64,
+          "fraction": 1.0,
+          "shortest_quartile_max_length": 323.0,
+          "shortest_quartile_n": 16,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 0,
+            "trend_strength": 0,
+            "seasonal_strength": 0,
+            "acf1": 0,
+            "x_acf10": 0,
+            "diff1_acf1": 0,
+            "seas_acf1": 0,
+            "spike": 0,
+            "lumpiness": 0,
+            "max_level_shift": 0,
+            "max_var_shift": 0,
+            "crossing_points": 0
+          },
+          "dropped_ids": []
+        },
+        "balanced_pool": {
+          "n_input": 64,
+          "n_retained": 62,
+          "fraction": 0.96875,
+          "shortest_quartile_max_length": 323.0,
+          "shortest_quartile_n": 16,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 2,
+            "trend_strength": 2,
+            "seasonal_strength": 2,
+            "acf1": 2,
+            "x_acf10": 2,
+            "diff1_acf1": 2,
+            "seas_acf1": 2,
+            "spike": 2,
+            "lumpiness": 2,
+            "max_level_shift": 2,
+            "max_var_shift": 2,
+            "crossing_points": 2
+          },
+          "dropped_ids": [
+            "D2505",
+            "D3274"
+          ]
+        },
+        "pretraining_pool": {
+          "n_input": 64,
+          "n_retained": 63,
+          "fraction": 0.984375,
+          "shortest_quartile_max_length": 323.0,
+          "shortest_quartile_n": 16,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 1,
+            "trend_strength": 1,
+            "seasonal_strength": 1,
+            "acf1": 1,
+            "x_acf10": 1,
+            "diff1_acf1": 1,
+            "seas_acf1": 1,
+            "spike": 1,
+            "lumpiness": 1,
+            "max_level_shift": 1,
+            "max_var_shift": 1,
+            "crossing_points": 1
+          },
+          "dropped_ids": [
+            "D561"
+          ]
+        },
+        "synforecast_mar": {
+          "n_input": 64,
+          "n_retained": 64,
+          "fraction": 1.0,
+          "shortest_quartile_max_length": 323.0,
+          "shortest_quartile_n": 16,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 0,
+            "trend_strength": 0,
+            "seasonal_strength": 0,
+            "acf1": 0,
+            "x_acf10": 0,
+            "diff1_acf1": 0,
+            "seas_acf1": 0,
+            "spike": 0,
+            "lumpiness": 0,
+            "max_level_shift": 0,
+            "max_var_shift": 0,
+            "crossing_points": 0
+          },
+          "dropped_ids": []
+        }
+      },
+      "generation_failures": {
+        "balanced_pool": {
+          "D2505": "Generated length=512, expected=512; non-finite observations=143",
+          "D3274": "Generated length=512, expected=512; non-finite observations=155"
+        },
+        "pretraining_pool": {
+          "D561": "Generated length=512, expected=512; non-finite observations=170"
+        },
+        "synforecast_mar": {}
+      },
+      "n_requested_per_corpus": 64,
+      "n_matched_candidates_per_corpus": 61,
+      "excluded_from_matched_comparison": {
+        "real": [
+          "D2505",
+          "D3274",
+          "D561"
+        ],
+        "balanced_pool": [
+          "D2505",
+          "D3274",
+          "D561"
+        ],
+        "pretraining_pool": [
+          "D2505",
+          "D3274",
+          "D561"
+        ],
+        "synforecast_mar": [
+          "D2505",
+          "D3274",
+          "D561"
+        ]
+      },
+      "n_reference_fit": 64,
+      "n_calibration": 32,
+      "n_evaluation": 32,
+      "pca_explained_variance": [
+        0.5370340978815793,
+        0.14736521629853622
+      ],
+      "synthetic_reference_constant_departures": {
+        "balanced_pool": {},
+        "pretraining_pool": {},
+        "synforecast_mar": {}
+      },
+      "distances": {
+        "full": {
+          "balanced_pool": {
+            "calibration_radii": [
+              1.1938930386805087,
+              2.4944949774363177,
+              2.7226799726003397
+            ],
+            "real_baseline_covered": [
+              0.46875,
+              0.90625,
+              0.90625
+            ],
+            "synthetic_covered": [
+              0.09375,
+              0.625,
+              0.71875
+            ],
+            "median_distance": 2.294365365819697,
+            "real_baseline_median_distance": 1.2179303474031746,
+            "distance_p10_p50_p90": [
+              1.4810635763100142,
+              2.294365365819697,
+              4.507077612243495
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.6943038981384169,
+              1.2179303474031746,
+              2.4849922375849403
+            ]
+          },
+          "pretraining_pool": {
+            "calibration_radii": [
+              1.1938930386805087,
+              2.4944949774363177,
+              2.7226799726003397
+            ],
+            "real_baseline_covered": [
+              0.46875,
+              0.90625,
+              0.90625
+            ],
+            "synthetic_covered": [
+              0.125,
+              0.65625,
+              0.6875
+            ],
+            "median_distance": 2.117228845734979,
+            "real_baseline_median_distance": 1.2179303474031746,
+            "distance_p10_p50_p90": [
+              1.1042849663047247,
+              2.117228845734979,
+              5.413329944261109
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.6943038981384169,
+              1.2179303474031746,
+              2.4849922375849403
+            ]
+          },
+          "synforecast_mar": {
+            "calibration_radii": [
+              1.1938930386805087,
+              2.4944949774363177,
+              2.7226799726003397
+            ],
+            "real_baseline_covered": [
+              0.46875,
+              0.90625,
+              0.90625
+            ],
+            "synthetic_covered": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "median_distance": 16.834633921558964,
+            "real_baseline_median_distance": 1.2179303474031746,
+            "distance_p10_p50_p90": [
+              13.98903552692613,
+              16.834633921558964,
+              17.500517696532565
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.6943038981384169,
+              1.2179303474031746,
+              2.4849922375849403
+            ]
+          }
+        },
+        "pca2": {
+          "balanced_pool": {
+            "calibration_radii": [
+              0.17426639160910623,
+              0.8657565531852469,
+              1.1164322887224503
+            ],
+            "real_baseline_covered": [
+              0.46875,
+              0.84375,
+              0.90625
+            ],
+            "synthetic_covered": [
+              0.125,
+              0.375,
+              0.53125
+            ],
+            "median_distance": 1.0378508218398748,
+            "real_baseline_median_distance": 0.18975038584138865,
+            "distance_p10_p50_p90": [
+              0.1786497879608848,
+              1.0378508218398748,
+              2.210289549013732
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.07159757368845504,
+              0.18975038584138865,
+              0.9258375933024476
+            ]
+          },
+          "pretraining_pool": {
+            "calibration_radii": [
+              0.17426639160910623,
+              0.8657565531852469,
+              1.1164322887224503
+            ],
+            "real_baseline_covered": [
+              0.46875,
+              0.84375,
+              0.90625
+            ],
+            "synthetic_covered": [
+              0.03125,
+              0.5625,
+              0.65625
+            ],
+            "median_distance": 0.8053114007313632,
+            "real_baseline_median_distance": 0.18975038584138865,
+            "distance_p10_p50_p90": [
+              0.3569480202423308,
+              0.8053114007313632,
+              1.9457300453249013
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.07159757368845504,
+              0.18975038584138865,
+              0.9258375933024476
+            ]
+          },
+          "synforecast_mar": {
+            "calibration_radii": [
+              0.17426639160910623,
+              0.8657565531852469,
+              1.1164322887224503
+            ],
+            "real_baseline_covered": [
+              0.46875,
+              0.84375,
+              0.90625
+            ],
+            "synthetic_covered": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "median_distance": 10.760569424873646,
+            "real_baseline_median_distance": 0.18975038584138865,
+            "distance_p10_p50_p90": [
+              6.503812165200751,
+              10.760569424873646,
+              12.126607672666694
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.07159757368845504,
+              0.18975038584138865,
+              0.9258375933024476
+            ]
+          }
+        }
+      },
+      "grids": {
+        "15": {
+          "balanced_pool": {
+            "miscoverage": 0.13777777777777778,
+            "reverse_miscoverage": 0.04888888888888889,
+            "uncovered_real_cell_fraction": 0.9117647058823529,
+            "uncovered_real_series_fraction": 0.890625,
+            "n_synthetic_out_of_range": 44,
+            "synthetic_out_of_range_fraction": 0.7213114754098361,
+            "space_id": "03c4ad9e0599278edd53f89355238365706f0c3a8f826c91d9cfc5f22ac343a4",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 34,
+            "synthetic_occupied_cells": 14
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.13777777777777778,
+            "reverse_miscoverage": 0.05333333333333334,
+            "uncovered_real_cell_fraction": 0.9117647058823529,
+            "uncovered_real_series_fraction": 0.828125,
+            "n_synthetic_out_of_range": 45,
+            "synthetic_out_of_range_fraction": 0.7377049180327869,
+            "space_id": "03c4ad9e0599278edd53f89355238365706f0c3a8f826c91d9cfc5f22ac343a4",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 34,
+            "synthetic_occupied_cells": 15
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.1511111111111111,
+            "reverse_miscoverage": 0.0044444444444444444,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 60,
+            "synthetic_out_of_range_fraction": 0.9836065573770492,
+            "space_id": "03c4ad9e0599278edd53f89355238365706f0c3a8f826c91d9cfc5f22ac343a4",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 34,
+            "synthetic_occupied_cells": 1
+          }
+        },
+        "30": {
+          "balanced_pool": {
+            "miscoverage": 0.056666666666666664,
+            "reverse_miscoverage": 0.014444444444444444,
+            "uncovered_real_cell_fraction": 0.9622641509433962,
+            "uncovered_real_series_fraction": 0.96875,
+            "n_synthetic_out_of_range": 44,
+            "synthetic_out_of_range_fraction": 0.7213114754098361,
+            "space_id": "8642c1a1527ac48351941eec2a5e91c87a30ee99681dec52d7a1836dc0ea6315",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 53,
+            "synthetic_occupied_cells": 15
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.05555555555555555,
+            "reverse_miscoverage": 0.014444444444444444,
+            "uncovered_real_cell_fraction": 0.9433962264150944,
+            "uncovered_real_series_fraction": 0.953125,
+            "n_synthetic_out_of_range": 45,
+            "synthetic_out_of_range_fraction": 0.7377049180327869,
+            "space_id": "8642c1a1527ac48351941eec2a5e91c87a30ee99681dec52d7a1836dc0ea6315",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 53,
+            "synthetic_occupied_cells": 16
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.058888888888888886,
+            "reverse_miscoverage": 0.0011111111111111111,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 60,
+            "synthetic_out_of_range_fraction": 0.9836065573770492,
+            "space_id": "8642c1a1527ac48351941eec2a5e91c87a30ee99681dec52d7a1836dc0ea6315",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 53,
+            "synthetic_occupied_cells": 1
+          }
+        },
+        "45": {
+          "balanced_pool": {
+            "miscoverage": 0.028641975308641977,
+            "reverse_miscoverage": 0.006913580246913581,
+            "uncovered_real_cell_fraction": 0.9666666666666667,
+            "uncovered_real_series_fraction": 0.96875,
+            "n_synthetic_out_of_range": 44,
+            "synthetic_out_of_range_fraction": 0.7213114754098361,
+            "space_id": "3f8f48411226645b0ebeea980266bc486a7bc0bb6c2177a428d39ea386fbf7d1",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 60,
+            "synthetic_occupied_cells": 16
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.028641975308641977,
+            "reverse_miscoverage": 0.006913580246913581,
+            "uncovered_real_cell_fraction": 0.9666666666666667,
+            "uncovered_real_series_fraction": 0.96875,
+            "n_synthetic_out_of_range": 45,
+            "synthetic_out_of_range_fraction": 0.7377049180327869,
+            "space_id": "3f8f48411226645b0ebeea980266bc486a7bc0bb6c2177a428d39ea386fbf7d1",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 60,
+            "synthetic_occupied_cells": 16
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.02962962962962963,
+            "reverse_miscoverage": 0.0004938271604938272,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 60,
+            "synthetic_out_of_range_fraction": 0.9836065573770492,
+            "space_id": "3f8f48411226645b0ebeea980266bc486a7bc0bb6c2177a428d39ea386fbf7d1",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 60,
+            "synthetic_occupied_cells": 1
+          }
+        }
+      },
+      "details": {
+        "file": "Daily_details.json.gz",
+        "sha256": "4eb402895d4f38e6fcfd5267cb20fe590c137617e79535d9146afd5a6724ee96"
+      },
+      "elapsed_seconds": 1.0676191351376474
+    },
+    "Hourly": {
+      "source": {
+        "url": "https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Hourly-train.csv",
+        "sha256": "ea59b7783573c49077a835ab6465c7d66f1474783360f310988a9a737fbca62f",
+        "split": "train"
+      },
+      "extraction": {
+        "schema": "native_v1",
+        "features": [
+          "spectral_entropy",
+          "trend_strength",
+          "seasonal_strength",
+          "acf1",
+          "x_acf10",
+          "diff1_acf1",
+          "seas_acf1",
+          "spike",
+          "lumpiness",
+          "max_level_shift",
+          "max_var_shift",
+          "crossing_points"
+        ],
+        "seasonal_period": 24,
+        "window_size": 24,
+        "frequency": "h"
+      },
+      "original_lengths": {
+        "H13": 700,
+        "H15": 700,
+        "H20": 700,
+        "H23": 700,
+        "H27": 700,
+        "H29": 700,
+        "H32": 700,
+        "H33": 700,
+        "H36": 700,
+        "H37": 700,
+        "H41": 700,
+        "H42": 700,
+        "H47": 700,
+        "H51": 700,
+        "H59": 700,
+        "H60": 700,
+        "H62": 700,
+        "H64": 700,
+        "H68": 700,
+        "H71": 700,
+        "H79": 700,
+        "H84": 700,
+        "H88": 700,
+        "H94": 700,
+        "H98": 700,
+        "H99": 700,
+        "H103": 700,
+        "H110": 700,
+        "H111": 700,
+        "H112": 700,
+        "H113": 700,
+        "H117": 700,
+        "H126": 700,
+        "H127": 700,
+        "H128": 700,
+        "H129": 700,
+        "H132": 700,
+        "H134": 700,
+        "H135": 700,
+        "H138": 700,
+        "H142": 700,
+        "H143": 700,
+        "H145": 700,
+        "H148": 700,
+        "H149": 700,
+        "H151": 700,
+        "H153": 700,
+        "H155": 700,
+        "H159": 700,
+        "H161": 700,
+        "H163": 700,
+        "H164": 700,
+        "H169": 700,
+        "H172": 960,
+        "H173": 960,
+        "H177": 960,
+        "H178": 960,
+        "H179": 960,
+        "H185": 960,
+        "H192": 960,
+        "H205": 960,
+        "H207": 960,
+        "H208": 960,
+        "H211": 960,
+        "H212": 960,
+        "H213": 960,
+        "H215": 960,
+        "H217": 960,
+        "H219": 960,
+        "H221": 960,
+        "H225": 960,
+        "H228": 960,
+        "H229": 960,
+        "H233": 960,
+        "H242": 960,
+        "H258": 960,
+        "H262": 960,
+        "H266": 960,
+        "H269": 960,
+        "H272": 960,
+        "H280": 960,
+        "H282": 960,
+        "H283": 960,
+        "H287": 960,
+        "H288": 960,
+        "H291": 960,
+        "H293": 960,
+        "H294": 960,
+        "H296": 960,
+        "H297": 960,
+        "H299": 960,
+        "H302": 960,
+        "H305": 960,
+        "H306": 960,
+        "H308": 960,
+        "H309": 960,
+        "H327": 960,
+        "H328": 960,
+        "H332": 960,
+        "H334": 960,
+        "H335": 960,
+        "H344": 960,
+        "H348": 960,
+        "H350": 960,
+        "H352": 960,
+        "H356": 960,
+        "H363": 960,
+        "H364": 960,
+        "H367": 960,
+        "H368": 960,
+        "H369": 960,
+        "H372": 960,
+        "H377": 960,
+        "H378": 960,
+        "H381": 960,
+        "H384": 960,
+        "H386": 960,
+        "H387": 960,
+        "H388": 960,
+        "H391": 960,
+        "H397": 960,
+        "H402": 960,
+        "H403": 960,
+        "H405": 960,
+        "H408": 960,
+        "H409": 960,
+        "H411": 960,
+        "H414": 960
+      },
+      "effective_lengths": {
+        "H13": 512,
+        "H15": 512,
+        "H20": 512,
+        "H23": 512,
+        "H27": 512,
+        "H29": 512,
+        "H32": 512,
+        "H33": 512,
+        "H36": 512,
+        "H37": 512,
+        "H41": 512,
+        "H42": 512,
+        "H47": 512,
+        "H51": 512,
+        "H59": 512,
+        "H60": 512,
+        "H62": 512,
+        "H64": 512,
+        "H68": 512,
+        "H71": 512,
+        "H79": 512,
+        "H84": 512,
+        "H88": 512,
+        "H94": 512,
+        "H98": 512,
+        "H99": 512,
+        "H103": 512,
+        "H110": 512,
+        "H111": 512,
+        "H112": 512,
+        "H113": 512,
+        "H117": 512,
+        "H126": 512,
+        "H127": 512,
+        "H128": 512,
+        "H129": 512,
+        "H132": 512,
+        "H134": 512,
+        "H135": 512,
+        "H138": 512,
+        "H142": 512,
+        "H143": 512,
+        "H145": 512,
+        "H148": 512,
+        "H149": 512,
+        "H151": 512,
+        "H153": 512,
+        "H155": 512,
+        "H159": 512,
+        "H161": 512,
+        "H163": 512,
+        "H164": 512,
+        "H169": 512,
+        "H172": 512,
+        "H173": 512,
+        "H177": 512,
+        "H178": 512,
+        "H179": 512,
+        "H185": 512,
+        "H192": 512,
+        "H205": 512,
+        "H207": 512,
+        "H208": 512,
+        "H211": 512,
+        "H212": 512,
+        "H213": 512,
+        "H215": 512,
+        "H217": 512,
+        "H219": 512,
+        "H221": 512,
+        "H225": 512,
+        "H228": 512,
+        "H229": 512,
+        "H233": 512,
+        "H242": 512,
+        "H258": 512,
+        "H262": 512,
+        "H266": 512,
+        "H269": 512,
+        "H272": 512,
+        "H280": 512,
+        "H282": 512,
+        "H283": 512,
+        "H287": 512,
+        "H288": 512,
+        "H291": 512,
+        "H293": 512,
+        "H294": 512,
+        "H296": 512,
+        "H297": 512,
+        "H299": 512,
+        "H302": 512,
+        "H305": 512,
+        "H306": 512,
+        "H308": 512,
+        "H309": 512,
+        "H327": 512,
+        "H328": 512,
+        "H332": 512,
+        "H334": 512,
+        "H335": 512,
+        "H344": 512,
+        "H348": 512,
+        "H350": 512,
+        "H352": 512,
+        "H356": 512,
+        "H363": 512,
+        "H364": 512,
+        "H367": 512,
+        "H368": 512,
+        "H369": 512,
+        "H372": 512,
+        "H377": 512,
+        "H378": 512,
+        "H381": 512,
+        "H384": 512,
+        "H386": 512,
+        "H387": 512,
+        "H388": 512,
+        "H391": 512,
+        "H397": 512,
+        "H402": 512,
+        "H403": 512,
+        "H405": 512,
+        "H408": 512,
+        "H409": 512,
+        "H411": 512,
+        "H414": 512
+      },
+      "retention": {
+        "real": {
+          "n_input": 64,
+          "n_retained": 64,
+          "fraction": 1.0,
+          "shortest_quartile_max_length": 512.0,
+          "shortest_quartile_n": 64,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 0,
+            "trend_strength": 0,
+            "seasonal_strength": 0,
+            "acf1": 0,
+            "x_acf10": 0,
+            "diff1_acf1": 0,
+            "seas_acf1": 0,
+            "spike": 0,
+            "lumpiness": 0,
+            "max_level_shift": 0,
+            "max_var_shift": 0,
+            "crossing_points": 0
+          },
+          "dropped_ids": []
+        },
+        "balanced_pool": {
+          "n_input": 64,
+          "n_retained": 62,
+          "fraction": 0.96875,
+          "shortest_quartile_max_length": 512.0,
+          "shortest_quartile_n": 64,
+          "shortest_quartile_retention": 0.96875,
+          "undefined_per_feature": {
+            "spectral_entropy": 2,
+            "trend_strength": 2,
+            "seasonal_strength": 2,
+            "acf1": 2,
+            "x_acf10": 2,
+            "diff1_acf1": 2,
+            "seas_acf1": 2,
+            "spike": 2,
+            "lumpiness": 2,
+            "max_level_shift": 2,
+            "max_var_shift": 2,
+            "crossing_points": 2
+          },
+          "dropped_ids": [
+            "H269",
+            "H328"
+          ]
+        },
+        "pretraining_pool": {
+          "n_input": 64,
+          "n_retained": 63,
+          "fraction": 0.984375,
+          "shortest_quartile_max_length": 512.0,
+          "shortest_quartile_n": 64,
+          "shortest_quartile_retention": 0.984375,
+          "undefined_per_feature": {
+            "spectral_entropy": 1,
+            "trend_strength": 1,
+            "seasonal_strength": 1,
+            "acf1": 1,
+            "x_acf10": 1,
+            "diff1_acf1": 1,
+            "seas_acf1": 1,
+            "spike": 1,
+            "lumpiness": 1,
+            "max_level_shift": 1,
+            "max_var_shift": 1,
+            "crossing_points": 1
+          },
+          "dropped_ids": [
+            "H59"
+          ]
+        },
+        "synforecast_mar": {
+          "n_input": 64,
+          "n_retained": 64,
+          "fraction": 1.0,
+          "shortest_quartile_max_length": 512.0,
+          "shortest_quartile_n": 64,
+          "shortest_quartile_retention": 1.0,
+          "undefined_per_feature": {
+            "spectral_entropy": 0,
+            "trend_strength": 0,
+            "seasonal_strength": 0,
+            "acf1": 0,
+            "x_acf10": 0,
+            "diff1_acf1": 0,
+            "seas_acf1": 0,
+            "spike": 0,
+            "lumpiness": 0,
+            "max_level_shift": 0,
+            "max_var_shift": 0,
+            "crossing_points": 0
+          },
+          "dropped_ids": []
+        }
+      },
+      "generation_failures": {
+        "balanced_pool": {
+          "H269": "Generated length=512, expected=512; non-finite observations=143",
+          "H328": "Generated length=512, expected=512; non-finite observations=155"
+        },
+        "pretraining_pool": {
+          "H59": "Generated length=512, expected=512; non-finite observations=170"
+        },
+        "synforecast_mar": {}
+      },
+      "n_requested_per_corpus": 64,
+      "n_matched_candidates_per_corpus": 61,
+      "excluded_from_matched_comparison": {
+        "real": [
+          "H269",
+          "H328",
+          "H59"
+        ],
+        "balanced_pool": [
+          "H269",
+          "H328",
+          "H59"
+        ],
+        "pretraining_pool": [
+          "H269",
+          "H328",
+          "H59"
+        ],
+        "synforecast_mar": [
+          "H269",
+          "H328",
+          "H59"
+        ]
+      },
+      "n_reference_fit": 64,
+      "n_calibration": 32,
+      "n_evaluation": 32,
+      "pca_explained_variance": [
+        0.7003494689535997,
+        0.14079916976590062
+      ],
+      "synthetic_reference_constant_departures": {
+        "balanced_pool": {},
+        "pretraining_pool": {},
+        "synforecast_mar": {}
+      },
+      "distances": {
+        "full": {
+          "balanced_pool": {
+            "calibration_radii": [
+              0.8089054824119919,
+              2.3724553952420186,
+              3.0002599542066797
+            ],
+            "real_baseline_covered": [
+              0.375,
+              0.90625,
+              0.9375
+            ],
+            "synthetic_covered": [
+              0.0,
+              0.0,
+              0.0625
+            ],
+            "median_distance": 4.098946178243278,
+            "real_baseline_median_distance": 1.0118285987886306,
+            "distance_p10_p50_p90": [
+              3.210402624276714,
+              4.098946178243278,
+              6.360100576704208
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.05845652653745602,
+              1.0118285987886306,
+              1.7818075061839915
+            ]
+          },
+          "pretraining_pool": {
+            "calibration_radii": [
+              0.8089054824119919,
+              2.3724553952420186,
+              3.0002599542066797
+            ],
+            "real_baseline_covered": [
+              0.375,
+              0.90625,
+              0.9375
+            ],
+            "synthetic_covered": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "median_distance": 4.226859944447595,
+            "real_baseline_median_distance": 1.0118285987886306,
+            "distance_p10_p50_p90": [
+              3.284246879716786,
+              4.226859944447595,
+              6.188522756248573
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.05845652653745602,
+              1.0118285987886306,
+              1.7818075061839915
+            ]
+          },
+          "synforecast_mar": {
+            "calibration_radii": [
+              0.8089054824119919,
+              2.3724553952420186,
+              3.0002599542066797
+            ],
+            "real_baseline_covered": [
+              0.375,
+              0.90625,
+              0.9375
+            ],
+            "synthetic_covered": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "median_distance": 10.17374882084733,
+            "real_baseline_median_distance": 1.0118285987886306,
+            "distance_p10_p50_p90": [
+              8.820295359678472,
+              10.17374882084733,
+              10.998326493330289
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.05845652653745602,
+              1.0118285987886306,
+              1.7818075061839915
+            ]
+          }
+        },
+        "pca2": {
+          "balanced_pool": {
+            "calibration_radii": [
+              0.21323434224123392,
+              0.624580442383026,
+              0.7478447145506724
+            ],
+            "real_baseline_covered": [
+              0.375,
+              0.84375,
+              0.90625
+            ],
+            "synthetic_covered": [
+              0.0,
+              0.0625,
+              0.15625
+            ],
+            "median_distance": 1.8353367816281885,
+            "real_baseline_median_distance": 0.2917207307477553,
+            "distance_p10_p50_p90": [
+              0.6593575393420115,
+              1.8353367816281885,
+              3.077816147412615
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.022407582424557985,
+              0.2917207307477553,
+              0.682232960633664
+            ]
+          },
+          "pretraining_pool": {
+            "calibration_radii": [
+              0.21323434224123392,
+              0.624580442383026,
+              0.7478447145506724
+            ],
+            "real_baseline_covered": [
+              0.375,
+              0.84375,
+              0.90625
+            ],
+            "synthetic_covered": [
+              0.0,
+              0.15625,
+              0.15625
+            ],
+            "median_distance": 1.903377648201762,
+            "real_baseline_median_distance": 0.2917207307477553,
+            "distance_p10_p50_p90": [
+              0.5762042913416,
+              1.903377648201762,
+              2.682637996067343
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.022407582424557985,
+              0.2917207307477553,
+              0.682232960633664
+            ]
+          },
+          "synforecast_mar": {
+            "calibration_radii": [
+              0.21323434224123392,
+              0.624580442383026,
+              0.7478447145506724
+            ],
+            "real_baseline_covered": [
+              0.375,
+              0.84375,
+              0.90625
+            ],
+            "synthetic_covered": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "median_distance": 3.6160709420386166,
+            "real_baseline_median_distance": 0.2917207307477553,
+            "distance_p10_p50_p90": [
+              1.9802955444221686,
+              3.6160709420386166,
+              5.954248719934861
+            ],
+            "real_baseline_distance_p10_p50_p90": [
+              0.022407582424557985,
+              0.2917207307477553,
+              0.682232960633664
+            ]
+          }
+        }
+      },
+      "grids": {
+        "15": {
+          "balanced_pool": {
+            "miscoverage": 0.1111111111111111,
+            "reverse_miscoverage": 0.09333333333333334,
+            "uncovered_real_cell_fraction": 0.9615384615384616,
+            "uncovered_real_series_fraction": 0.96875,
+            "n_synthetic_out_of_range": 35,
+            "synthetic_out_of_range_fraction": 0.5737704918032787,
+            "space_id": "fd41cf99d843d9b86b0b7a7622ed18dd106a2e683e4b222792982dd38a158a43",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 26,
+            "synthetic_occupied_cells": 22
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.1111111111111111,
+            "reverse_miscoverage": 0.09333333333333334,
+            "uncovered_real_cell_fraction": 0.9615384615384616,
+            "uncovered_real_series_fraction": 0.625,
+            "n_synthetic_out_of_range": 35,
+            "synthetic_out_of_range_fraction": 0.5737704918032787,
+            "space_id": "fd41cf99d843d9b86b0b7a7622ed18dd106a2e683e4b222792982dd38a158a43",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 26,
+            "synthetic_occupied_cells": 22
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.1111111111111111,
+            "reverse_miscoverage": 0.008888888888888889,
+            "uncovered_real_cell_fraction": 0.9615384615384616,
+            "uncovered_real_series_fraction": 0.984375,
+            "n_synthetic_out_of_range": 58,
+            "synthetic_out_of_range_fraction": 0.9508196721311475,
+            "space_id": "fd41cf99d843d9b86b0b7a7622ed18dd106a2e683e4b222792982dd38a158a43",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 26,
+            "synthetic_occupied_cells": 3
+          }
+        },
+        "30": {
+          "balanced_pool": {
+            "miscoverage": 0.04,
+            "reverse_miscoverage": 0.027777777777777776,
+            "uncovered_real_cell_fraction": 0.972972972972973,
+            "uncovered_real_series_fraction": 0.96875,
+            "n_synthetic_out_of_range": 35,
+            "synthetic_out_of_range_fraction": 0.5737704918032787,
+            "space_id": "7e34bc9c40aac1fa5bac0cbaf7945781815f5e28c0c982dbaa73a6f09263c520",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 37,
+            "synthetic_occupied_cells": 26
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.04,
+            "reverse_miscoverage": 0.027777777777777776,
+            "uncovered_real_cell_fraction": 0.972972972972973,
+            "uncovered_real_series_fraction": 0.96875,
+            "n_synthetic_out_of_range": 35,
+            "synthetic_out_of_range_fraction": 0.5737704918032787,
+            "space_id": "7e34bc9c40aac1fa5bac0cbaf7945781815f5e28c0c982dbaa73a6f09263c520",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 37,
+            "synthetic_occupied_cells": 26
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.04111111111111111,
+            "reverse_miscoverage": 0.0033333333333333335,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 58,
+            "synthetic_out_of_range_fraction": 0.9508196721311475,
+            "space_id": "7e34bc9c40aac1fa5bac0cbaf7945781815f5e28c0c982dbaa73a6f09263c520",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 37,
+            "synthetic_occupied_cells": 3
+          }
+        },
+        "45": {
+          "balanced_pool": {
+            "miscoverage": 0.018765432098765432,
+            "reverse_miscoverage": 0.012345679012345678,
+            "uncovered_real_cell_fraction": 0.9743589743589743,
+            "uncovered_real_series_fraction": 0.96875,
+            "n_synthetic_out_of_range": 35,
+            "synthetic_out_of_range_fraction": 0.5737704918032787,
+            "space_id": "5002a9be60fa77e4038e58f6a4fec0a66716fab88e0c8c656dc96241aa09ff60",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 39,
+            "synthetic_occupied_cells": 26
+          },
+          "pretraining_pool": {
+            "miscoverage": 0.01925925925925926,
+            "reverse_miscoverage": 0.012839506172839505,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 35,
+            "synthetic_out_of_range_fraction": 0.5737704918032787,
+            "space_id": "5002a9be60fa77e4038e58f6a4fec0a66716fab88e0c8c656dc96241aa09ff60",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 39,
+            "synthetic_occupied_cells": 26
+          },
+          "synforecast_mar": {
+            "miscoverage": 0.01925925925925926,
+            "reverse_miscoverage": 0.0014814814814814814,
+            "uncovered_real_cell_fraction": 1.0,
+            "uncovered_real_series_fraction": 1.0,
+            "n_synthetic_out_of_range": 58,
+            "synthetic_out_of_range_fraction": 0.9508196721311475,
+            "space_id": "5002a9be60fa77e4038e58f6a4fec0a66716fab88e0c8c656dc96241aa09ff60",
+            "fit": "real",
+            "grid_range": "real",
+            "real_occupied_cells": 39,
+            "synthetic_occupied_cells": 3
+          }
+        }
+      },
+      "details": {
+        "file": "Hourly_details.json.gz",
+        "sha256": "06e0742d0e289004cbde397e116fdd55d763dcab01e8db65cc93e783bf440e6a"
+      },
+      "elapsed_seconds": 0.5216101680416614
+    }
+  }
+}

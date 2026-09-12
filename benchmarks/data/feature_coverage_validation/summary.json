@@ -1,0 +1,5663 @@
+{
+  "environment": {
+    "command": "benchmarks/validate_feature_coverage.py",
+    "timestamp_utc": "2026-09-10T10:08:53+00:00",
+    "python": "3.10.12",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "machine": "x86_64",
+    "cpu_count": 20,
+    "package_versions": {
+      "synforecast": "0.1.0",
+      "numpy": "2.2.6",
+      "pandas": "2.3.3",
+      "polars": "1.35.2",
+      "scipy": "1.15.3",
+      "scikit-learn": "1.7.2",
+      "statsforecast": "2.1.1",
+      "mlforecast": "1.1.0",
+      "neuralforecast": "3.1.7",
+      "utilsforecast": "0.2.15",
+      "datasetsforecast": "1.0.1",
+      "torch": "2.13.0+cpu"
+    },
+    "git_commit": "618dfac73d687d30196adbfe27361dcf34e17bf4",
+    "git_dirty": true,
+    "git_diff_sha256": "688b0501cfdda053fb14921b496a6adb2b14de28f7a93848292bf3648a415a06"
+  },
+  "schema": "native_candidate_v1",
+  "schema_frozen": false,
+  "protocol": {
+    "distance": "Euclidean on reference-standardized nonconstant features; no whitening",
+    "quantiles": [
+      0.5,
+      0.9,
+      0.95
+    ],
+    "reference_fit_sizes": [
+      64,
+      128
+    ],
+    "candidate_sizes": [
+      64,
+      128
+    ],
+    "n_calibration": 64,
+    "n_evaluation": 64,
+    "split_seed": 20260912,
+    "repeats": 20,
+    "resampling": "nested samples without replacement; repeat ranges are not confidence intervals",
+    "synthetic_selection": "complete cases, equal retained counts; input failures separately reported",
+    "length_matching": "source corpora matched in the original pilot; random subsets not individually rematched",
+    "grid": "fixed all-real PCA, bins 15/30/45, 16 lattice phases, three bound populations",
+    "controls": "illustrative base-LOO-q90 radius with 32 pairs, not held-out population calibration"
+  },
+  "samples": [
+    {
+      "pilot_seed": 20260910,
+      "source_summary_sha256": "1caa09f47f3e09c839e070d7ec95075273dd0815a9bddfef0c5cf70b5ebccfd4",
+      "groups": {
+        "Monthly": {
+          "extraction": {
+            "period": 12,
+            "effective_window_size": 12
+          },
+          "inputs": {
+            "real": {
+              "sha256": "f981af0b97641c69b36dd748e26085306c623a515177745aea2ea90427c22218",
+              "n_input": 256,
+              "n_retained": 256,
+              "dropped_ids": []
+            },
+            "balanced_pool": {
+              "sha256": "8157fa4fec9718ac44abb981ab81a2e818ce96e982f46c0eecec397874b7e31d",
+              "n_input": 256,
+              "n_retained": 250,
+              "dropped_ids": [
+                "M16162",
+                "M18908",
+                "M2403",
+                "M26409",
+                "M26748",
+                "M4898"
+              ]
+            },
+            "synforecast_mar": {
+              "sha256": "fbd4586858f73f0bd394bd4cd4bc34bbdd87547a55dee93d6f5649e38fc5d5a3",
+              "n_input": 256,
+              "n_retained": 256,
+              "dropped_ids": []
+            }
+          },
+          "details": {
+            "file": "20260910_Monthly_details.json.gz",
+            "sha256": "a08f3376bcf48d786167cd4256fe1c84d0d95d2073f1ebbcdd2c086b77cfed55"
+          },
+          "distance_summary": [
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.140625,
+                0.8125,
+                0.921875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0625,
+                  0.7015625,
+                  0.7953125
+                ],
+                [
+                  0.25,
+                  0.953125,
+                  0.984375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5078125,
+                0.90625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.328125,
+                -0.0546875,
+                -0.0234375
+              ],
+              "median_distance": 1.6558929448055377,
+              "median_real_baseline_distance": 1.1215619541271966
+            },
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.125,
+                0.8046875,
+                0.890625
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.078125,
+                  0.6234375,
+                  0.765625
+                ],
+                [
+                  0.22031250000000002,
+                  0.9390625,
+                  0.9703125
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.515625,
+                0.90625,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.375,
+                -0.0859375,
+                -0.046875
+              ],
+              "median_distance": 1.4839792921114883,
+              "median_real_baseline_distance": 0.9488926867215268
+            },
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.1328125,
+                0.796875,
+                0.8984375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0625,
+                  0.7125,
+                  0.7953125
+                ],
+                [
+                  0.2515625,
+                  0.9390625,
+                  0.984375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.484375,
+                0.890625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.328125,
+                -0.0703125,
+                -0.0234375
+              ],
+              "median_distance": 1.6117604165023223,
+              "median_real_baseline_distance": 1.1288996095288828
+            },
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.125,
+                0.796875,
+                0.890625
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.078125,
+                  0.625,
+                  0.828125
+                ],
+                [
+                  0.22031250000000002,
+                  0.9390625,
+                  0.9703125
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.484375,
+                0.9140625,
+                0.9453125
+              ],
+              "median_paired_coverage_gap": [
+                -0.3671875,
+                -0.109375,
+                -0.046875
+              ],
+              "median_distance": 1.461882825212939,
+              "median_real_baseline_distance": 0.9511042017690905
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.0,
+                0.1328125,
+                0.328125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.07500000000000001,
+                  0.109375
+                ],
+                [
+                  0.015625,
+                  0.4515625000000002,
+                  0.8234375000000002
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5078125,
+                0.90625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.5078125,
+                -0.71875,
+                -0.625
+              ],
+              "median_distance": 3.600917191240117,
+              "median_real_baseline_distance": 1.1215619541271966
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.0,
+                0.125,
+                0.265625
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.060937500000000006,
+                  0.1375
+                ],
+                [
+                  0.0015625000000000222,
+                  0.41562500000000013,
+                  0.8515625000000001
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.515625,
+                0.90625,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.515625,
+                -0.75,
+                -0.6953125
+              ],
+              "median_distance": 3.065022530334538,
+              "median_real_baseline_distance": 0.9488926867215268
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.0,
+                0.1328125,
+                0.2890625
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.060937500000000006,
+                  0.12187500000000001
+                ],
+                [
+                  0.015625,
+                  0.3812500000000001,
+                  0.7468750000000002
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.484375,
+                0.890625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.484375,
+                -0.71875,
+                -0.625
+              ],
+              "median_distance": 3.6023721910611974,
+              "median_real_baseline_distance": 1.1288996095288828
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.0,
+                0.1171875,
+                0.234375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.0625,
+                  0.125
+                ],
+                [
+                  0.0015625000000000222,
+                  0.40156250000000016,
+                  0.5187500000000005
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.484375,
+                0.9140625,
+                0.9453125
+              ],
+              "median_paired_coverage_gap": [
+                -0.484375,
+                -0.75,
+                -0.703125
+              ],
+              "median_distance": 2.8749986656378064,
+              "median_real_baseline_distance": 0.9511042017690905
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.21875,
+                0.875,
+                0.96875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.1390625,
+                  0.6703125,
+                  0.765625
+                ],
+                [
+                  0.3453125,
+                  0.984375,
+                  1.0
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.46875,
+                0.8984375,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.25,
+                -0.0078125,
+                0.0078125
+              ],
+              "median_distance": 0.49016711969398963,
+              "median_real_baseline_distance": 0.303137434872365
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.2421875,
+                0.8203125,
+                0.9375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.15625,
+                  0.6796875,
+                  0.81875
+                ],
+                [
+                  0.3453125,
+                  0.96875,
+                  0.984375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.515625,
+                0.890625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.25,
+                -0.1015625,
+                -0.015625
+              ],
+              "median_distance": 0.3588795389348135,
+              "median_real_baseline_distance": 0.20644064203523757
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.1953125,
+                0.84375,
+                0.9453125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.1546875,
+                  0.6984375,
+                  0.84375
+                ],
+                [
+                  0.3921875,
+                  0.984375,
+                  1.0
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.484375,
+                0.875,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.296875,
+                -0.0234375,
+                0.015625
+              ],
+              "median_distance": 0.4877999237708962,
+              "median_real_baseline_distance": 0.31372090687531295
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.2265625,
+                0.8125,
+                0.9140625
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.12187500000000001,
+                  0.6390625,
+                  0.7625
+                ],
+                [
+                  0.3125,
+                  0.9546875,
+                  0.984375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.4921875,
+                0.890625,
+                0.921875
+              ],
+              "median_paired_coverage_gap": [
+                -0.25,
+                -0.0703125,
+                -0.015625
+              ],
+              "median_distance": 0.3584652677927649,
+              "median_real_baseline_distance": 0.21243921151705442
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.0390625,
+                0.2109375,
+                0.28125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.125,
+                  0.1390625
+                ],
+                [
+                  0.08125000000000004,
+                  0.36250000000000004,
+                  0.503125
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.46875,
+                0.8984375,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.4453125,
+                -0.6953125,
+                -0.671875
+              ],
+              "median_distance": 2.02410574825707,
+              "median_real_baseline_distance": 0.303137434872365
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.046875,
+                0.1796875,
+                0.234375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.015625,
+                  0.1234375,
+                  0.15625
+                ],
+                [
+                  0.078125,
+                  0.31562500000000004,
+                  0.4390625
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.515625,
+                0.890625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.484375,
+                -0.703125,
+                -0.7265625
+              ],
+              "median_distance": 1.5679993301145254,
+              "median_real_baseline_distance": 0.20644064203523757
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.03125,
+                0.21875,
+                0.265625
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.015625,
+                  0.1234375,
+                  0.1390625
+                ],
+                [
+                  0.07968750000000002,
+                  0.3140625,
+                  0.4343750000000002
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.484375,
+                0.875,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.4453125,
+                -0.671875,
+                -0.671875
+              ],
+              "median_distance": 2.0932777534114244,
+              "median_real_baseline_distance": 0.31372090687531295
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.03125,
+                0.1875,
+                0.234375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.015625,
+                  0.1234375,
+                  0.15625
+                ],
+                [
+                  0.06406250000000002,
+                  0.34375,
+                  0.39531250000000007
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.4921875,
+                0.890625,
+                0.921875
+              ],
+              "median_paired_coverage_gap": [
+                -0.453125,
+                -0.6875,
+                -0.6875
+              ],
+              "median_distance": 1.3830056373652022,
+              "median_real_baseline_distance": 0.21243921151705442
+            }
+          ],
+          "sensitivity_summary": {
+            "balanced_pool": {
+              "reference_64_to_128_full_q90_coverage_change": {
+                "median": 0.0,
+                "repeat_p10_p90": [
+                  -0.048437499999999994,
+                  0.03906250000000011
+                ]
+              },
+              "candidates_64_to_128_full_q90_coverage_change": {
+                "median": -0.0078125,
+                "repeat_p10_p90": [
+                  -0.0953125,
+                  0.017187500000000022
+                ]
+              },
+              "candidates_64_to_128_full_median_distance_change": {
+                "median": -0.15208552702599665,
+                "repeat_p10_p90": [
+                  -0.31126934602325834,
+                  -0.05593217321305817
+                ]
+              },
+              "candidates_64_to_128_full_coverage_change_fixed_128_q90_radius": {
+                "median": 0.078125,
+                "repeat_p10_p90": [
+                  0.015625,
+                  0.15625
+                ]
+              },
+              "full_vs_pca2_q90_query_disagreement": {
+                "median": 0.2421875,
+                "repeat_p10_p90": [
+                  0.10156250000000001,
+                  0.375
+                ]
+              },
+              "full_vs_pca2_neighbour_agreement": {
+                "median": 0.3046875,
+                "repeat_p10_p90": [
+                  0.25,
+                  0.34687500000000004
+                ]
+              }
+            },
+            "synforecast_mar": {
+              "reference_64_to_128_full_q90_coverage_change": {
+                "median": 0.0,
+                "repeat_p10_p90": [
+                  -0.032812499999999994,
+                  0.015625
+                ]
+              },
+              "candidates_64_to_128_full_q90_coverage_change": {
+                "median": 0.0078125,
+                "repeat_p10_p90": [
+                  -0.12031249999999999,
+                  0.07187500000000013
+                ]
+              },
+              "candidates_64_to_128_full_median_distance_change": {
+                "median": -0.13678088139392197,
+                "repeat_p10_p90": [
+                  -1.3069961913896428,
+                  -0.007493531647218165
+                ]
+              },
+              "candidates_64_to_128_full_coverage_change_fixed_128_q90_radius": {
+                "median": 0.03125,
+                "repeat_p10_p90": [
+                  0.014062500000000002,
+                  0.18750000000000022
+                ]
+              },
+              "full_vs_pca2_q90_query_disagreement": {
+                "median": 0.1796875,
+                "repeat_p10_p90": [
+                  0.0625,
+                  0.2890625000000001
+                ]
+              },
+              "full_vs_pca2_neighbour_agreement": {
+                "median": 0.6328125,
+                "repeat_p10_p90": [
+                  0.36875,
+                  0.753125
+                ]
+              }
+            },
+            "balanced_strictly_higher_coverage_fraction": [
+              {
+                "space": "full",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "full",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "full",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "full",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              }
+            ]
+          },
+          "grid_summary": [
+            {
+              "n_bins": 15,
+              "bounds": "real",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.3645833333333333,
+                "uncovered_real_series_fraction": 0.29296875,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.07999999999999996,
+                "real_occupied_cells": 96
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.35714285714285715,
+                  0.4444444444444444
+                ],
+                "uncovered_real_series_fraction": [
+                  0.26171875,
+                  0.375
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.06399999999999995,
+                  0.07999999999999996
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "real",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.75,
+                "uncovered_real_series_fraction": 0.86328125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.3671875,
+                "real_occupied_cells": 96
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.6938775510204082,
+                  0.7553191489361702
+                ],
+                "uncovered_real_series_fraction": [
+                  0.828125,
+                  0.86328125
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.29296875,
+                  0.3671875
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "pooled",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.03333333333333333,
+                "uncovered_real_series_fraction": 0.0078125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 30
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.03333333333333333,
+                  0.17647058823529413
+                ],
+                "uncovered_real_series_fraction": [
+                  0.0078125,
+                  0.03125
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "pooled",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.43333333333333335,
+                "uncovered_real_series_fraction": 0.62890625,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 30
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.4,
+                  0.5
+                ],
+                "uncovered_real_series_fraction": [
+                  0.546875,
+                  0.6796875
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "real_without_one_extreme",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.4329896907216495,
+                "uncovered_real_series_fraction": 0.34375,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.09599999999999997,
+                "real_occupied_cells": 97
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.37755102040816324,
+                  0.4536082474226804
+                ],
+                "uncovered_real_series_fraction": [
+                  0.30078125,
+                  0.40234375
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.06799999999999995,
+                  0.09599999999999997
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "real_without_one_extreme",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.7731958762886598,
+                "uncovered_real_series_fraction": 0.859375,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.4375,
+                "real_occupied_cells": 97
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.71,
+                  0.7755102040816326
+                ],
+                "uncovered_real_series_fraction": [
+                  0.83984375,
+                  0.86328125
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.34375,
+                  0.4375
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.75,
+                "uncovered_real_series_fraction": 0.67578125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.07999999999999996,
+                "real_occupied_cells": 172
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.6993865030674846,
+                  0.7823529411764706
+                ],
+                "uncovered_real_series_fraction": [
+                  0.6484375,
+                  0.75
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.07199999999999995,
+                  0.07999999999999996
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.9244186046511628,
+                "uncovered_real_series_fraction": 0.9453125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.3671875,
+                "real_occupied_cells": 172
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.8834355828220859,
+                  0.9470588235294117
+                ],
+                "uncovered_real_series_fraction": [
+                  0.9140625,
+                  0.9609375
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.32421875,
+                  0.3671875
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "pooled",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.3170731707317073,
+                "uncovered_real_series_fraction": 0.20703125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 82
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.225,
+                  0.3170731707317073
+                ],
+                "uncovered_real_series_fraction": [
+                  0.10546875,
+                  0.2890625
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "pooled",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.6585365853658537,
+                "uncovered_real_series_fraction": 0.80859375,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 82
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.620253164556962,
+                  0.6973684210526315
+                ],
+                "uncovered_real_series_fraction": [
+                  0.80078125,
+                  0.8359375
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real_without_one_extreme",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.7633136094674556,
+                "uncovered_real_series_fraction": 0.6953125,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.09599999999999997,
+                "real_occupied_cells": 169
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.7041420118343196,
+                  0.7894736842105263
+                ],
+                "uncovered_real_series_fraction": [
+                  0.671875,
+                  0.75390625
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.08399999999999996,
+                  0.09599999999999997
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real_without_one_extreme",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.9230769230769231,
+                "uncovered_real_series_fraction": 0.9453125,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.4375,
+                "real_occupied_cells": 169
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.9041916167664671,
+                  0.9476744186046512
+                ],
+                "uncovered_real_series_fraction": [
+                  0.9296875,
+                  0.95703125
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.38671875,
+                  0.4375
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.8693467336683417,
+                "uncovered_real_series_fraction": 0.875,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.07999999999999996,
+                "real_occupied_cells": 199
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.8374384236453202,
+                  0.8756218905472637
+                ],
+                "uncovered_real_series_fraction": [
+                  0.80859375,
+                  0.875
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.07599999999999996,
+                  0.07999999999999996
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.964824120603015,
+                "uncovered_real_series_fraction": 0.97265625,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.3671875,
+                "real_occupied_cells": 199
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.955,
+                  0.9847715736040609
+                ],
+                "uncovered_real_series_fraction": [
+                  0.96484375,
+                  0.984375
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.3359375,
+                  0.3671875
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "pooled",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.5084745762711864,
+                "uncovered_real_series_fraction": 0.40625,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 118
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.45614035087719296,
+                  0.5619834710743802
+                ],
+                "uncovered_real_series_fraction": [
+                  0.3671875,
+                  0.5
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "pooled",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.7627118644067796,
+                "uncovered_real_series_fraction": 0.859375,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 118
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.7627118644067796,
+                  0.8245614035087719
+                ],
+                "uncovered_real_series_fraction": [
+                  0.859375,
+                  0.8984375
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real_without_one_extreme",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.8743718592964824,
+                "uncovered_real_series_fraction": 0.875,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.09599999999999997,
+                "real_occupied_cells": 199
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.8423645320197044,
+                  0.8805970149253731
+                ],
+                "uncovered_real_series_fraction": [
+                  0.8125,
+                  0.875
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.09199999999999997,
+                  0.09599999999999997
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real_without_one_extreme",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.9698492462311558,
+                "uncovered_real_series_fraction": 0.97265625,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.4375,
+                "real_occupied_cells": 199
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.9601990049751243,
+                  0.9848484848484849
+                ],
+                "uncovered_real_series_fraction": [
+                  0.96875,
+                  0.98828125
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.390625,
+                  0.4375
+                ]
+              }
+            }
+          ],
+          "removed_from_bounds_only_id": "M45837",
+          "controls": {
+            "spaces": {
+              "full": {
+                "baseline_loo_q90_radius": 0.7233541242510211,
+                "mechanisms": {
+                  "dependence": {
+                    "median_distance_to_base": 6.486960909652314,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "seasonality": {
+                    "median_distance_to_base": 7.728411943870336,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "spike": {
+                    "median_distance_to_base": 70.46606649406418,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "level_shift": {
+                    "median_distance_to_base": 8.662912714243951,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "variance_shift": {
+                    "median_distance_to_base": 4.719084451494551,
+                    "fraction_outside_base_radius": 1.0
+                  }
+                }
+              },
+              "pca2": {
+                "baseline_loo_q90_radius": 0.31373292635877564,
+                "mechanisms": {
+                  "dependence": {
+                    "median_distance_to_base": 5.621265057315369,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "seasonality": {
+                    "median_distance_to_base": 5.7411428927773684,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "spike": {
+                    "median_distance_to_base": 32.27298971045121,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "level_shift": {
+                    "median_distance_to_base": 7.254921184136883,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "variance_shift": {
+                    "median_distance_to_base": 1.7562080374937064,
+                    "fraction_outside_base_radius": 1.0
+                  }
+                }
+              }
+            },
+            "parameters": {
+              "mean": [
+                0.414057783306753,
+                0.8686995480765084,
+                0.3183212018683265,
+                0.860371040177816,
+                5.845412374426874,
+                -0.0452649372662745,
+                0.607293273080997,
+                2.3164181430085708e-05,
+                0.06337964376735618,
+                1.1822322271098111,
+                0.6265817230523415,
+                19.1640625
+              ],
+              "scale": [
+                0.1848371081130144,
+                0.21079944575772475,
+                0.28290914437207565,
+                0.21798010018930666,
+                2.832357876213418,
+                0.3397178157930024,
+                0.29118779744355006,
+                8.035052785517204e-05,
+                0.1470299202121843,
+                0.6206037217878457,
+                0.7068934895612611,
+                19.841669120718997
+              ],
+              "kept_columns": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ],
+              "constant_atol": 1e-12,
+              "numpy_version": "2.2.6",
+              "components": [
+                [
+                  -0.356158562350553,
+                  0.3665455547817733,
+                  0.07916964909338604,
+                  0.35736920115521237,
+                  0.3513334655682193,
+                  0.1847567090491298,
+                  0.32118458217410495,
+                  -0.27723200511336765,
+                  -0.3034813974402942,
+                  -0.174759732367941,
+                  -0.314109765572059,
+                  -0.21429097492075838
+                ],
+                [
+                  -0.1584774170119038,
+                  0.10637275971645557,
+                  -0.5244472879911519,
+                  0.18629193074773476,
+                  0.04109609660621199,
+                  0.3399789621497061,
+                  -0.2630941217544029,
+                  -0.020621528229372535,
+                  0.09805904145161655,
+                  0.549566777553087,
+                  0.20695751508134974,
+                  -0.3353075052940401
+                ]
+              ],
+              "rank_tolerance": 2.317809795702224e-12
+            },
+            "inputs": {
+              "base": {
+                "sha256": "8c97454decd9eda875c76adc39f8b723cb5b191b909c15cf1fd55ee98075512f",
+                "n_input": 32,
+                "n_retained": 32,
+                "dropped_ids": []
+              },
+              "dependence": {
+                "sha256": "ab31c08bfc952d338f50a9b36d9f9d3088465bc3db78a43440126d2403fc02c4",
+                "n_input": 32,
+                "n_retained": 32,
+                "dropped_ids": []
+              },
+              "seasonality": {
+                "sha256": "1f434fbb6bfaba9bfad1981cf4ba55dbe65d01487f6ae159096058518cca4a65",
+                "n_input": 32,
+                "n_retained": 32,
+                "dropped_ids": []
+              },
+              "spike": {
+                "sha256": "33894e3ab69f40d47b2f7f49ea9cfba24c455cc324a36b4a96794afd3f6a4e6b",
+                "n_input": 32,
+                "n_retained": 32,
+                "dropped_ids": []
+              },
+              "level_shift": {
+                "sha256": "cf377b0876f3dd660730228a726e344ddd4ea6e0f9b5a4607cb916b2d74dbf00",
+                "n_input": 32,
+                "n_retained": 32,
+                "dropped_ids": []
+              },
+              "variance_shift": {
+                "sha256": "113ca9879d3d065a3485596c14b48a5c52089ddd85c91f56f3c47b1e610418ce",
+                "n_input": 32,
+                "n_retained": 32,
+                "dropped_ids": []
+              }
+            }
+          }
+        },
+        "Yearly": {
+          "extraction": {
+            "period": null,
+            "effective_window_size": 5
+          },
+          "inputs": {
+            "real": {
+              "sha256": "1655897ac1c43bd2fdaae1d116bb89bc1bc48642e38f19629df4040926ef30ce",
+              "n_input": 256,
+              "n_retained": 256,
+              "dropped_ids": []
+            },
+            "balanced_pool": {
+              "sha256": "03f1356a235c17a4a1d60220656801c161267835ab288f4bd691c14f6acb173c",
+              "n_input": 256,
+              "n_retained": 251,
+              "dropped_ids": [
+                "Y12721",
+                "Y13139",
+                "Y2514",
+                "Y7758",
+                "Y9193"
+              ]
+            },
+            "synforecast_mar": {
+              "sha256": "78c0bf6f92a3c0e4a1f318ba9f4fbcb4a57862cededa8272e3228a89eeb7f1c1",
+              "n_input": 256,
+              "n_retained": 256,
+              "dropped_ids": []
+            }
+          },
+          "details": {
+            "file": "20260910_Yearly_details.json.gz",
+            "sha256": "b94ce7a6775a09ed29f57741996c95745d91c0dba0e8ae57a863e4673e51cc6a"
+          },
+          "distance_summary": [
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.1328125,
+                0.84375,
+                0.953125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.046875,
+                  0.6359375,
+                  0.8890625
+                ],
+                [
+                  0.20625000000000004,
+                  0.9546875,
+                  0.984375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5390625,
+                0.90625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.390625,
+                -0.0625,
+                0.015625
+              ],
+              "median_distance": 1.5901096331625622,
+              "median_real_baseline_distance": 1.008169952530491
+            },
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.171875,
+                0.875,
+                0.953125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0625,
+                  0.7640625,
+                  0.884375
+                ],
+                [
+                  0.26875000000000004,
+                  0.9546875,
+                  0.984375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.484375,
+                0.90625,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.3359375,
+                -0.0234375,
+                -0.0078125
+              ],
+              "median_distance": 1.2468291073663291,
+              "median_real_baseline_distance": 0.8820868568694251
+            },
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.1328125,
+                0.84375,
+                0.9453125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.045312500000000006,
+                  0.6359375,
+                  0.8859375
+                ],
+                [
+                  0.22187500000000004,
+                  0.9546875,
+                  0.984375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5390625,
+                0.90625,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.40625,
+                -0.0546875,
+                0.0
+              ],
+              "median_distance": 1.613351467853906,
+              "median_real_baseline_distance": 1.0061353081923083
+            },
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.171875,
+                0.8671875,
+                0.953125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0625,
+                  0.79375,
+                  0.8734375
+                ],
+                [
+                  0.2828125,
+                  0.9390625,
+                  0.984375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.4921875,
+                0.90625,
+                0.9453125
+              ],
+              "median_paired_coverage_gap": [
+                -0.3515625,
+                -0.0234375,
+                0.0
+              ],
+              "median_distance": 1.2717973365270256,
+              "median_real_baseline_distance": 0.8911857762226187
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.0078125,
+                0.359375,
+                0.6875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.045312500000000006,
+                  0.2921875
+                ],
+                [
+                  0.046875,
+                  0.7390625000000001,
+                  0.95625
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5390625,
+                0.90625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.515625,
+                -0.546875,
+                -0.2421875
+              ],
+              "median_distance": 2.531648016271071,
+              "median_real_baseline_distance": 1.008169952530491
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.0,
+                0.328125,
+                0.6328125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.1046875,
+                  0.4
+                ],
+                [
+                  0.03125,
+                  0.5984375000000001,
+                  0.9421875000000001
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.484375,
+                0.90625,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.484375,
+                -0.5859375,
+                -0.28125
+              ],
+              "median_distance": 2.42618589181592,
+              "median_real_baseline_distance": 0.8820868568694251
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.015625,
+                0.3515625,
+                0.6875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.03125,
+                  0.3265625
+                ],
+                [
+                  0.04843750000000002,
+                  0.7375,
+                  0.95625
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5390625,
+                0.90625,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.53125,
+                -0.5390625,
+                -0.234375
+              ],
+              "median_distance": 2.5957480580735264,
+              "median_real_baseline_distance": 1.0061353081923083
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.0,
+                0.3203125,
+                0.6171875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.1046875,
+                  0.39843750000000006
+                ],
+                [
+                  0.03125,
+                  0.5921875000000002,
+                  0.9109375000000001
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.4921875,
+                0.90625,
+                0.9453125
+              ],
+              "median_paired_coverage_gap": [
+                -0.484375,
+                -0.5625,
+                -0.3203125
+              ],
+              "median_distance": 2.4428238368198794,
+              "median_real_baseline_distance": 0.8911857762226187
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.1328125,
+                0.8828125,
+                0.96875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.09062500000000001,
+                  0.590625,
+                  0.8265625
+                ],
+                [
+                  0.2250000000000001,
+                  0.971875,
+                  1.0
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.921875,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.359375,
+                -0.03125,
+                0.03125
+              ],
+              "median_distance": 0.43053054054094875,
+              "median_real_baseline_distance": 0.19164183712639565
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.140625,
+                0.9375,
+                0.96875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.109375,
+                  0.6609375000000001,
+                  0.8890625
+                ],
+                [
+                  0.19218750000000007,
+                  0.9859375,
+                  1.0
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.515625,
+                0.9140625,
+                0.9609375
+              ],
+              "median_paired_coverage_gap": [
+                -0.3671875,
+                0.015625,
+                0.015625
+              ],
+              "median_distance": 0.3114893350113178,
+              "median_real_baseline_distance": 0.1321108910327581
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.1484375,
+                0.828125,
+                0.96875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0625,
+                  0.6625,
+                  0.825
+                ],
+                [
+                  0.22187500000000004,
+                  0.984375,
+                  1.0
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5234375,
+                0.9140625,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.359375,
+                -0.0703125,
+                0.015625
+              ],
+              "median_distance": 0.4508298696084744,
+              "median_real_baseline_distance": 0.20645409085769484
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.15625,
+                0.859375,
+                0.96875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.10625000000000001,
+                  0.7171875,
+                  0.9359375
+                ],
+                [
+                  0.234375,
+                  0.984375,
+                  1.0
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5078125,
+                0.90625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.359375,
+                -0.0390625,
+                0.015625
+              ],
+              "median_distance": 0.309039482536913,
+              "median_real_baseline_distance": 0.14953421771810535
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.015625,
+                0.2734375,
+                0.375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.1078125,
+                  0.2015625
+                ],
+                [
+                  0.046875,
+                  0.4078125,
+                  0.7453125000000004
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.921875,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.46875,
+                -0.640625,
+                -0.578125
+              ],
+              "median_distance": 1.2408113860457175,
+              "median_real_baseline_distance": 0.19164183712639565
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.0234375,
+                0.25,
+                0.4453125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.13593750000000002,
+                  0.278125
+                ],
+                [
+                  0.046875,
+                  0.40937500000000004,
+                  0.6125
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.515625,
+                0.9140625,
+                0.9609375
+              ],
+              "median_paired_coverage_gap": [
+                -0.4921875,
+                -0.6171875,
+                -0.515625
+              ],
+              "median_distance": 1.0634664843309583,
+              "median_real_baseline_distance": 0.1321108910327581
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.03125,
+                0.2421875,
+                0.3828125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.15000000000000002,
+                  0.24375000000000002
+                ],
+                [
+                  0.06406250000000002,
+                  0.35312500000000013,
+                  0.7734375000000003
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5234375,
+                0.9140625,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.484375,
+                -0.6484375,
+                -0.5625
+              ],
+              "median_distance": 1.3056045225187856,
+              "median_real_baseline_distance": 0.20645409085769484
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.03125,
+                0.21875,
+                0.3984375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.1234375,
+                  0.2484375
+                ],
+                [
+                  0.06406250000000002,
+                  0.37812500000000004,
+                  0.5375000000000003
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5078125,
+                0.90625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.4765625,
+                -0.6484375,
+                -0.5546875
+              ],
+              "median_distance": 1.0631719710225476,
+              "median_real_baseline_distance": 0.14953421771810535
+            }
+          ],
+          "sensitivity_summary": {
+            "balanced_pool": {
+              "reference_64_to_128_full_q90_coverage_change": {
+                "median": 0.0,
+                "repeat_p10_p90": [
+                  -0.017187499999999998,
+                  0.03125
+                ]
+              },
+              "candidates_64_to_128_full_q90_coverage_change": {
+                "median": 0.03125,
+                "repeat_p10_p90": [
+                  -0.048437499999999994,
+                  0.18906250000000002
+                ]
+              },
+              "candidates_64_to_128_full_median_distance_change": {
+                "median": -0.35904141725587857,
+                "repeat_p10_p90": [
+                  -0.4682633457812811,
+                  -0.1397631676450502
+                ]
+              },
+              "candidates_64_to_128_full_coverage_change_fixed_128_q90_radius": {
+                "median": 0.078125,
+                "repeat_p10_p90": [
+                  0.029687500000000002,
+                  0.21562500000000018
+                ]
+              },
+              "full_vs_pca2_q90_query_disagreement": {
+                "median": 0.203125,
+                "repeat_p10_p90": [
+                  0.029687500000000002,
+                  0.2796875000000002
+                ]
+              },
+              "full_vs_pca2_neighbour_agreement": {
+                "median": 0.21875,
+                "repeat_p10_p90": [
+                  0.171875,
+                  0.28437500000000004
+                ]
+              }
+            },
+            "synforecast_mar": {
+              "reference_64_to_128_full_q90_coverage_change": {
+                "median": 0.0,
+                "repeat_p10_p90": [
+                  -0.0640625,
+                  0.06406250000000002
+                ]
+              },
+              "candidates_64_to_128_full_q90_coverage_change": {
+                "median": -0.0234375,
+                "repeat_p10_p90": [
+                  -0.175,
+                  0.20468750000000002
+                ]
+              },
+              "candidates_64_to_128_full_median_distance_change": {
+                "median": -0.09994116897936878,
+                "repeat_p10_p90": [
+                  -0.5872641481463206,
+                  -0.017105220258486924
+                ]
+              },
+              "candidates_64_to_128_full_coverage_change_fixed_128_q90_radius": {
+                "median": 0.046875,
+                "repeat_p10_p90": [
+                  0.0,
+                  0.23593750000000002
+                ]
+              },
+              "full_vs_pca2_q90_query_disagreement": {
+                "median": 0.296875,
+                "repeat_p10_p90": [
+                  0.15625,
+                  0.4390625
+                ]
+              },
+              "full_vs_pca2_neighbour_agreement": {
+                "median": 0.46875,
+                "repeat_p10_p90": [
+                  0.3421875,
+                  0.659375
+                ]
+              }
+            },
+            "balanced_strictly_higher_coverage_fraction": [
+              {
+                "space": "full",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  0.95,
+                  1.0,
+                  0.9
+                ]
+              },
+              {
+                "space": "full",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  0.9
+                ]
+              },
+              {
+                "space": "full",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  0.95,
+                  1.0,
+                  0.9
+                ]
+              },
+              {
+                "space": "full",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  0.95
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  0.95
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  0.95,
+                  1.0,
+                  0.95
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              }
+            ]
+          },
+          "grid_summary": [
+            {
+              "n_bins": 15,
+              "bounds": "real",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.1794871794871795,
+                "uncovered_real_series_fraction": 0.03125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.06374501992031878,
+                "real_occupied_cells": 39
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.14285714285714285,
+                  0.3170731707317073
+                ],
+                "uncovered_real_series_fraction": [
+                  0.01953125,
+                  0.1171875
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.031872509960159334,
+                  0.06374501992031878
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "real",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.5128205128205128,
+                "uncovered_real_series_fraction": 0.734375,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.25,
+                "real_occupied_cells": 39
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.3783783783783784,
+                  0.5675675675675675
+                ],
+                "uncovered_real_series_fraction": [
+                  0.53515625,
+                  0.734375
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.1640625,
+                  0.25
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "pooled",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.20833333333333334,
+                "uncovered_real_series_fraction": 0.0234375,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 24
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.19230769230769232,
+                  0.28
+                ],
+                "uncovered_real_series_fraction": [
+                  0.01953125,
+                  0.02734375
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "pooled",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.375,
+                "uncovered_real_series_fraction": 0.4921875,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 24
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.2727272727272727,
+                  0.38461538461538464
+                ],
+                "uncovered_real_series_fraction": [
+                  0.31640625,
+                  0.6328125
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "real_without_one_extreme",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.3382352941176471,
+                "uncovered_real_series_fraction": 0.1796875,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.2350597609561753,
+                "real_occupied_cells": 68
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.25757575757575757,
+                  0.38461538461538464
+                ],
+                "uncovered_real_series_fraction": [
+                  0.1171875,
+                  0.2734375
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.19920318725099606,
+                  0.2350597609561753
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "real_without_one_extreme",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.7058823529411765,
+                "uncovered_real_series_fraction": 0.77734375,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.625,
+                "real_occupied_cells": 68
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.6923076923076923,
+                  0.7761194029850746
+                ],
+                "uncovered_real_series_fraction": [
+                  0.765625,
+                  0.84375
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.578125,
+                  0.625
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.38461538461538464,
+                "uncovered_real_series_fraction": 0.28125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.06374501992031878,
+                "real_occupied_cells": 78
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.34177215189873417,
+                  0.42105263157894735
+                ],
+                "uncovered_real_series_fraction": [
+                  0.21875,
+                  0.3359375
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.043824701195219085,
+                  0.06374501992031878
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.7948717948717948,
+                "uncovered_real_series_fraction": 0.8828125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.25,
+                "real_occupied_cells": 78
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.7236842105263158,
+                  0.8289473684210527
+                ],
+                "uncovered_real_series_fraction": [
+                  0.82421875,
+                  0.90625
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.19921875,
+                  0.25
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "pooled",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.24489795918367346,
+                "uncovered_real_series_fraction": 0.15234375,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 49
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.1875,
+                  0.3
+                ],
+                "uncovered_real_series_fraction": [
+                  0.046875,
+                  0.17578125
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "pooled",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.5918367346938775,
+                "uncovered_real_series_fraction": 0.66796875,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 49
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.5,
+                  0.6122448979591837
+                ],
+                "uncovered_real_series_fraction": [
+                  0.6484375,
+                  0.78125
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real_without_one_extreme",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.664179104477612,
+                "uncovered_real_series_fraction": 0.62890625,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.2350597609561753,
+                "real_occupied_cells": 134
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.6390977443609023,
+                  0.7076923076923077
+                ],
+                "uncovered_real_series_fraction": [
+                  0.59765625,
+                  0.6875
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.2071713147410359,
+                  0.2350597609561753
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real_without_one_extreme",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.9253731343283582,
+                "uncovered_real_series_fraction": 0.94140625,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.625,
+                "real_occupied_cells": 134
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.9047619047619048,
+                  0.9485294117647058
+                ],
+                "uncovered_real_series_fraction": [
+                  0.92578125,
+                  0.97265625
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.6015625,
+                  0.625
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.5826086956521739,
+                "uncovered_real_series_fraction": 0.51953125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.06374501992031878,
+                "real_occupied_cells": 115
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.5263157894736842,
+                  0.6347826086956522
+                ],
+                "uncovered_real_series_fraction": [
+                  0.44921875,
+                  0.60546875
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.047808764940239,
+                  0.06374501992031878
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.9217391304347826,
+                "uncovered_real_series_fraction": 0.953125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.25,
+                "real_occupied_cells": 115
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.8695652173913043,
+                  0.9304347826086956
+                ],
+                "uncovered_real_series_fraction": [
+                  0.9140625,
+                  0.95703125
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.2265625,
+                  0.25
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "pooled",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.4155844155844156,
+                "uncovered_real_series_fraction": 0.296875,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 77
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.3150684931506849,
+                  0.43037974683544306
+                ],
+                "uncovered_real_series_fraction": [
+                  0.16796875,
+                  0.3671875
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "pooled",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.7922077922077922,
+                "uncovered_real_series_fraction": 0.8359375,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 77
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.7123287671232876,
+                  0.8076923076923077
+                ],
+                "uncovered_real_series_fraction": [
+                  0.79296875,
+                  0.91015625
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real_without_one_extreme",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.8295454545454546,
+                "uncovered_real_series_fraction": 0.82421875,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.2350597609561753,
+                "real_occupied_cells": 176
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.7885714285714286,
+                  0.8323699421965318
+                ],
+                "uncovered_real_series_fraction": [
+                  0.7421875,
+                  0.84765625
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.2111553784860558,
+                  0.2350597609561753
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real_without_one_extreme",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.9829545454545454,
+                "uncovered_real_series_fraction": 0.9765625,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.625,
+                "real_occupied_cells": 176
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.9542857142857143,
+                  0.9829545454545454
+                ],
+                "uncovered_real_series_fraction": [
+                  0.9609375,
+                  0.98046875
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.60546875,
+                  0.625
+                ]
+              }
+            }
+          ],
+          "removed_from_bounds_only_id": "Y13139",
+          "controls": null
+        }
+      }
+    },
+    {
+      "pilot_seed": 20260911,
+      "source_summary_sha256": "726512eec7b9a7be346bc0d7c862f277f700d4995a9352d67bceafc42699332b",
+      "groups": {
+        "Monthly": {
+          "extraction": {
+            "period": 12,
+            "effective_window_size": 12
+          },
+          "inputs": {
+            "real": {
+              "sha256": "690ce6e97bfd4cc6904d1b85eeb895c0023be500a0876d1840a5db7562fe3c9b",
+              "n_input": 256,
+              "n_retained": 256,
+              "dropped_ids": []
+            },
+            "balanced_pool": {
+              "sha256": "3bb7168023aa6b6de255f86ad8c562b79d9e54fb03f96a5654073eb21b92d4d3",
+              "n_input": 256,
+              "n_retained": 250,
+              "dropped_ids": [
+                "M26940",
+                "M2947",
+                "M33418",
+                "M4464",
+                "M7391",
+                "M8623"
+              ]
+            },
+            "synforecast_mar": {
+              "sha256": "022523e6541255d09acdaf6a87043717a514c053ac6764fdb5d6b855d3cf9d81",
+              "n_input": 256,
+              "n_retained": 256,
+              "dropped_ids": []
+            }
+          },
+          "details": {
+            "file": "20260911_Monthly_details.json.gz",
+            "sha256": "3f2df1b6c38d406fa3f669f00799e1b1a94a0997b63eb0a08a4f336a1f97d118"
+          },
+          "distance_summary": [
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.2734375,
+                0.8359375,
+                0.9375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.2015625,
+                  0.6875,
+                  0.79375
+                ],
+                [
+                  0.3296875,
+                  0.909375,
+                  0.984375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.8984375,
+                0.9453125
+              ],
+              "median_paired_coverage_gap": [
+                -0.21875,
+                -0.0703125,
+                -0.015625
+              ],
+              "median_distance": 1.5470494565226565,
+              "median_real_baseline_distance": 1.1916910301838075
+            },
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.25,
+                0.78125,
+                0.9140625
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.2,
+                  0.6953125,
+                  0.7765625
+                ],
+                [
+                  0.3296875,
+                  0.9078125,
+                  0.9859375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.9140625,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.2421875,
+                -0.125,
+                -0.0390625
+              ],
+              "median_distance": 1.363524532863611,
+              "median_real_baseline_distance": 0.9891249009382357
+            },
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.2578125,
+                0.7890625,
+                0.8984375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.203125,
+                  0.7015625,
+                  0.7953125
+                ],
+                [
+                  0.3453125,
+                  0.9234375,
+                  0.971875
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.890625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.21875,
+                -0.078125,
+                -0.0390625
+              ],
+              "median_distance": 1.5419229030829502,
+              "median_real_baseline_distance": 1.1216204535799483
+            },
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.25,
+                0.765625,
+                0.8984375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.2015625,
+                  0.7,
+                  0.7484375
+                ],
+                [
+                  0.34375,
+                  0.9078125,
+                  0.9703125
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.9140625,
+                0.9453125
+              ],
+              "median_paired_coverage_gap": [
+                -0.234375,
+                -0.1015625,
+                -0.046875
+              ],
+              "median_distance": 1.33020990498631,
+              "median_real_baseline_distance": 0.990377793032336
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.0,
+                0.171875,
+                0.296875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.059375000000000004,
+                  0.125
+                ],
+                [
+                  0.017187500000000022,
+                  0.2984375,
+                  0.6015625000000001
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.8984375,
+                0.9453125
+              ],
+              "median_paired_coverage_gap": [
+                -0.4921875,
+                -0.734375,
+                -0.6484375
+              ],
+              "median_distance": 3.67617924362553,
+              "median_real_baseline_distance": 1.1916910301838075
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.0,
+                0.1640625,
+                0.359375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.0765625,
+                  0.15625
+                ],
+                [
+                  0.015625,
+                  0.2515625,
+                  0.7203125
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.9140625,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.5,
+                -0.734375,
+                -0.6171875
+              ],
+              "median_distance": 2.8429078102835015,
+              "median_real_baseline_distance": 0.9891249009382357
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.0,
+                0.1796875,
+                0.2734375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.059375000000000004,
+                  0.0921875
+                ],
+                [
+                  0.017187500000000022,
+                  0.3296875,
+                  0.6000000000000001
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.890625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.484375,
+                -0.734375,
+                -0.671875
+              ],
+              "median_distance": 3.4980744424271273,
+              "median_real_baseline_distance": 1.1216204535799483
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.0,
+                0.1796875,
+                0.2734375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.078125,
+                  0.1234375
+                ],
+                [
+                  0.015625,
+                  0.265625,
+                  0.4703125
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.9140625,
+                0.9453125
+              ],
+              "median_paired_coverage_gap": [
+                -0.4921875,
+                -0.7265625,
+                -0.625
+              ],
+              "median_distance": 2.7603987197733595,
+              "median_real_baseline_distance": 0.990377793032336
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.34375,
+                0.859375,
+                0.9375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.215625,
+                  0.65625,
+                  0.7796875
+                ],
+                [
+                  0.3921875,
+                  0.921875,
+                  0.984375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.515625,
+                0.90625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.203125,
+                -0.0390625,
+                -0.0078125
+              ],
+              "median_distance": 0.4426495875498277,
+              "median_real_baseline_distance": 0.3069905185740826
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.359375,
+                0.828125,
+                0.8828125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.234375,
+                  0.684375,
+                  0.7640625
+                ],
+                [
+                  0.4234375,
+                  0.909375,
+                  0.96875
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5625,
+                0.90625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.203125,
+                -0.1015625,
+                -0.0390625
+              ],
+              "median_distance": 0.31350269742190806,
+              "median_real_baseline_distance": 0.21440334909828349
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.3046875,
+                0.8203125,
+                0.9375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.19843750000000002,
+                  0.6875,
+                  0.7765625
+                ],
+                [
+                  0.3921875,
+                  0.9390625,
+                  0.9859375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.890625,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.1875,
+                -0.0546875,
+                -0.0078125
+              ],
+              "median_distance": 0.4393530524816504,
+              "median_real_baseline_distance": 0.303502353732521
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.34375,
+                0.7734375,
+                0.8828125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.2640625,
+                  0.6546875,
+                  0.7328125
+                ],
+                [
+                  0.4078125,
+                  0.9375,
+                  0.96875
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5234375,
+                0.890625,
+                0.9453125
+              ],
+              "median_paired_coverage_gap": [
+                -0.171875,
+                -0.09375,
+                -0.0546875
+              ],
+              "median_distance": 0.3112899611102662,
+              "median_real_baseline_distance": 0.21762721119299555
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.0546875,
+                0.171875,
+                0.2265625
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.015625,
+                  0.10625000000000001,
+                  0.109375
+                ],
+                [
+                  0.09687500000000004,
+                  0.375,
+                  0.44687500000000013
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.515625,
+                0.90625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.4609375,
+                -0.7109375,
+                -0.671875
+              ],
+              "median_distance": 2.638194678511774,
+              "median_real_baseline_distance": 0.3069905185740826
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.0625,
+                0.1875,
+                0.21875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.014062500000000002,
+                  0.109375,
+                  0.140625
+                ],
+                [
+                  0.09687500000000004,
+                  0.28593750000000007,
+                  0.34375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5625,
+                0.90625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.4609375,
+                -0.703125,
+                -0.6796875
+              ],
+              "median_distance": 1.4608597083967818,
+              "median_real_baseline_distance": 0.21440334909828349
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.046875,
+                0.171875,
+                0.2265625
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.015625,
+                  0.0625,
+                  0.09375
+                ],
+                [
+                  0.09375,
+                  0.3343750000000001,
+                  0.4906250000000001
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.890625,
+                0.953125
+              ],
+              "median_paired_coverage_gap": [
+                -0.4296875,
+                -0.7109375,
+                -0.6796875
+              ],
+              "median_distance": 2.397704450997285,
+              "median_real_baseline_distance": 0.303502353732521
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.046875,
+                0.171875,
+                0.21875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.03125,
+                  0.09375,
+                  0.1375
+                ],
+                [
+                  0.078125,
+                  0.296875,
+                  0.3609375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5234375,
+                0.890625,
+                0.9453125
+              ],
+              "median_paired_coverage_gap": [
+                -0.453125,
+                -0.7109375,
+                -0.6796875
+              ],
+              "median_distance": 1.4021617581361672,
+              "median_real_baseline_distance": 0.21762721119299555
+            }
+          ],
+          "sensitivity_summary": {
+            "balanced_pool": {
+              "reference_64_to_128_full_q90_coverage_change": {
+                "median": 0.0,
+                "repeat_p10_p90": [
+                  -0.0625,
+                  0.03593750000000007
+                ]
+              },
+              "candidates_64_to_128_full_q90_coverage_change": {
+                "median": -0.0234375,
+                "repeat_p10_p90": [
+                  -0.0625,
+                  0.04843750000000002
+                ]
+              },
+              "candidates_64_to_128_full_median_distance_change": {
+                "median": -0.191048852300425,
+                "repeat_p10_p90": [
+                  -0.31399691686594183,
+                  -0.06677303070817003
+                ]
+              },
+              "candidates_64_to_128_full_coverage_change_fixed_128_q90_radius": {
+                "median": 0.0625,
+                "repeat_p10_p90": [
+                  0.03125,
+                  0.14375000000000004
+                ]
+              },
+              "full_vs_pca2_q90_query_disagreement": {
+                "median": 0.1875,
+                "repeat_p10_p90": [
+                  0.10625000000000001,
+                  0.3296875
+                ]
+              },
+              "full_vs_pca2_neighbour_agreement": {
+                "median": 0.2734375,
+                "repeat_p10_p90": [
+                  0.21406250000000002,
+                  0.3296875
+                ]
+              }
+            },
+            "synforecast_mar": {
+              "reference_64_to_128_full_q90_coverage_change": {
+                "median": 0.015625,
+                "repeat_p10_p90": [
+                  -0.048437499999999994,
+                  0.046875
+                ]
+              },
+              "candidates_64_to_128_full_q90_coverage_change": {
+                "median": 0.0,
+                "repeat_p10_p90": [
+                  -0.1265625,
+                  0.0625
+                ]
+              },
+              "candidates_64_to_128_full_median_distance_change": {
+                "median": -0.34773709119133334,
+                "repeat_p10_p90": [
+                  -1.4184960013356545,
+                  -0.025795257447341728
+                ]
+              },
+              "candidates_64_to_128_full_coverage_change_fixed_128_q90_radius": {
+                "median": 0.0546875,
+                "repeat_p10_p90": [
+                  0.015625,
+                  0.09375
+                ]
+              },
+              "full_vs_pca2_q90_query_disagreement": {
+                "median": 0.1171875,
+                "repeat_p10_p90": [
+                  0.0625,
+                  0.20625000000000004
+                ]
+              },
+              "full_vs_pca2_neighbour_agreement": {
+                "median": 0.640625,
+                "repeat_p10_p90": [
+                  0.50625,
+                  0.703125
+                ]
+              }
+            },
+            "balanced_strictly_higher_coverage_fraction": [
+              {
+                "space": "full",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "full",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "full",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "full",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              }
+            ]
+          },
+          "grid_summary": [
+            {
+              "n_bins": 15,
+              "bounds": "real",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.234375,
+                "uncovered_real_series_fraction": 0.16015625,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.05600000000000005,
+                "real_occupied_cells": 64
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.23076923076923078,
+                  0.35384615384615387
+                ],
+                "uncovered_real_series_fraction": [
+                  0.1015625,
+                  0.21484375
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.040000000000000036,
+                  0.05600000000000005
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "real",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.703125,
+                "uncovered_real_series_fraction": 0.828125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.21484375,
+                "real_occupied_cells": 64
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.6515151515151515,
+                  0.7301587301587301
+                ],
+                "uncovered_real_series_fraction": [
+                  0.7109375,
+                  0.828125
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.1640625,
+                  0.21484375
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "pooled",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.2727272727272727,
+                "uncovered_real_series_fraction": 0.05859375,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 33
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.11764705882352941,
+                  0.3333333333333333
+                ],
+                "uncovered_real_series_fraction": [
+                  0.02734375,
+                  0.125
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "pooled",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.45454545454545453,
+                "uncovered_real_series_fraction": 0.62890625,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 33
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.45454545454545453,
+                  0.5714285714285714
+                ],
+                "uncovered_real_series_fraction": [
+                  0.5390625,
+                  0.6953125
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "real_without_one_extreme",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.3939393939393939,
+                "uncovered_real_series_fraction": 0.296875,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.09999999999999998,
+                "real_occupied_cells": 99
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.34951456310679613,
+                  0.422680412371134
+                ],
+                "uncovered_real_series_fraction": [
+                  0.26953125,
+                  0.36328125
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.05600000000000005,
+                  0.09999999999999998
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "real_without_one_extreme",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.7676767676767676,
+                "uncovered_real_series_fraction": 0.82421875,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.28515625,
+                "real_occupied_cells": 99
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.7647058823529411,
+                  0.8446601941747572
+                ],
+                "uncovered_real_series_fraction": [
+                  0.8203125,
+                  0.875
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.23046875,
+                  0.28515625
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.5328467153284672,
+                "uncovered_real_series_fraction": 0.484375,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.05600000000000005,
+                "real_occupied_cells": 137
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.5036496350364964,
+                  0.5970149253731343
+                ],
+                "uncovered_real_series_fraction": [
+                  0.43359375,
+                  0.54296875
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.04400000000000004,
+                  0.05600000000000005
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.8540145985401459,
+                "uncovered_real_series_fraction": 0.8984375,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.21484375,
+                "real_occupied_cells": 137
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.8333333333333334,
+                  0.8962962962962963
+                ],
+                "uncovered_real_series_fraction": [
+                  0.87890625,
+                  0.90625
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.18359375,
+                  0.21484375
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "pooled",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.345679012345679,
+                "uncovered_real_series_fraction": 0.234375,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 81
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.2625,
+                  0.3950617283950617
+                ],
+                "uncovered_real_series_fraction": [
+                  0.16796875,
+                  0.2890625
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "pooled",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.7530864197530864,
+                "uncovered_real_series_fraction": 0.80078125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 81
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.6951219512195121,
+                  0.7804878048780488
+                ],
+                "uncovered_real_series_fraction": [
+                  0.765625,
+                  0.8515625
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real_without_one_extreme",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.7011494252873564,
+                "uncovered_real_series_fraction": 0.65234375,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.09999999999999998,
+                "real_occupied_cells": 174
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.6511627906976745,
+                  0.751412429378531
+                ],
+                "uncovered_real_series_fraction": [
+                  0.65234375,
+                  0.72265625
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.06799999999999995,
+                  0.09999999999999998
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real_without_one_extreme",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.9310344827586207,
+                "uncovered_real_series_fraction": 0.9375,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.28515625,
+                "real_occupied_cells": 174
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.8914285714285715,
+                  0.9548022598870056
+                ],
+                "uncovered_real_series_fraction": [
+                  0.91015625,
+                  0.95703125
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.25390625,
+                  0.28515625
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.7068965517241379,
+                "uncovered_real_series_fraction": 0.64453125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.05600000000000005,
+                "real_occupied_cells": 174
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.6761363636363636,
+                  0.7485714285714286
+                ],
+                "uncovered_real_series_fraction": [
+                  0.640625,
+                  0.73046875
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.04800000000000004,
+                  0.05600000000000005
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.9425287356321839,
+                "uncovered_real_series_fraction": 0.9453125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.21484375,
+                "real_occupied_cells": 174
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.9152542372881356,
+                  0.95
+                ],
+                "uncovered_real_series_fraction": [
+                  0.91796875,
+                  0.95703125
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.19140625,
+                  0.21484375
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "pooled",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.47580645161290325,
+                "uncovered_real_series_fraction": 0.40234375,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 124
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.456,
+                  0.5546875
+                ],
+                "uncovered_real_series_fraction": [
+                  0.375,
+                  0.4765625
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "pooled",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.8387096774193549,
+                "uncovered_real_series_fraction": 0.88671875,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 124
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.8174603174603174,
+                  0.8842975206611571
+                ],
+                "uncovered_real_series_fraction": [
+                  0.85546875,
+                  0.90625
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real_without_one_extreme",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.8267326732673267,
+                "uncovered_real_series_fraction": 0.8203125,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.09999999999999998,
+                "real_occupied_cells": 202
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.7942583732057417,
+                  0.8685446009389671
+                ],
+                "uncovered_real_series_fraction": [
+                  0.78515625,
+                  0.87109375
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.07599999999999996,
+                  0.09999999999999998
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real_without_one_extreme",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.9653465346534653,
+                "uncovered_real_series_fraction": 0.96875,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.28515625,
+                "real_occupied_cells": 202
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.9507389162561576,
+                  0.9808612440191388
+                ],
+                "uncovered_real_series_fraction": [
+                  0.94921875,
+                  0.984375
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.26171875,
+                  0.28515625
+                ]
+              }
+            }
+          ],
+          "removed_from_bounds_only_id": "M41442",
+          "controls": {
+            "spaces": {
+              "full": {
+                "baseline_loo_q90_radius": 0.5943367034559782,
+                "mechanisms": {
+                  "dependence": {
+                    "median_distance_to_base": 6.4829464241383565,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "seasonality": {
+                    "median_distance_to_base": 7.524253612503372,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "spike": {
+                    "median_distance_to_base": 25.683228103053573,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "level_shift": {
+                    "median_distance_to_base": 8.450210563606655,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "variance_shift": {
+                    "median_distance_to_base": 1.7140223023152896,
+                    "fraction_outside_base_radius": 1.0
+                  }
+                }
+              },
+              "pca2": {
+                "baseline_loo_q90_radius": 0.14709577315127972,
+                "mechanisms": {
+                  "dependence": {
+                    "median_distance_to_base": 5.652051074225856,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "seasonality": {
+                    "median_distance_to_base": 5.418086495520273,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "spike": {
+                    "median_distance_to_base": 14.556003122835502,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "level_shift": {
+                    "median_distance_to_base": 7.275598798706785,
+                    "fraction_outside_base_radius": 1.0
+                  },
+                  "variance_shift": {
+                    "median_distance_to_base": 0.7533184563704465,
+                    "fraction_outside_base_radius": 1.0
+                  }
+                }
+              }
+            },
+            "parameters": {
+              "mean": [
+                0.4326436083549492,
+                0.8514749938791613,
+                0.303376657206973,
+                0.8442428388765533,
+                5.627178350864529,
+                -0.04369353337709366,
+                0.596953059006652,
+                2.9170308593684464e-05,
+                0.09393352118258558,
+                1.208807272813868,
+                0.711633440967167,
+                21.41796875
+              ],
+              "scale": [
+                0.1857542487318978,
+                0.22189700896693412,
+                0.27857213073203346,
+                0.22746366079444388,
+                2.884071431383502,
+                0.3758811709194391,
+                0.298640288001367,
+                0.0001378511295495352,
+                0.5028631767293608,
+                0.6497471484879922,
+                1.0089832068745657,
+                19.811442927611896
+              ],
+              "kept_columns": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ],
+              "constant_atol": 1e-12,
+              "numpy_version": "2.2.6",
+              "components": [
+                [
+                  0.38053633239328577,
+                  -0.3726591862608981,
+                  -0.052386302892359106,
+                  -0.3599119750051181,
+                  -0.3707100689845609,
+                  -0.18427444825264414,
+                  -0.31792074022761535,
+                  0.26988538404954865,
+                  0.24039018013106864,
+                  0.16013824729153345,
+                  0.32640952924957733,
+                  0.22083173071692452
+                ],
+                [
+                  0.12591571593301792,
+                  -0.13105795483864802,
+                  0.5209018926841653,
+                  -0.23059316913829248,
+                  -0.07400283622469091,
+                  -0.3203412517979988,
+                  0.280944228944546,
+                  -0.11920254074819268,
+                  -0.18459203417482148,
+                  -0.449826640886352,
+                  -0.2557449046891359,
+                  0.37336246252424554
+                ]
+              ],
+              "rank_tolerance": 2.165296471762136e-12
+            },
+            "inputs": {
+              "base": {
+                "sha256": "eca2e082a08b632e4b5f579cde1add05ab4110259c3cc15f79efc2fe665c29a3",
+                "n_input": 32,
+                "n_retained": 32,
+                "dropped_ids": []
+              },
+              "dependence": {
+                "sha256": "f252820f0e2f0359ce6f4d971a7f264540e12438fffb903b96e7cb0848830193",
+                "n_input": 32,
+                "n_retained": 32,
+                "dropped_ids": []
+              },
+              "seasonality": {
+                "sha256": "417b678bedbace502b25cf6b3be8b80f02a35a0c88515789d82508824a873901",
+                "n_input": 32,
+                "n_retained": 32,
+                "dropped_ids": []
+              },
+              "spike": {
+                "sha256": "8490e06ffd6d65f3599651a4b6058f4c0c0acbf156192190d900f71a789e7ab3",
+                "n_input": 32,
+                "n_retained": 32,
+                "dropped_ids": []
+              },
+              "level_shift": {
+                "sha256": "5cb65f03e3ba1080eae432e0b8885ee98c51308eddb442b282ef4b8f25859545",
+                "n_input": 32,
+                "n_retained": 32,
+                "dropped_ids": []
+              },
+              "variance_shift": {
+                "sha256": "c55eaa521458b177960e7665b29d9a506d774ed347c3c6b84fee3a5819491392",
+                "n_input": 32,
+                "n_retained": 32,
+                "dropped_ids": []
+              }
+            }
+          }
+        },
+        "Yearly": {
+          "extraction": {
+            "period": null,
+            "effective_window_size": 5
+          },
+          "inputs": {
+            "real": {
+              "sha256": "cdda712e5f9e78d1e390dfbca1103f8f71adb67617e4e41318a45c5fca2f27b5",
+              "n_input": 256,
+              "n_retained": 256,
+              "dropped_ids": []
+            },
+            "balanced_pool": {
+              "sha256": "ddfe46ce760b2172e932bf072ecfc53d59742ef0a29e07a442814d8de8ead91e",
+              "n_input": 256,
+              "n_retained": 250,
+              "dropped_ids": [
+                "Y12810",
+                "Y1405",
+                "Y15913",
+                "Y2139",
+                "Y3525",
+                "Y4113"
+              ]
+            },
+            "synforecast_mar": {
+              "sha256": "680acf2cd5af82197b56936bded4f9eb3877cb4922908780cd2bb1354f6f249c",
+              "n_input": 256,
+              "n_retained": 256,
+              "dropped_ids": []
+            }
+          },
+          "details": {
+            "file": "20260911_Yearly_details.json.gz",
+            "sha256": "39bae49702799764ac2373b72e588cd96d3597db73750dc23e72bdaea8d882e9"
+          },
+          "distance_summary": [
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.15625,
+                0.859375,
+                0.953125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.09375,
+                  0.7625,
+                  0.903125
+                ],
+                [
+                  0.22812500000000013,
+                  0.953125,
+                  0.9703125
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.8828125,
+                0.921875
+              ],
+              "median_paired_coverage_gap": [
+                -0.328125,
+                -0.015625,
+                0.015625
+              ],
+              "median_distance": 1.5229342364424268,
+              "median_real_baseline_distance": 0.9946521299049073
+            },
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.15625,
+                0.8828125,
+                0.953125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.09375,
+                  0.765625,
+                  0.890625
+                ],
+                [
+                  0.3296875,
+                  0.921875,
+                  0.984375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.46875,
+                0.8984375,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.2734375,
+                -0.0234375,
+                0.0
+              ],
+              "median_distance": 1.2211992695220149,
+              "median_real_baseline_distance": 0.8572405015754496
+            },
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.15625,
+                0.859375,
+                0.953125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.078125,
+                  0.7640625,
+                  0.875
+                ],
+                [
+                  0.2562500000000001,
+                  0.9546875,
+                  0.9703125
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.8828125,
+                0.921875
+              ],
+              "median_paired_coverage_gap": [
+                -0.3125,
+                -0.015625,
+                0.015625
+              ],
+              "median_distance": 1.4298508279001745,
+              "median_real_baseline_distance": 0.9825249680112846
+            },
+            {
+              "space": "full",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.15625,
+                0.859375,
+                0.9375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.09375,
+                  0.7484375,
+                  0.890625
+                ],
+                [
+                  0.3296875,
+                  0.9234375,
+                  0.984375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.46875,
+                0.890625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.2890625,
+                -0.03125,
+                0.0
+              ],
+              "median_distance": 1.2209160736008875,
+              "median_real_baseline_distance": 0.8730969957284576
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.0,
+                0.1328125,
+                0.546875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.0734375,
+                  0.1546875
+                ],
+                [
+                  0.015625,
+                  0.40000000000000013,
+                  0.8156250000000003
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.8828125,
+                0.921875
+              ],
+              "median_paired_coverage_gap": [
+                -0.5,
+                -0.71875,
+                -0.390625
+              ],
+              "median_distance": 3.2259657063895504,
+              "median_real_baseline_distance": 0.9946521299049073
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.0,
+                0.125,
+                0.453125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.060937500000000006,
+                  0.184375
+                ],
+                [
+                  0.0,
+                  0.2765625000000004,
+                  0.95625
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.46875,
+                0.8984375,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.46875,
+                -0.734375,
+                -0.46875
+              ],
+              "median_distance": 2.923857070624494,
+              "median_real_baseline_distance": 0.8572405015754496
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.0,
+                0.125,
+                0.4453125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.0734375,
+                  0.1390625
+                ],
+                [
+                  0.015625,
+                  0.3453125,
+                  0.8125
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.8828125,
+                0.921875
+              ],
+              "median_paired_coverage_gap": [
+                -0.4921875,
+                -0.734375,
+                -0.4921875
+              ],
+              "median_distance": 3.206905741962435,
+              "median_real_baseline_distance": 0.9825249680112846
+            },
+            {
+              "space": "full",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.0,
+                0.109375,
+                0.328125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.07500000000000001,
+                  0.1375
+                ],
+                [
+                  0.0,
+                  0.28125,
+                  0.83125
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.46875,
+                0.890625,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.46875,
+                -0.7421875,
+                -0.609375
+              ],
+              "median_distance": 2.79469972457648,
+              "median_real_baseline_distance": 0.8730969957284576
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.1875,
+                0.8359375,
+                0.9609375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.1078125,
+                  0.59375,
+                  0.78125
+                ],
+                [
+                  0.28125,
+                  0.953125,
+                  1.0
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.46875,
+                0.875,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.3125,
+                -0.0625,
+                0.015625
+              ],
+              "median_distance": 0.4216146959244882,
+              "median_real_baseline_distance": 0.22981760463653272
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.1875,
+                0.828125,
+                0.953125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.109375,
+                  0.7171875,
+                  0.8546875
+                ],
+                [
+                  0.2671875,
+                  0.9390625,
+                  0.9859375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.875,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.3125,
+                -0.078125,
+                0.015625
+              ],
+              "median_distance": 0.2910718474452269,
+              "median_real_baseline_distance": 0.15506305712623453
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.1640625,
+                0.796875,
+                0.9453125
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.09375,
+                  0.6515625,
+                  0.8578125
+                ],
+                [
+                  0.30000000000000004,
+                  0.9546875,
+                  0.9859375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.46875,
+                0.890625,
+                0.9296875
+              ],
+              "median_paired_coverage_gap": [
+                -0.3046875,
+                -0.0703125,
+                0.015625
+              ],
+              "median_distance": 0.42966220695784674,
+              "median_real_baseline_distance": 0.2254652468819317
+            },
+            {
+              "space": "pca2",
+              "corpus": "balanced_pool",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.203125,
+                0.8203125,
+                0.9375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.10625000000000001,
+                  0.6390625,
+                  0.7328125
+                ],
+                [
+                  0.31718750000000007,
+                  0.925,
+                  0.984375
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.4921875,
+                0.8984375,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.2890625,
+                -0.0703125,
+                0.0078125
+              ],
+              "median_distance": 0.2786606397306777,
+              "median_real_baseline_distance": 0.14922185082340955
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.015625,
+                0.203125,
+                0.3515625
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.140625,
+                  0.1859375
+                ],
+                [
+                  0.046875,
+                  0.35468750000000016,
+                  0.7875000000000003
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.46875,
+                0.875,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.453125,
+                -0.6328125,
+                -0.5859375
+              ],
+              "median_distance": 1.4630880523670944,
+              "median_real_baseline_distance": 0.22981760463653272
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 64,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.015625,
+                0.1953125,
+                0.34375
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.125,
+                  0.21875
+                ],
+                [
+                  0.03281250000000002,
+                  0.3125000000000002,
+                  0.4765625000000001
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.5,
+                0.875,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.4765625,
+                -0.671875,
+                -0.5859375
+              ],
+              "median_distance": 1.2496537615064147,
+              "median_real_baseline_distance": 0.15506305712623453
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 64,
+              "median_covered": [
+                0.015625,
+                0.21875,
+                0.3671875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.014062500000000002,
+                  0.125,
+                  0.2
+                ],
+                [
+                  0.046875,
+                  0.39531250000000007,
+                  0.7140625000000004
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.46875,
+                0.890625,
+                0.9296875
+              ],
+              "median_paired_coverage_gap": [
+                -0.453125,
+                -0.6328125,
+                -0.5625
+              ],
+              "median_distance": 1.4023711345360583,
+              "median_real_baseline_distance": 0.2254652468819317
+            },
+            {
+              "space": "pca2",
+              "corpus": "synforecast_mar",
+              "n_reference_fit": 128,
+              "n_candidates_per_corpus": 128,
+              "median_covered": [
+                0.015625,
+                0.203125,
+                0.3671875
+              ],
+              "covered_repeat_p10_p90": [
+                [
+                  0.0,
+                  0.1390625,
+                  0.171875
+                ],
+                [
+                  0.046875,
+                  0.4390625,
+                  0.596875
+                ]
+              ],
+              "median_real_baseline_covered": [
+                0.4921875,
+                0.8984375,
+                0.9375
+              ],
+              "median_paired_coverage_gap": [
+                -0.4765625,
+                -0.6640625,
+                -0.5703125
+              ],
+              "median_distance": 1.0936760587873602,
+              "median_real_baseline_distance": 0.14922185082340955
+            }
+          ],
+          "sensitivity_summary": {
+            "balanced_pool": {
+              "reference_64_to_128_full_q90_coverage_change": {
+                "median": 0.0,
+                "repeat_p10_p90": [
+                  -0.048437499999999994,
+                  0.03125
+                ]
+              },
+              "candidates_64_to_128_full_q90_coverage_change": {
+                "median": 0.0,
+                "repeat_p10_p90": [
+                  -0.06562499999999999,
+                  0.050000000000000044
+                ]
+              },
+              "candidates_64_to_128_full_median_distance_change": {
+                "median": -0.22233969048479296,
+                "repeat_p10_p90": [
+                  -0.47110772082682895,
+                  -0.1341884457610024
+                ]
+              },
+              "candidates_64_to_128_full_coverage_change_fixed_128_q90_radius": {
+                "median": 0.0546875,
+                "repeat_p10_p90": [
+                  0.029687500000000002,
+                  0.1781250000000001
+                ]
+              },
+              "full_vs_pca2_q90_query_disagreement": {
+                "median": 0.1953125,
+                "repeat_p10_p90": [
+                  0.0921875,
+                  0.3765625
+                ]
+              },
+              "full_vs_pca2_neighbour_agreement": {
+                "median": 0.296875,
+                "repeat_p10_p90": [
+                  0.203125,
+                  0.3609375
+                ]
+              }
+            },
+            "synforecast_mar": {
+              "reference_64_to_128_full_q90_coverage_change": {
+                "median": 0.0,
+                "repeat_p10_p90": [
+                  -0.03125,
+                  0.03281250000000002
+                ]
+              },
+              "candidates_64_to_128_full_q90_coverage_change": {
+                "median": -0.0078125,
+                "repeat_p10_p90": [
+                  -0.128125,
+                  0.08593750000000011
+                ]
+              },
+              "candidates_64_to_128_full_median_distance_change": {
+                "median": -0.21717260344868428,
+                "repeat_p10_p90": [
+                  -0.8961504894929004,
+                  -0.009002082223359928
+                ]
+              },
+              "candidates_64_to_128_full_coverage_change_fixed_128_q90_radius": {
+                "median": 0.0546875,
+                "repeat_p10_p90": [
+                  0.015625,
+                  0.14375000000000004
+                ]
+              },
+              "full_vs_pca2_q90_query_disagreement": {
+                "median": 0.171875,
+                "repeat_p10_p90": [
+                  0.1078125,
+                  0.30000000000000004
+                ]
+              },
+              "full_vs_pca2_neighbour_agreement": {
+                "median": 0.546875,
+                "repeat_p10_p90": [
+                  0.11875000000000001,
+                  0.596875
+                ]
+              }
+            },
+            "balanced_strictly_higher_coverage_fraction": [
+              {
+                "space": "full",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  1.0,
+                  0.95,
+                  0.9
+                ]
+              },
+              {
+                "space": "full",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  0.95,
+                  0.85
+                ]
+              },
+              {
+                "space": "full",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  1.0,
+                  0.95,
+                  0.95
+                ]
+              },
+              {
+                "space": "full",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  0.95,
+                  0.95
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  0.95
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 64,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  0.95
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 64,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  0.95
+                ]
+              },
+              {
+                "space": "pca2",
+                "n_reference_fit": 128,
+                "n_candidates_per_corpus": 128,
+                "by_radius_quantile": [
+                  1.0,
+                  1.0,
+                  0.95
+                ]
+              }
+            ]
+          },
+          "grid_summary": [
+            {
+              "n_bins": 15,
+              "bounds": "real",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.27450980392156865,
+                "uncovered_real_series_fraction": 0.15234375,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.07199999999999995,
+                "real_occupied_cells": 51
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.14893617021276595,
+                  0.30612244897959184
+                ],
+                "uncovered_real_series_fraction": [
+                  0.03515625,
+                  0.2265625
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.052000000000000046,
+                  0.07199999999999995
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "real",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.5098039215686274,
+                "uncovered_real_series_fraction": 0.63671875,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.2109375,
+                "real_occupied_cells": 51
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.4583333333333333,
+                  0.5283018867924528
+                ],
+                "uncovered_real_series_fraction": [
+                  0.58203125,
+                  0.7265625
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.125,
+                  0.2109375
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "pooled",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.09090909090909091,
+                "uncovered_real_series_fraction": 0.01953125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 22
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.08,
+                  0.22727272727272727
+                ],
+                "uncovered_real_series_fraction": [
+                  0.0078125,
+                  0.109375
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "pooled",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.22727272727272727,
+                "uncovered_real_series_fraction": 0.30078125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 22
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.22727272727272727,
+                  0.38461538461538464
+                ],
+                "uncovered_real_series_fraction": [
+                  0.234375,
+                  0.52734375
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "real_without_one_extreme",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.3225806451612903,
+                "uncovered_real_series_fraction": 0.1953125,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.19999999999999996,
+                "real_occupied_cells": 62
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.234375,
+                  0.38333333333333336
+                ],
+                "uncovered_real_series_fraction": [
+                  0.09765625,
+                  0.24609375
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.14,
+                  0.19999999999999996
+                ]
+              }
+            },
+            {
+              "n_bins": 15,
+              "bounds": "real_without_one_extreme",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.5645161290322581,
+                "uncovered_real_series_fraction": 0.7421875,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.49609375,
+                "real_occupied_cells": 62
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.532258064516129,
+                  0.6451612903225806
+                ],
+                "uncovered_real_series_fraction": [
+                  0.66796875,
+                  0.78515625
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.40234375,
+                  0.49609375
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.42857142857142855,
+                "uncovered_real_series_fraction": 0.3671875,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.07199999999999995,
+                "real_occupied_cells": 98
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.4020618556701031,
+                  0.5098039215686274
+                ],
+                "uncovered_real_series_fraction": [
+                  0.30078125,
+                  0.40625
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.06000000000000005,
+                  0.07199999999999995
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.826530612244898,
+                "uncovered_real_series_fraction": 0.90234375,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.2109375,
+                "real_occupied_cells": 98
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.7524752475247525,
+                  0.826530612244898
+                ],
+                "uncovered_real_series_fraction": [
+                  0.86328125,
+                  0.90234375
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.171875,
+                  0.2109375
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "pooled",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.20408163265306123,
+                "uncovered_real_series_fraction": 0.0625,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 49
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.17307692307692307,
+                  0.3148148148148148
+                ],
+                "uncovered_real_series_fraction": [
+                  0.0546875,
+                  0.1796875
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "pooled",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.46938775510204084,
+                "uncovered_real_series_fraction": 0.69140625,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 49
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.46938775510204084,
+                  0.5925925925925926
+                ],
+                "uncovered_real_series_fraction": [
+                  0.59765625,
+                  0.734375
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real_without_one_extreme",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.5630252100840336,
+                "uncovered_real_series_fraction": 0.45703125,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.19999999999999996,
+                "real_occupied_cells": 119
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.5470085470085471,
+                  0.5950413223140496
+                ],
+                "uncovered_real_series_fraction": [
+                  0.45703125,
+                  0.5234375
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.17600000000000005,
+                  0.19999999999999996
+                ]
+              }
+            },
+            {
+              "n_bins": 30,
+              "bounds": "real_without_one_extreme",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.8319327731092437,
+                "uncovered_real_series_fraction": 0.89453125,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.49609375,
+                "real_occupied_cells": 119
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.8319327731092437,
+                  0.9043478260869565
+                ],
+                "uncovered_real_series_fraction": [
+                  0.89453125,
+                  0.9453125
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.4453125,
+                  0.49609375
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.6511627906976745,
+                "uncovered_real_series_fraction": 0.58203125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.07199999999999995,
+                "real_occupied_cells": 129
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.6060606060606061,
+                  0.6818181818181818
+                ],
+                "uncovered_real_series_fraction": [
+                  0.53125,
+                  0.63671875
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.07199999999999995,
+                  0.07199999999999995
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.937984496124031,
+                "uncovered_real_series_fraction": 0.95703125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.2109375,
+                "real_occupied_cells": 129
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.8939393939393939,
+                  0.9402985074626866
+                ],
+                "uncovered_real_series_fraction": [
+                  0.9375,
+                  0.96484375
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.19921875,
+                  0.2109375
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "pooled",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.358974358974359,
+                "uncovered_real_series_fraction": 0.2421875,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 78
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.325,
+                  0.40540540540540543
+                ],
+                "uncovered_real_series_fraction": [
+                  0.22265625,
+                  0.30078125
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "pooled",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.717948717948718,
+                "uncovered_real_series_fraction": 0.8203125,
+                "real_out_of_range_fraction": 0.0,
+                "synthetic_out_of_range_fraction": 0.0,
+                "real_occupied_cells": 78
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.6329113924050633,
+                  0.7625
+                ],
+                "uncovered_real_series_fraction": [
+                  0.765625,
+                  0.85546875
+                ],
+                "real_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.0,
+                  0.0
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real_without_one_extreme",
+              "corpus": "balanced_pool",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.7532467532467533,
+                "uncovered_real_series_fraction": 0.69140625,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.19999999999999996,
+                "real_occupied_cells": 154
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.6903225806451613,
+                  0.7662337662337663
+                ],
+                "uncovered_real_series_fraction": [
+                  0.65625,
+                  0.7265625
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.18799999999999994,
+                  0.19999999999999996
+                ]
+              }
+            },
+            {
+              "n_bins": 45,
+              "bounds": "real_without_one_extreme",
+              "corpus": "synforecast_mar",
+              "zero_phase": {
+                "uncovered_real_cell_fraction": 0.9285714285714286,
+                "uncovered_real_series_fraction": 0.9453125,
+                "real_out_of_range_fraction": 0.00390625,
+                "synthetic_out_of_range_fraction": 0.49609375,
+                "real_occupied_cells": 154
+              },
+              "phase_min_max": {
+                "uncovered_real_cell_fraction": [
+                  0.9285714285714286,
+                  0.967741935483871
+                ],
+                "uncovered_real_series_fraction": [
+                  0.9453125,
+                  0.98046875
+                ],
+                "real_out_of_range_fraction": [
+                  0.00390625,
+                  0.00390625
+                ],
+                "synthetic_out_of_range_fraction": [
+                  0.46484375,
+                  0.49609375
+                ]
+              }
+            }
+          ],
+          "removed_from_bounds_only_id": "Y760",
+          "controls": null
+        }
+      }
+    }
+  ]
+}

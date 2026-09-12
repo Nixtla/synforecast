@@ -79,3 +79,11 @@ def test_every_exported_generator_has_api_reference() -> None:
             missing.append(name)
 
     assert not missing, "Missing generator API references: " + ", ".join(missing)
+
+
+def test_evaluation_exports_have_api_reference() -> None:
+    import synforecast.evaluation as evaluation
+
+    source = (ROOT / "docs" / "evaluation.html.md").read_text(encoding="utf-8")
+    for name in evaluation.__all__:
+        assert f"::: synforecast.evaluation.{name}" in source
