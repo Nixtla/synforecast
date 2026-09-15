@@ -222,3 +222,7 @@ lightning_logs/
 .claude/
 .codex/
 .agents/
+
+# Reproducible feature-coverage caches and detailed run traces.
+# Not tracked; regenerate with the scripts under benchmarks/.
+/benchmarks/data/

@@ -1,12 +1,13 @@
-"""Tests for balanced_pool preset."""
+"""Tests for the pool presets."""
 
 import warnings
 
+import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
 
-from synforecast import SynSet, balanced_pool, pretraining_pool
+from synforecast import SynSet, interpretable_pool, pretraining_pool
 from synforecast.base import BaseGenerator
 from synforecast.generators import (
     ETSGenerator,
@@ -18,11 +19,11 @@ from synforecast.presets import _seasonal_period_from_freq
 
 
 class TestBalancedPool:
-    """Tests for the balanced_pool function."""
+    """Tests for the interpretable_pool function."""
 
     def test_returns_list_of_generators(self) -> None:
-        """Test that balanced_pool returns a list of BaseGenerator instances."""
-        generators = balanced_pool()
+        """Test that interpretable_pool returns a list of BaseGenerator instances."""
+        generators = interpretable_pool()
         assert isinstance(generators, list)
         assert len(generators) == 42
         for gen in generators:
@@ -30,7 +31,7 @@ class TestBalancedPool:
 
     def test_custom_length_and_freq(self) -> None:
         """Test that custom base parameters are applied to all generators."""
-        generators = balanced_pool(
+        generators = interpretable_pool(
             min_length=50, max_length=75, freq="h", engine="polars"
         )
         for gen in generators:
@@ -40,7 +41,7 @@ class TestBalancedPool:
 
     def test_custom_seed(self) -> None:
         """Test that seeds are offset per generator."""
-        generators = balanced_pool(seed=100)
+        generators = interpretable_pool(seed=100)
         seeds = [gen.seed for gen in generators]
         assert seeds[0] == 100
         # Every generator gets a distinct offset from the base seed; the
@@ -50,19 +51,19 @@ class TestBalancedPool:
 
     def test_none_seed(self) -> None:
         """Test that seed=None produces None seeds for all generators."""
-        generators = balanced_pool(seed=None)
+        generators = interpretable_pool(seed=None)
         for gen in generators:
             assert gen.seed is None
 
     def test_base_kwargs_passed(self) -> None:
         """Test that extra kwargs are forwarded to all generators."""
-        generators = balanced_pool(engine="pandas")
+        generators = interpretable_pool(engine="pandas")
         for gen in generators:
             assert gen.engine == "pandas"
 
     def test_with_synset(self) -> None:
         """Test integration with SynSet."""
-        generators = balanced_pool(
+        generators = interpretable_pool(
             min_length=30, max_length=30, freq="D", engine="polars"
         )
         dataset = SynSet(generators)
@@ -73,7 +74,7 @@ class TestBalancedPool:
 
     def test_all_generators_produce_output(self) -> None:
         """Test that every generator in the pool produces valid time series."""
-        generators = balanced_pool(
+        generators = interpretable_pool(
             min_length=50, max_length=50, freq="D", engine="polars"
         )
         for i, gen in enumerate(generators):
@@ -85,10 +86,10 @@ class TestBalancedPool:
 
     def test_reproducibility(self) -> None:
         """Test that the same seed produces identical results."""
-        gen1 = balanced_pool(
+        gen1 = interpretable_pool(
             min_length=50, max_length=50, freq="D", engine="polars", seed=42
         )
-        gen2 = balanced_pool(
+        gen2 = interpretable_pool(
             min_length=50, max_length=50, freq="D", engine="polars", seed=42
         )
 
@@ -99,7 +100,7 @@ class TestBalancedPool:
 
     def test_diverse_generator_types(self) -> None:
         """Test that the pool contains generators from multiple classes."""
-        generators = balanced_pool()
+        generators = interpretable_pool()
         class_names = {type(gen).__name__ for gen in generators}
         assert len(class_names) == 15
         expected = {
@@ -125,7 +126,7 @@ class TestBalancedPool:
         """The pool is interleaved round-robin across niches: the first 15
         entries cover all 15 generator classes, so any prefix is as
         behaviorally diverse as possible."""
-        generators = balanced_pool()
+        generators = interpretable_pool()
         first_15_classes = [type(gen).__name__ for gen in generators[:15]]
         assert len(set(first_15_classes)) == 15
         # And every prefix of length k <= 15 has k distinct classes.
@@ -135,7 +136,7 @@ class TestBalancedPool:
     def test_interleaving_preserves_pool_contents(self) -> None:
         """Interleaving reorders the pool but keeps the same 42 configured
         variants (same class/seed-offset pairs)."""
-        generators = balanced_pool(seed=0)
+        generators = interpretable_pool(seed=0)
         assert len(generators) == 42
         seeds_by_class: dict[str, set[int]] = {}
         for gen in generators:
@@ -160,9 +161,9 @@ class TestBalancedPool:
         }
         assert {c: len(s) for c, s in seeds_by_class.items()} == expected_counts
 
-    def test_balanced_pool_with_patterns(self) -> None:
-        """Test balanced_pool with anomalies, changepoints, and missing data."""
-        generators = balanced_pool(
+    def test_interpretable_pool_with_patterns(self) -> None:
+        """Test interpretable_pool with anomalies, changepoints, and missing data."""
+        generators = interpretable_pool(
             min_length=100,
             max_length=100,
             freq="D",
@@ -189,7 +190,7 @@ class TestPretrainingPool:
 
         pool = pretraining_pool(min_length=64, max_length=64, engine="polars")
         classes = {type(g).__name__ for g in pool}
-        # Meta-generators that balanced_pool excludes are present...
+        # Meta-generators that interpretable_pool excludes are present...
         assert classes >= self.META
         # ...alongside the full balanced pool.
         assert len(pool) == 42 + 4 * 3
@@ -338,7 +339,7 @@ def _seasonal_period_of(gen: BaseGenerator) -> int | None:
 
 
 class TestBalancedPoolSeasonalPeriod:
-    """Tests that balanced_pool's seasonal variants follow freq."""
+    """Tests that interpretable_pool's seasonal variants follow freq."""
 
     @staticmethod
     def _seasonal_periods(generators: list[BaseGenerator]) -> set[int]:
@@ -355,17 +356,17 @@ class TestBalancedPoolSeasonalPeriod:
             _skip_if_alias_unsupported(freq)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", FutureWarning)
-            generators = balanced_pool(freq=freq)
+            generators = interpretable_pool(freq=freq)
         assert self._seasonal_periods(generators) == {expected}
 
     def test_covers_every_seasonal_variant(self) -> None:
-        generators = balanced_pool(freq="h")
+        generators = interpretable_pool(freq="h")
         seasonal = [g for g in generators if _seasonal_period_of(g) is not None]
         # 2 SARIMA + 2 ETS + 1 intermittent + 1 GP
         assert len(seasonal) == 6
 
     def test_non_seasonal_variants_unchanged(self) -> None:
-        generators = balanced_pool(freq="h")
+        generators = interpretable_pool(freq="h")
         plain = [
             gen
             for gen in generators
@@ -375,15 +376,15 @@ class TestBalancedPoolSeasonalPeriod:
         assert all(gen.seasonal_period == 1 for gen in plain)
 
     def test_explicit_override(self) -> None:
-        generators = balanced_pool(freq="h", seasonal_period=168)
+        generators = interpretable_pool(freq="h", seasonal_period=168)
         assert self._seasonal_periods(generators) == {168}
 
     def test_rejects_invalid_period(self) -> None:
         with pytest.raises(ValueError, match="seasonal_period"):
-            balanced_pool(seasonal_period=0)
+            interpretable_pool(seasonal_period=0)
 
     def test_generates_with_derived_period(self) -> None:
-        generators = balanced_pool(
+        generators = interpretable_pool(
             min_length=60, max_length=60, freq="h", engine="polars"
         )
         for gen in generators:
@@ -399,3 +400,122 @@ class TestBalancedPoolSeasonalPeriod:
     def test_pretraining_pool_derives_from_freq(self) -> None:
         pool = pretraining_pool(min_length=64, max_length=64, freq="MS")
         assert self._seasonal_periods(pool) == {12}
+
+
+class TestSeasonalPool:
+    """Tests for the opt-in seasonal_pool preset."""
+
+    def test_eight_configured_public_generators(self) -> None:
+        from synforecast import seasonal_pool
+        from synforecast.generators import ETSGenerator, SeasonalGenerator, TSIGenerator
+
+        pool = seasonal_pool(min_length=48, max_length=48, freq="MS", engine="polars")
+        assert len(pool) == 8
+        aliases = [g.alias for g in pool]
+        assert len(set(aliases)) == 8
+        assert all(
+            isinstance(g, (TSIGenerator, ETSGenerator, SeasonalGenerator)) for g in pool
+        )
+        seeds = [g.seed for g in pool]
+        assert seeds == [42 + i for i in range(8)]
+
+    @pytest.mark.parametrize(("freq", "expected"), [("QS", 4), ("MS", 12), ("h", 24)])
+    def test_period_derived_from_freq(self, freq: str, expected: int) -> None:
+        from synforecast import seasonal_pool
+        from synforecast.generators import ETSGenerator, SeasonalGenerator, TSIGenerator
+
+        for gen in seasonal_pool(freq=freq):
+            if isinstance(gen, TSIGenerator):
+                assert gen.seasonal_periods == [float(expected)]
+            elif isinstance(gen, ETSGenerator):
+                assert gen.seasonal_period == expected
+                assert len(gen.seasonal) == expected
+            else:
+                assert isinstance(gen, SeasonalGenerator)
+                assert gen.seasonality_period == expected
+
+    def test_explicit_period_and_yearly_rejection(self) -> None:
+        from synforecast import seasonal_pool
+
+        pool = seasonal_pool(freq="D", seasonal_period=5)
+        assert pool[0].seasonal_periods == [5.0]
+        with pytest.raises(ValueError, match="at least 2"):
+            seasonal_pool(freq="YS")
+
+    def test_multiplicative_factors_have_unit_mean(self) -> None:
+        from synforecast import seasonal_pool
+
+        ets = [g for g in seasonal_pool(freq="QS") if g.alias == "ets_MAdM_noisy"][0]
+        assert sum(ets.seasonal) / len(ets.seasonal) == pytest.approx(1.0)
+        assert max(ets.seasonal) > min(ets.seasonal)
+
+    def test_generates_finite_series_and_adds_to_interpretable_pool(self) -> None:
+        from synforecast import SynSet, interpretable_pool, seasonal_pool
+
+        pool = interpretable_pool(
+            min_length=60, max_length=60, freq="QS", engine="polars"
+        )
+        extra = seasonal_pool(min_length=60, max_length=60, freq="QS", engine="polars")
+        assert len(pool + extra) == 50
+        df = SynSet(extra).generate(n_series_per_generator=2, n_jobs=1)
+        values = df["y"].to_numpy()
+        assert df["unique_id"].n_unique() == 16
+        assert np.isfinite(values).all()
+
+    def test_none_seed_and_reproducibility(self) -> None:
+        from synforecast import seasonal_pool
+
+        assert all(g.seed is None for g in seasonal_pool(seed=None))
+        first = seasonal_pool(seed=3)[0].generate(1, n_jobs=1)
+        second = seasonal_pool(seed=3)[0].generate(1, n_jobs=1)
+        assert first["y"].tolist() == second["y"].tolist()
+
+
+class TestDeprecatedBalancedPool:
+    def test_alias_warns_and_returns_identical_generators(self) -> None:
+        from synforecast import balanced_pool, interpretable_pool
+
+        with pytest.warns(DeprecationWarning, match="interpretable_pool"):
+            legacy = balanced_pool(min_length=30, max_length=30, freq="QS", seed=5)
+        current = interpretable_pool(min_length=30, max_length=30, freq="QS", seed=5)
+        assert [g.model_dump(mode="json") for g in legacy] == [
+            g.model_dump(mode="json") for g in current
+        ]
+
+
+class TestPretrainingPoolSeasonalFlag:
+    def test_default_unchanged_and_flag_appends_seasonal_pool(self) -> None:
+        from synforecast import pretraining_pool, seasonal_pool
+
+        default = pretraining_pool(
+            min_length=64, max_length=64, freq="MS", engine="polars"
+        )
+        extended = pretraining_pool(
+            min_length=64,
+            max_length=64,
+            freq="MS",
+            engine="polars",
+            include_seasonal=True,
+        )
+        assert len(default) == 54 and len(extended) == 62
+        assert [g.model_dump(mode="json") for g in extended[:54]] == [
+            g.model_dump(mode="json") for g in default
+        ]
+        expected = seasonal_pool(
+            min_length=64, max_length=64, freq="MS", seed=42 + 2000, engine="polars"
+        )
+        assert [g.model_dump(mode="json") for g in extended[54:]] == [
+            g.model_dump(mode="json") for g in expected
+        ]
+        seeds = [g.seed for g in extended]
+        assert len(set(seeds)) == len(seeds)
+
+    def test_flag_skips_yearly_and_works_meta_only(self) -> None:
+        from synforecast import pretraining_pool
+
+        yearly = pretraining_pool(freq="YS", include_seasonal=True)
+        assert len(yearly) == 54
+        meta = pretraining_pool(
+            freq="QS", include_balanced=False, include_seasonal=True, n_meta_variants=1
+        )
+        assert len(meta) == 4 + 8

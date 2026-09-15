@@ -219,6 +219,19 @@ fn compute_features(
 }
 
 #[pyfunction]
+#[pyo3(signature = (values, period=None, window_size=None))]
+fn compute_feature_set(
+    py: Python<'_>,
+    values: PyReadonlyArray1<'_, f64>,
+    period: Option<usize>,
+    window_size: Option<usize>,
+) -> PyResult<Vec<f64>> {
+    let values = values.as_slice()?.to_vec();
+    py.detach(|| algorithms::compute_feature_set(&values, period, window_size))
+        .map_err(PyValueError::new_err)
+}
+
+#[pyfunction]
 #[pyo3(signature = (values, block_size, seed, period=None))]
 fn moving_block_bootstrap(
     py: Python<'_>,
@@ -263,6 +276,7 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(mar_features_batch, &module)?)?;
     module.add_function(wrap_pyfunction!(classical_decompose, &module)?)?;
     module.add_function(wrap_pyfunction!(compute_features, &module)?)?;
+    module.add_function(wrap_pyfunction!(compute_feature_set, &module)?)?;
     module.add_function(wrap_pyfunction!(moving_block_bootstrap, &module)?)?;
     module.add_function(wrap_pyfunction!(moving_block_bootstrap_many, &module)?)?;
     parent.add_submodule(&module)?;

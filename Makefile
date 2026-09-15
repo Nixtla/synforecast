@@ -41,7 +41,7 @@ format_docs:
 	python docs-scripts/docs_replace_imgs.py --path docs/mintlify
 
 execute_docs:
-	python scripts/execute_notebooks.py --include-network --write
+	python scripts/execute_notebooks.py --include-network --include-benchmark-data --write
 
 test_docs:
 	python scripts/execute_notebooks.py

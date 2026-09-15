@@ -569,6 +569,144 @@ pub fn compute_features(
     ))
 }
 
+/// Biased, mean-centered sample ACF, with the same denominator at every lag.
+fn feature_acf(values: &[f64], lag: usize) -> f64 {
+    if values.len() <= lag {
+        return f64::NAN;
+    }
+    let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let denominator = values.iter().map(|x| (x - mean).powi(2)).sum::<f64>();
+    if denominator <= f64::EPSILON {
+        return 0.0;
+    }
+    values[..values.len() - lag]
+        .iter()
+        .zip(&values[lag..])
+        .map(|(a, b)| (a - mean) * (b - mean))
+        .sum::<f64>()
+        / denominator
+}
+
+/// Unit population variance; scale first to avoid overflow on finite inputs.
+fn normalize_features(values: &[f64]) -> Vec<f64> {
+    let magnitude = values.iter().map(|x| x.abs()).fold(0.0, f64::max);
+    if magnitude == 0.0 {
+        return vec![0.0; values.len()];
+    }
+    let scaled: Vec<f64> = values.iter().map(|x| x / magnitude).collect();
+    let mean = scaled.iter().sum::<f64>() / scaled.len() as f64;
+    let std = variance(&scaled).sqrt();
+    if std == 0.0 {
+        return vec![0.0; values.len()];
+    }
+    scaled.iter().map(|x| (x - mean) / std).collect()
+}
+
+/// Native coverage candidate schema; order matches Python FEATURE_NAMES.
+/// Short but otherwise valid input returns NaNs for unavailable features.
+pub fn compute_feature_set(
+    values: &[f64],
+    period: Option<usize>,
+    window_size: Option<usize>,
+) -> Result<Vec<f64>, String> {
+    if values.is_empty() || values.iter().any(|x| !x.is_finite()) {
+        return Err("values must be non-empty and finite".to_string());
+    }
+    if period == Some(0) || period == Some(1) {
+        return Err("period must be >= 2 when provided".to_string());
+    }
+    if window_size.is_some_and(|width| width < 2) {
+        return Err("window_size must be >= 2 when provided".to_string());
+    }
+    let n = values.len();
+    if n < 3 {
+        return Ok(vec![f64::NAN; 12]);
+    }
+    let (entropy, trend, seasonal, acf1) = compute_features(values, period)?;
+    let seasonal = if period.is_some_and(|p| p > n / 2) {
+        f64::NAN
+    } else {
+        seasonal
+    };
+    let normalized = normalize_features(values);
+    let x_acf10 = if n > 10 {
+        (1..=10)
+            .map(|lag| feature_acf(&normalized, lag).powi(2))
+            .sum()
+    } else {
+        f64::NAN
+    };
+    let differences: Vec<f64> = normalized
+        .windows(2)
+        .map(|pair| pair[1] - pair[0])
+        .collect();
+    let diff1_acf1 = feature_acf(&differences, 1);
+    let seas_acf1 = period.map_or(0.0, |p| feature_acf(&normalized, p));
+    let (_, _, remainder) = classical_decompose(&normalized, period)?;
+    let mean = remainder.iter().sum::<f64>() / n as f64;
+    let deviations: Vec<f64> = remainder.iter().map(|x| x - mean).collect();
+    let total = deviations.iter().map(|x| x * x).sum::<f64>();
+    let loo_variances: Vec<f64> = deviations
+        .iter()
+        .map(|x| ((total - n as f64 / (n - 1) as f64 * x * x) / (n - 1) as f64).max(0.0))
+        .collect();
+    let spike = variance(&loo_variances);
+    let width = window_size.or(period).unwrap_or(10);
+    let (lumpiness, max_level_shift, max_var_shift) = if width <= n / 2 {
+        let tile_variances: Vec<f64> = normalized.chunks_exact(width).map(variance).collect();
+        let lumpiness = variance(&tile_variances);
+        let mut sum = normalized[..width].iter().sum::<f64>();
+        let mut squares = normalized[..width].iter().map(|x| x * x).sum::<f64>();
+        let mut means = Vec::with_capacity(n - width + 1);
+        let mut variances = Vec::with_capacity(n - width + 1);
+        for start in 0..=n - width {
+            if start > 0 {
+                let old = normalized[start - 1];
+                let new = normalized[start + width - 1];
+                sum += new - old;
+                squares += new * new - old * old;
+            }
+            let mean = sum / width as f64;
+            means.push(mean);
+            variances.push((squares / width as f64 - mean * mean).max(0.0));
+        }
+        let level = (0..=n - 2 * width)
+            .map(|i| (means[i] - means[i + width]).abs())
+            .fold(0.0, f64::max);
+        let var = (0..=n - 2 * width)
+            .map(|i| (variances[i] - variances[i + width]).abs())
+            .fold(0.0, f64::max);
+        (lumpiness, level, var)
+    } else {
+        (f64::NAN, f64::NAN, f64::NAN)
+    };
+    let mut sorted = normalized.clone();
+    sorted.sort_by(f64::total_cmp);
+    let median = if n.is_multiple_of(2) {
+        0.5 * (sorted[n / 2 - 1] + sorted[n / 2])
+    } else {
+        sorted[n / 2]
+    };
+    let crossing_points = normalized
+        .windows(2)
+        .filter(|pair| (pair[0] <= median) != (pair[1] <= median))
+        .count() as f64;
+    Ok(vec![
+        entropy,
+        trend,
+        seasonal,
+        acf1,
+        x_acf10,
+        diff1_acf1,
+        seas_acf1,
+        spike,
+        lumpiness,
+        max_level_shift,
+        max_var_shift,
+        crossing_points,
+    ])
+}
+
 /// Bootstrap decomposition remainders using randomly selected moving blocks.
 pub fn moving_block_bootstrap(
     values: &[f64],
@@ -702,5 +840,51 @@ mod tests {
             moving_block_bootstrap(&values, Some(4), 4, 9).unwrap(),
             moving_block_bootstrap(&values, Some(4), 4, 9).unwrap()
         );
+    }
+
+    #[test]
+    fn coverage_acf_and_window_oracles() {
+        assert!((feature_acf(&[-1.0, 1.0, -1.0, 1.0], 1) + 0.75).abs() < 1e-12);
+        assert!(feature_acf(&[1.0, 2.0], 2).is_nan());
+        let values: Vec<f64> = (0..40).map(|i| if i < 20 { 0.0 } else { 1.0 }).collect();
+        let features = compute_feature_set(&values, None, None).unwrap();
+        assert!((features[9] - 2.0).abs() < 1e-12);
+        assert_eq!(features[11], 1.0);
+        let variance_change: Vec<f64> = (0..40)
+            .map(|i| {
+                let magnitude = if i < 20 { 1.0 } else { 3.0 };
+                if i % 2 == 0 {
+                    -magnitude
+                } else {
+                    magnitude
+                }
+            })
+            .collect();
+        let features = compute_feature_set(&variance_change, None, None).unwrap();
+        assert!((features[8] - 0.64).abs() < 1e-12);
+        assert!((features[10] - 1.6).abs() < 1e-12);
+    }
+
+    #[test]
+    fn coverage_short_and_constant_inputs() {
+        assert!(compute_feature_set(&[], None, None).is_err());
+        assert!(compute_feature_set(&[1.0, f64::INFINITY, 2.0], None, None).is_err());
+        assert!(compute_feature_set(&[1.0; 3], Some(1), None).is_err());
+        assert!(compute_feature_set(&[1.0; 2], None, None)
+            .unwrap()
+            .iter()
+            .all(|x| x.is_nan()));
+        let features = compute_feature_set(&[1.0; 100], Some(12), None).unwrap();
+        assert!(features.iter().all(|x| *x == 0.0));
+        let features = compute_feature_set(&[1.0; 10], Some(12), None).unwrap();
+        assert!(features[2].is_nan());
+        assert!(features[4].is_nan());
+        assert!(features[8].is_nan());
+        assert_eq!(compute_features(&[1.0; 10], Some(12)).unwrap().2, 0.0);
+        assert!(compute_feature_set(&[1.0; 13], None, Some(1)).is_err());
+        let short: Vec<f64> = (0..13).map(|x| x as f64).collect();
+        assert!(compute_feature_set(&short, None, None).unwrap()[8].is_nan());
+        let explicit = compute_feature_set(&short, None, Some(5)).unwrap();
+        assert!(explicit.iter().all(|x| x.is_finite()));
     }
 }
