@@ -25,7 +25,7 @@ def generate_series(
 ) -> IntoDataFrame:
     """Generate a synthetic panel of time series.
 
-    Series are drawn from a balanced pool of generators covering diverse
+    Series are drawn from the interpretable pool of generators covering diverse
     temporal behaviors (or from `generators` when provided) and returned in
     long format, mirroring `utilsforecast.data.generate_series`.
 

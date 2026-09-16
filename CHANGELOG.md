@@ -5,7 +5,9 @@
 - Added native panel feature extraction and feature-space coverage evaluation,
   with real-anchored PCA/grid defaults, explicit missing-feature diagnostics,
   and out-of-range counts. The twelve-feature schema is frozen as `native_v1`;
-  it preserves the existing private MAR-targeting helper.
+  it preserves the existing private MAR-targeting helper. `precomputed=True`
+  rejects `seasonal_period` and `window_size` rather than ignoring them, and
+  `n_jobs` now also parallelizes the t-SNE embedding.
 - Added a reproducible native feature pilot on M4 Monthly/Yearly training
   samples and controlled changes. Added explicit `window_size` for short
   panels without changing the default window or seasonal decomposition.
@@ -14,8 +16,9 @@
   and grid-boundary sensitivity at fixed PCA coordinates.
 - Audited native feature availability on all M4 training panels and documented
   explicit period/window recipes, including the short-series limitation of
-  annual Weekly seasonality. Reproducible feature caches and detailed traces
-  are now excluded from version control; summaries and reports are retained.
+  annual Weekly seasonality. Reproducible feature caches, summaries, and detailed
+  traces are all excluded from version control; the benchmark scripts that
+  regenerate them land in a follow-up release.
 - Finalized `native_v1` without changing the candidate formulas; benchmark
   validation remains compatible with saved candidate artifacts. Added a small
   six-frequency benchmark comparing balanced/pretraining pools and random MAR
@@ -38,8 +41,8 @@
   Hourly shows a material gap; Weekly is flagged minor and Daily is
   query-dependent. Presets unchanged.
 - Added the `feature_coverage` capabilities notebook, which interprets the
-  coverage benchmark chain from committed summaries, plots real queries next
-  to their nearest synthetic neighbours from a small committed example set,
+  coverage benchmark chain from generated summaries, plots real queries next
+  to their nearest synthetic neighbours from a small exported example set,
   and states the preset recommendation (keep defaults; treat Hourly as
   frequency-specific).
 - Added a third-panel coverage validation on Monash tourism yearly/quarterly,
@@ -53,12 +56,13 @@
   pre-declared augmented-pool test and a forecasting-utility check.
 - Added the opt-in `seasonal_pool()` preset: eight configured TSI, ETS, and
   Seasonal generators with a pronounced seasonal cycle on a moving level,
-  meant to be added to `balanced_pool` or `pretraining_pool`. Exported from
+  meant to be added to `interpretable_pool` or `pretraining_pool`. Exported from
   `synforecast`, documented in the composition reference and GENERATORS.md.
 - Tested `seasonal_pool` with a pre-declared augmented-pool criterion on four
   never-used panels: passes on M1 monthly, neutral on fresh M4 Quarterly and
   Monthly, fails the no-harm gate on intermittent car parts when it replaces
-  the pretraining share. Added on top of both pools it never hurts. Opt-in only.
+  the pretraining share. Added on top of both pools rather than displacing a share, it is within a
+  point either way on the panels where it does not help. Opt-in only.
 - Renamed `balanced_pool` to `interpretable_pool`; the pool is balanced across
   niches, but so is `pretraining_pool`, and the distinguishing property is that
   every instance is an interpretable single-mechanism process. `balanced_pool`
@@ -71,7 +75,7 @@
   the default stays False; the flag is recommended for quarterly and monthly
   targets.
 
-- `balanced_pool` derives the seasonal period of its seasonal variants from
+- `interpretable_pool` derives the seasonal period of its seasonal variants from
   `freq` (hourly 24, daily 7, weekly 52, monthly 12, quarterly 4) instead of
   hardcoding 12, and accepts an explicit `seasonal_period` override that
   `pretraining_pool` forwards.

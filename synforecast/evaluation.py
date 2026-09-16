@@ -97,7 +97,7 @@ class CoverageResult:
         ax.pcolormesh(*self.grid_edges, layers.T, cmap=colors, vmin=0, vmax=3)
         cells = _coverage.grid_occupancy(self.real_embedding, self.grid_edges)[1]
         uncovered = ~self.synthetic_occupancy[cells[:, 0], cells[:, 1]]
-        ax.scatter(
+        points = ax.scatter(
             *self.real_embedding[uncovered].T, s=12, c="black", label="Uncovered real"
         )
         ax.set(
@@ -117,6 +117,7 @@ class CoverageResult:
                 Patch(color="#d95f02", label="Real only"),
                 Patch(color="#7570b3", label="Synthetic only"),
                 Patch(color="#1b9e77", label="Both"),
+                points,
             ]
         )
         return ax
@@ -179,7 +180,7 @@ def _panel(
     ordered = frame.select(columns).sort([id_col, time_col])
     ids = ordered[id_col].to_numpy()
     boundaries = np.r_[0, np.flatnonzero(ids[1:] != ids[:-1]) + 1, len(ids)]
-    values = ordered[target_col].to_numpy().astype(float)
+    values = np.asarray(ordered[target_col].to_numpy(), dtype=float)
     arrays = [
         values[start:stop]
         for start, stop in zip(boundaries[:-1], boundaries[1:], strict=True)
@@ -214,6 +215,10 @@ def compute_features(
     ``n_jobs=None`` uses one worker, -1 uses available CPUs, and a positive
     integer selects that many threads over native computations. The private
     MAR-targeting feature helper is unchanged.
+
+    Features depend on observation counts, not on the calendar: ``freq`` is
+    never inspected. ``crossing_points`` is a raw count and therefore grows
+    with series length, so compare panels of comparable length.
     """
     names = _feature_names(features, FEATURE_NAMES)
     if id_col in names:
@@ -275,9 +280,10 @@ def _feature_matrix(
     invalid = ~np.isfinite(values)
     retained = ~invalid.any(axis=1)
     reasons = {
-        uid: tuple(name for name, bad in zip(names, row, strict=True) if bad)
-        for uid, row in zip(ids, invalid, strict=True)
-        if row.any()
+        ids[row]: tuple(
+            name for name, bad in zip(names, invalid[row], strict=True) if bad
+        )
+        for row in np.flatnonzero(~retained)
     }
     if reasons:
         if missing == "raise":
@@ -329,12 +335,23 @@ def compare_feature_coverage(
     t-SNE requires ``fit='pooled'``, an explicit seed, and >30 retained series.
 
     ``precomputed=True`` expects an ID column and numeric feature columns;
-    None selects all non-ID columns and requires matching schemas. Otherwise
-    native extraction uses the same keywords as :func:`compute_features`.
-    ``window_size`` is recorded in the fitted-space parameters for raw inputs;
-    for cached features, record their extraction settings with the cache.
+    None selects all non-ID columns and requires matching schemas. It skips
+    native extraction, so ``seasonal_period`` and ``window_size`` are rejected
+    rather than silently ignored; record their values with the cache instead.
+    Otherwise native extraction uses the same keywords as
+    :func:`compute_features`, and ``window_size`` is recorded in the
+    fitted-space parameters.
+
+    Features are computed per series from observation counts alone, so the
+    frequency and calendar of ``time_col`` are never compared across corpora,
+    and ``crossing_points`` is a raw count that grows with series length.
+    Generate synthetic series at lengths comparable to the real panel; the
+    preset pools default to fixed lengths that may not match yours.
     ``missing='raise'`` rejects undefined feature values; 'drop' explicitly
     evaluates complete cases and reports excluded IDs. No sampling is implicit.
+    ``n_bins`` sets both grid axes, so each corpus retains two ``n_bins**2``
+    boolean occupancy grids; memory grows quadratically and the default 30 is
+    a few hundred bytes, while a four-digit ``n_bins`` reaches megabytes.
     Result metadata stores fitted parameters and the native or caller-defined
     schema; callers should record external extraction settings separately.
     """
@@ -356,7 +373,7 @@ def compare_feature_coverage(
             "grid_range must be 'real' or 'pooled'; missing must be 'raise' or 'drop'"
         )
     n_bins = _integer(n_bins, "n_bins", 1)
-    _workers(n_jobs)
+    workers = _workers(n_jobs)
     if embedding == "tsne":
         if fit != "pooled" or seed is None:
             raise ValueError("t-SNE requires fit='pooled' and an explicit seed")
@@ -364,6 +381,20 @@ def compare_feature_coverage(
     corpus_names = list(synthetics)
     frames = [real, *synthetics.values()]
     if precomputed:
+        ignored = [
+            name
+            for name, value in (
+                ("seasonal_period", seasonal_period),
+                ("window_size", window_size),
+            )
+            if value is not None
+        ]
+        if ignored:
+            raise ValueError(
+                f"{', '.join(ignored)} cannot be combined with precomputed=True; "
+                "these describe native extraction, which is skipped for cached "
+                "features. Record the extraction settings alongside the cache."
+            )
         available = [
             c for c in nw.from_native(real, eager_only=True).columns if c != id_col
         ]
@@ -400,7 +431,7 @@ def compare_feature_coverage(
     ]
     matrices = [item[0] for item in prepared]
     diagnostics = [item[1] for item in prepared]
-    embedded = _coverage.embed_features(matrices, embedding, fit, seed)
+    embedded = _coverage.embed_features(matrices, embedding, fit, seed, workers)
     edges = _coverage.grid_edges(embedded.coordinates, n_bins, grid_range)
     parameters = {
         **embedded.parameters,
@@ -423,11 +454,8 @@ def compare_feature_coverage(
         ]
         parameters["corpus_names"] = corpus_names
     space_id = _coverage.fingerprint(parameters)
-    reference_id = _coverage.fingerprint(
-        {
-            "ids": [repr(x) for x in diagnostics[0].retained_ids],
-            "values": matrices[0].tolist(),
-        }
+    reference_id = _coverage.matrix_fingerprint(
+        diagnostics[0].retained_ids, matrices[0]
     )
     real_occupancy, real_cells, _ = _coverage.grid_occupancy(
         embedded.coordinates[0], edges

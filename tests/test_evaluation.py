@@ -329,3 +329,134 @@ def test_window_configuration_is_validated_recorded_and_forwarded(engine):
     for invalid in (0, 1, True, 2.5):
         with pytest.raises(ValueError, match="window_size"):
             compute_features(real, window_size=invalid)
+
+
+def test_drop_reasons_name_only_the_offending_features(engine):
+    """Attribution must select per feature, not list the whole schema."""
+    real = frame(
+        engine,
+        {
+            "unique_id": ["id0", "id1", "id2", "id3"],
+            "a": [-2.0, np.nan, 2.0, 0.5],
+            "b": [-2.0, 1.0, 2.0, np.nan],
+            "c": [-2.0, np.nan, 2.0, 0.5],
+        },
+    )
+    result = feature_coverage(real, real, precomputed=True, missing="drop")
+    assert result.real_diagnostics.drop_reasons == {
+        "id1": ("a", "c"),
+        "id3": ("b",),
+    }
+    assert result.real_diagnostics.retained_ids == ("id0", "id2")
+
+
+def test_uncovered_ids_align_with_retained_ids_after_drops(engine):
+    """Dropping must not shift the id/occupancy pairing for uncovered series."""
+    real = frame(
+        engine,
+        {
+            "unique_id": ["keep_lo", "drop", "keep_hi", "keep_mid"],
+            "a": [-5.0, np.nan, 5.0, 0.0],
+            "b": [-5.0, 1.0, 5.0, 0.0],
+        },
+    )
+    synthetic = frame(
+        engine,
+        {
+            "unique_id": ["s0", "s1"],
+            "a": [-5.0, 5.0],
+            "b": [-5.0, 5.0],
+        },
+    )
+    result = feature_coverage(real, synthetic, precomputed=True, missing="drop")
+    assert result.real_diagnostics.retained_ids == ("keep_lo", "keep_hi", "keep_mid")
+    # The middle series is the only real point no synthetic corner covers.
+    assert result.uncovered_real_ids == ("keep_mid",)
+
+
+def test_pooled_fit_uses_the_combined_population(engine):
+    """fit='pooled' must standardize on both corpora, not on real alone."""
+    real = feature_frame(engine, (-1.0, 0.0, 1.0))
+    synthetic = feature_frame(engine, (99.0, 100.0, 101.0))
+    on_real = feature_coverage(real, synthetic, precomputed=True, fit="real")
+    pooled = feature_coverage(real, synthetic, precomputed=True, fit="pooled")
+    real_mean = on_real.metadata["parameters"]["mean"][0]
+    pooled_mean = pooled.metadata["parameters"]["mean"][0]
+    assert real_mean == pytest.approx(0.0)
+    assert pooled_mean == pytest.approx(50.0)
+    assert on_real.space_id != pooled.space_id
+
+
+def test_pooled_fit_with_real_grid_range(engine):
+    """fit and grid_range are independent knobs; this pairing is valid."""
+    real = feature_frame(engine, (-1.0, 0.0, 1.0))
+    synthetic = feature_frame(engine, (5.0, 6.0, 7.0))
+    result = feature_coverage(
+        real, synthetic, precomputed=True, fit="pooled", grid_range="real"
+    )
+    assert result.fit == "pooled" and result.grid_range == "real"
+    # The synthetic corpus sits entirely outside the real-only grid.
+    assert result.n_synthetic_out_of_range == 3
+    assert result.synthetic_out_of_range_fraction == pytest.approx(1.0)
+
+
+def test_precomputed_rejects_native_extraction_keywords(engine):
+    real = feature_frame(engine)
+    for kwargs in ({"seasonal_period": 12}, {"window_size": 5}):
+        with pytest.raises(ValueError, match="cannot be combined with precomputed"):
+            feature_coverage(real, real, precomputed=True, **kwargs)
+
+
+@pytest.mark.parametrize("bad", [1, 0, -4, 12.0, True])
+def test_seasonal_period_is_validated(bad):
+    with pytest.raises(ValueError, match="seasonal_period must be an integer >= 2"):
+        compute_features(panel("pandas"), seasonal_period=bad)
+
+
+@pytest.mark.parametrize(
+    "synthetics",
+    [{}, [1], {1: None}],
+)
+def test_compare_rejects_invalid_synthetics_mapping(synthetics):
+    with pytest.raises(ValueError, match="non-empty mapping"):
+        compare_feature_coverage(feature_frame("pandas"), synthetics, precomputed=True)
+
+
+def test_tsne_splits_unequal_corpora_at_the_right_boundary():
+    """An equal-size real/real split would hide an off-by-one or swap."""
+    pytest.importorskip("sklearn")
+    rng = np.random.default_rng(7)
+    real = feature_frame("pandas", rng.normal(size=35), y=rng.normal(size=35).tolist())
+    values = rng.normal(size=20)
+    values[3] = np.nan
+    synthetic = feature_frame("pandas", values, y=rng.normal(size=20).tolist())
+    result = feature_coverage(
+        real,
+        synthetic,
+        precomputed=True,
+        embedding="tsne",
+        fit="pooled",
+        seed=11,
+        missing="drop",
+    )
+    assert result.real_embedding.shape[0] == 35
+    # One synthetic row is dropped before embedding, so the split must be 35/19.
+    assert result.synthetic_embedding.shape[0] == 19
+    assert len(result.synthetic_diagnostics.retained_ids) == 19
+
+
+def test_reference_id_tracks_the_real_feature_values(engine):
+    """Stability alone would be satisfied by a constant; pin sensitivity too."""
+    base = feature_coverage(
+        feature_frame(engine), feature_frame(engine), precomputed=True
+    ).metadata["reference_id"]
+    same = feature_coverage(
+        feature_frame(engine), feature_frame(engine, (-3.0, 1.0, 4.0)), precomputed=True
+    ).metadata["reference_id"]
+    # A different synthetic corpus must not move the reference fingerprint.
+    assert same == base
+    for changed in [(-2.0, 0.0, 2.5), (-2.0, 0.0, 2.0, 3.0)]:
+        altered = feature_coverage(
+            feature_frame(engine, changed), feature_frame(engine), precomputed=True
+        ).metadata["reference_id"]
+        assert altered != base

@@ -30,14 +30,15 @@ and, with `window_size=5`, in its short Yearly samples. The first two PCA
 components retained only 63–68% of real-feature variance across two sample
 seeds, with substantial losses for controlled spike and variance changes.
 Treat the map as a two-dimensional diagnostic, not comprehensive feature-space
-coverage. The reproducible pilot and artifacts live under
-`benchmarks/benchmark_feature_coverage.py` and
-`benchmarks/data/feature_coverage_pilot/` in the repository.
+coverage. The pilot is reproduced by `benchmarks/benchmark_feature_coverage.py`, writing to
+`benchmarks/data/feature_coverage_pilot/`. That script and its artifacts land in
+a follow-up pull request; neither is in the repository yet.
 
 The follow-up `benchmarks/validate_feature_coverage.py` compares full-feature
 Euclidean distances with PCA distances using separate real fitting,
 calibration, and evaluation subsets. Its results support the aggregate
-balanced-pool/MAR ordering on these samples, while showing substantial
+interpretable-pool/MAR ordering on these samples (the artifacts label that pool
+`balanced_pool`, its name when they were produced), while showing substantial
 disagreement on individual neighbours and coverage decisions. It also
 isolates large grid-boundary effects with PCA coordinates held fixed.
 Report full-feature distance distributions and real-calibrated coverage
@@ -65,7 +66,8 @@ series that lack two full cycles; it must be reported as a separate eligible
 population. Daily's seven-day cycle is an explicit assumption (M4 metadata
 declares it nonseasonal), and Hourly's 24-hour period covers only that cycle.
 Run `benchmarks/benchmark_feature_coverage.py --availability-only` to reproduce
-the audit; results are in `benchmarks/data/feature_coverage_availability/`.
+the audit, writing to `benchmarks/data/feature_coverage_availability/`. The
+script arrives in a follow-up pull request.
 
 ```python
 from synforecast import compare_feature_coverage, compute_features

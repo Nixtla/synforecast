@@ -507,8 +507,9 @@ def pretraining_pool(
         seed: Base random seed. Each generator gets a distinct offset. Set to
             None for random seeds.
         include_balanced: When True (default), prepend the full
-            :func:`interpretable_pool`; when False, return only the meta-generators
-            (a purely procedural pretraining corpus).
+            :func:`interpretable_pool`; when False, return only the
+            meta-generators (a purely procedural pretraining corpus), plus the
+            seasonal instances if ``include_seasonal`` is also set.
         n_meta_variants: Number of independently-seeded instances of each
             meta-generator (default 3). More instances give the meta-generators
             a larger share when series are spread evenly across the pool, as in
@@ -518,11 +519,13 @@ def pretraining_pool(
             Defaults to None, which derives it from ``freq``.
         include_seasonal: When True, append the eight :func:`seasonal_pool`
             instances (strong seasonality on a moving level) at the same
-            period. Skipped silently when the period is below 2, as for yearly
-            data. Recommended for quarterly and monthly targets, where it
-            raised feature-space coverage on every panel tested; leave it off
-            for weekly, daily, hourly, and intermittent targets, where the
-            extra instances displaced useful breadth. Default False.
+            period. Skipped with a warning when the period is below 2, as for
+            yearly data. Recommended for regularly seasonal quarterly and
+            monthly targets, where it raised feature-space coverage on every
+            panel tested that had a seasonal gap to fill; it does not help
+            intermittent monthly data, where displacing pool breadth cost
+            about three points. Leave it off for weekly, daily, hourly, and
+            intermittent targets. Default False.
         **base_kwargs: Additional keyword arguments passed to all generators
             (e.g., engine, id_col, time_col, target_col).
 
@@ -569,7 +572,15 @@ def pretraining_pool(
             if seasonal_period is None
             else seasonal_period
         )
-        if period >= 2:
+        if period < 2:
+            warnings.warn(
+                f"include_seasonal=True was ignored: freq={freq!r} yields a "
+                f"seasonal period of {period}, and seasonal_pool needs at "
+                "least 2. Pass seasonal_period explicitly to add it anyway.",
+                UserWarning,
+                stacklevel=2,
+            )
+        else:
             # Seed offsets 2000..2007 sit past both the 0..41 and 1000.. ranges.
             seasonal = seasonal_pool(
                 min_length=min_length,
@@ -639,6 +650,10 @@ def seasonal_pool(
         min_length: Minimum series length for all generators.
         max_length: Maximum series length for all generators.
         freq: Frequency for all generators, as a pandas offset alias or integer.
+            Defaults to ``"MS"``, the frequency this pool was evaluated at,
+            which differs from the ``"D"`` default of :func:`interpretable_pool`
+            and :func:`pretraining_pool`. Pass the same ``freq`` to both when
+            combining them, or the combined corpus mixes frequencies.
         seed: Base random seed; generator ``i`` receives ``seed + i``. Set to
             None for random seeds.
         seasonal_period: Seasonal period in time steps. Defaults to None,

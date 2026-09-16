@@ -61,9 +61,11 @@
   displaces the pretraining share, so it is documented as an addition on top
   of the pools and stays out of the defaults. `pretraining_pool` gained an
   `include_seasonal` flag; a pre-declared fifteen-panel default-flip test
-  passed on all quarterly/monthly panels but failed no-harm on weekly, daily,
-  and intermittent ones, so the default stays False and the flag is
-  recommended for quarterly/monthly targets. `balanced_pool` was renamed
+  raised coverage on every quarterly and monthly panel but failed the no-harm
+  gate on six panels in total, including M4 quarterly by one point in one
+  fold, and lowered coverage on weekly, daily, and intermittent ones, so the
+  default stays False and the flag is recommended for quarterly/monthly
+  targets. `balanced_pool` was renamed
   `interpretable_pool` with a deprecated alias. Next: measure forecasting
   utility of pool + seasonal_pool pretraining on a seasonal panel; consider a
   pre-declared test of a period-aware default (on only for periods 4 and 12). Generated feature caches and detailed traces stay

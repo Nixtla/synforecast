@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -28,10 +29,43 @@ def fingerprint(value: Any) -> str:
     return hashlib.sha256(encoded.encode()).hexdigest()
 
 
+def matrix_fingerprint(ids: Sequence[Any], matrix: np.ndarray) -> str:
+    """Hash retained IDs and their feature matrix without boxing every value.
+
+    Hashing the raw buffer rather than a JSON rendering keeps this linear in
+    bytes instead of allocating a Python float and ~20 characters per entry.
+    Values are finite float64 by construction here, so the buffer is a stable
+    bit-exact encoding; dtype and shape are hashed too so a reshape cannot
+    collide with the original.
+    """
+    digest = hashlib.sha256()
+    digest.update(
+        json.dumps(
+            {"ids": [repr(uid) for uid in ids], "shape": list(matrix.shape)},
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode()
+    )
+    contiguous = np.ascontiguousarray(matrix, dtype=np.float64)
+    digest.update(str(contiguous.dtype).encode())
+    digest.update(contiguous.tobytes())
+    return digest.hexdigest()
+
+
 def embed_features(
-    matrices: list[np.ndarray], embedding: str, fit: str, seed: int | None
+    matrices: list[np.ndarray],
+    embedding: str,
+    fit: str,
+    seed: int | None,
+    workers: int = 1,
 ) -> EmbeddedFeatures:
-    """Fit on the specified population and preserve corpus boundaries."""
+    """Fit on the specified population and preserve corpus boundaries.
+
+    ``workers`` only parallelizes the t-SNE neighbour search. A fixed seed
+    keeps the result reproducible across worker counts up to floating-point
+    associativity, so it is deliberately not part of the fitted parameters.
+    """
     population = matrices[0] if fit == "real" else np.concatenate(matrices)
     if len(population) < 2:
         raise ValueError(
@@ -99,7 +133,7 @@ def embed_features(
             init="random",
             learning_rate="auto",
             random_state=seed,
-            n_jobs=1,
+            n_jobs=workers,
         ).fit_transform(training)
         coordinates = list(
             np.split(coordinates_all, np.cumsum([len(x) for x in matrices])[:-1])

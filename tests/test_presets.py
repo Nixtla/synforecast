@@ -513,9 +513,75 @@ class TestPretrainingPoolSeasonalFlag:
     def test_flag_skips_yearly_and_works_meta_only(self) -> None:
         from synforecast import pretraining_pool
 
-        yearly = pretraining_pool(freq="YS", include_seasonal=True)
+        with pytest.warns(UserWarning, match="include_seasonal=True was ignored"):
+            yearly = pretraining_pool(freq="YS", include_seasonal=True)
         assert len(yearly) == 54
         meta = pretraining_pool(
             freq="QS", include_balanced=False, include_seasonal=True, n_meta_variants=1
         )
         assert len(meta) == 4 + 8
+
+
+class TestSeasonalPoolIsActuallySeasonal:
+    """The preset exists to fill a seasonal gap; pin that it does."""
+
+    @staticmethod
+    def _median_seasonal_strength(pool) -> float:
+        from synforecast import SynSet, compute_features
+
+        df = SynSet(pool).generate(n_series_per_generator=2, n_jobs=1)
+        # Some pool members emit missing values by design; feature extraction
+        # requires finite panels, so drop those series rather than impute.
+        bad = set(df.loc[~np.isfinite(df["y"]), "unique_id"])
+        features = compute_features(df[~df["unique_id"].isin(bad)], seasonal_period=4)
+        return float(np.nanmedian(features["seasonal_strength"].to_numpy()))
+
+    def test_far_more_seasonal_than_the_pool_it_supplements(self) -> None:
+        from synforecast import interpretable_pool, seasonal_pool
+
+        shared = {
+            "min_length": 64,
+            "max_length": 64,
+            "freq": "QS",
+            "seed": 1,
+            "engine": "pandas",
+        }
+        seasonal = self._median_seasonal_strength(seasonal_pool(**shared))
+        interpretable = self._median_seasonal_strength(interpretable_pool(**shared))
+        # Measured 0.62 vs 0.06; the margin guards against a generator whose
+        # seasonal amplitude gets swamped by its own noise range.
+        assert seasonal > 0.35
+        assert interpretable < 0.20
+        assert seasonal > 3 * interpretable
+
+    def test_every_instance_generates_at_its_default_length(self) -> None:
+        from synforecast import seasonal_pool
+
+        for generator in seasonal_pool(freq="QS"):
+            values = generator.generate(1, n_jobs=1)["y"].to_numpy()
+            assert len(values) == 200
+            assert np.isfinite(values).all(), generator.alias
+
+
+class TestPretrainingPoolSeasonalPeriodForwarding:
+    def test_explicit_period_reaches_the_seasonal_instances(self) -> None:
+        from synforecast import pretraining_pool
+
+        pool = pretraining_pool(
+            min_length=64,
+            max_length=64,
+            freq="MS",
+            seasonal_period=4,
+            include_seasonal=True,
+            engine="polars",
+        )
+        seasonal = [g for g in pool if g.alias == "ets_MAdM_noisy"]
+        assert len(seasonal) == 1
+        assert len(seasonal[0].seasonal) == 4
+
+    def test_skip_on_yearly_warns_rather_than_silently_no_op(self) -> None:
+        from synforecast import pretraining_pool
+
+        with pytest.warns(UserWarning, match="include_seasonal=True was ignored"):
+            yearly = pretraining_pool(freq="YS", include_seasonal=True)
+        assert len(yearly) == len(pretraining_pool(freq="YS"))
