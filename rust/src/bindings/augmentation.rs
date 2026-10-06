@@ -231,6 +231,37 @@ fn compute_feature_set(
         .map_err(PyValueError::new_err)
 }
 
+/// Native feature rows for a flat panel in one call; returns n_series * 12 values.
+#[pyfunction]
+#[pyo3(signature = (values, offsets, period=None, window_size=None, n_workers=0))]
+fn compute_feature_set_batch(
+    py: Python<'_>,
+    values: PyReadonlyArray1<'_, f64>,
+    offsets: PyReadonlyArray1<'_, i64>,
+    period: Option<usize>,
+    window_size: Option<usize>,
+    n_workers: usize,
+) -> PyResult<Py<PyArray1<f64>>> {
+    let values = values.as_slice()?.to_vec();
+    let offsets = offsets
+        .as_slice()?
+        .iter()
+        .map(|&offset| usize::try_from(offset))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| PyValueError::new_err("offsets must be non-negative"))?;
+    let work = || algorithms::compute_feature_set_batch(&values, &offsets, period, window_size);
+    let rows = py
+        .detach(|| {
+            if n_workers == 0 {
+                work()
+            } else {
+                crate::batch::get_or_create_pool(n_workers)?.install(work)
+            }
+        })
+        .map_err(PyValueError::new_err)?;
+    Ok(PyArray1::from_vec(py, rows).into())
+}
+
 #[pyfunction]
 #[pyo3(signature = (values, block_size, seed, period=None))]
 fn moving_block_bootstrap(
@@ -277,6 +308,7 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(classical_decompose, &module)?)?;
     module.add_function(wrap_pyfunction!(compute_features, &module)?)?;
     module.add_function(wrap_pyfunction!(compute_feature_set, &module)?)?;
+    module.add_function(wrap_pyfunction!(compute_feature_set_batch, &module)?)?;
     module.add_function(wrap_pyfunction!(moving_block_bootstrap, &module)?)?;
     module.add_function(wrap_pyfunction!(moving_block_bootstrap_many, &module)?)?;
     parent.add_submodule(&module)?;

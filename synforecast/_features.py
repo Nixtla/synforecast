@@ -34,11 +34,13 @@ def compute_feature_set(
 ) -> dict[str, float]:
     """Compute the native_v1 coverage features (independent of MAR targeting).
 
-    All features require >=3 observations. Seasonal strength needs two cycles;
-    x_acf10 needs 11 observations; seas_acf1 needs period+1. Window summaries
-    need two complete windows (explicit window_size, period, or otherwise 10).
-    Undefined features return NaN. The original four definitions are retained,
-    except insufficient seasonal cycles are explicitly undefined for evaluation.
+    Every feature is computed on the series normalized to zero mean and unit
+    variance, so none depends on the input scale. All features require >=3
+    observations. A declared period needs two cycles, otherwise the three
+    decomposition-based features (trend and seasonal strength, spike) are
+    NaN; x_acf10 needs 11 observations; seas_acf1 needs period+1. Window
+    summaries need two complete windows (explicit window_size, period, or
+    otherwise 10). Undefined features return NaN.
     """
     values = np.asarray(values, dtype=float)
     if values.ndim != 1 or not len(values) or not np.all(np.isfinite(values)):
@@ -47,6 +49,29 @@ def compute_feature_set(
         np.ascontiguousarray(values), seasonal_period, window_size
     )
     return dict(zip(FEATURE_NAMES, result, strict=True))
+
+
+def compute_feature_matrix(
+    values: np.ndarray,
+    offsets: np.ndarray,
+    seasonal_period: int | None,
+    window_size: int | None = None,
+    n_workers: int = 0,
+) -> np.ndarray:
+    """Return an ``(n_series, 12)`` native_v1 matrix for a flat, finite panel.
+
+    ``offsets`` holds the ``n_series + 1`` strictly increasing series bounds
+    into ``values``. One native call releases the GIL and processes series in
+    parallel; ``n_workers=0`` uses the global Rayon pool.
+    """
+    rows = _rs_augmentation.compute_feature_set_batch(
+        np.ascontiguousarray(values, dtype=np.float64),
+        np.ascontiguousarray(offsets, dtype=np.int64),
+        seasonal_period,
+        window_size,
+        n_workers,
+    )
+    return np.asarray(rows).reshape(-1, len(FEATURE_NAMES))
 
 
 def _validate_values(values: np.ndarray) -> np.ndarray:
@@ -131,7 +156,7 @@ def acf1(values: np.ndarray) -> float:
     return 0.0 if np.isnan(result) else float(result)
 
 
-def compute_features(
+def compute_targeting_features(
     values: np.ndarray, seasonal_period: int | None
 ) -> dict[str, float]:
     """Compute the minimal tsfeatures-style set used by MAR targeting.

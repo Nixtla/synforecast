@@ -13,6 +13,11 @@ import numpy as np
 CONSTANT_ATOL = 1e-12
 
 
+def constant_tolerance(value: Any) -> Any:
+    """Absolute tolerance near zero, relative to the magnitude elsewhere."""
+    return CONSTANT_ATOL * np.maximum(1.0, np.abs(value))
+
+
 @dataclass
 class EmbeddedFeatures:
     coordinates: list[np.ndarray]
@@ -75,7 +80,7 @@ def embed_features(
     with np.errstate(over="ignore", invalid="ignore"):
         mean = population.mean(axis=0)
         centered = population - mean
-        constant = np.max(np.abs(centered), axis=0) <= CONSTANT_ATOL
+        constant = np.ptp(population, axis=0) <= constant_tolerance(mean)
         scale = np.sqrt(np.mean(centered**2, axis=0))
     if not np.all(np.isfinite(mean)) or not np.all(np.isfinite(scale)):
         raise ValueError(
@@ -151,7 +156,7 @@ def embed_features(
         coordinates,
         kept,
         np.flatnonzero(constant),
-        mean[constant],
+        population[0, constant],
         explained,
         parameters,
     )

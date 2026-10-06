@@ -8,8 +8,8 @@ import polars as pl
 import pytest
 
 from synforecast._coverage import grid_occupancy, occupancy_scores
-from synforecast._features import FEATURE_NAMES
-from synforecast._features import compute_features as targeting_features
+from synforecast._features import FEATURE_NAMES, compute_feature_set
+from synforecast._features import compute_targeting_features as targeting_features
 from synforecast.evaluation import (
     compare_feature_coverage,
     compute_features,
@@ -188,6 +188,8 @@ def test_fitting_population_requirements(engine, x):
         {"grid_range": "invalid"},
         {"missing": "impute"},
         {"n_jobs": 0},
+        {"n_jobs": -2},
+        {"n_jobs": None},
         {"n_jobs": True},
         {"embedding": "tsne"},
         {"embedding": "tsne", "fit": "pooled"},
@@ -402,14 +404,20 @@ def test_pooled_fit_with_real_grid_range(engine):
 
 def test_precomputed_rejects_native_extraction_keywords(engine):
     real = feature_frame(engine)
-    for kwargs in ({"seasonal_period": 12}, {"window_size": 5}):
+    for kwargs in (
+        {"seasonal_period": 12},
+        {"freq": "MS"},
+        {"window_size": 5},
+        {"time_col": "time"},
+        {"target_col": "value"},
+    ):
         with pytest.raises(ValueError, match="cannot be combined with precomputed"):
             feature_coverage(real, real, precomputed=True, **kwargs)
 
 
-@pytest.mark.parametrize("bad", [1, 0, -4, 12.0, True])
+@pytest.mark.parametrize("bad", [0, -4, 12.0, True])
 def test_seasonal_period_is_validated(bad):
-    with pytest.raises(ValueError, match="seasonal_period must be an integer >= 2"):
+    with pytest.raises(ValueError, match="seasonal_period must be an integer >= 1"):
         compute_features(panel("pandas"), seasonal_period=bad)
 
 
@@ -460,3 +468,229 @@ def test_reference_id_tracks_the_real_feature_values(engine):
             feature_frame(engine, changed), feature_frame(engine), precomputed=True
         ).metadata["reference_id"]
         assert altered != base
+
+
+def unequal_panel(engine, ds="int"):
+    """Three series of different lengths, rows shuffled, times descending."""
+    rng = np.random.default_rng(21)
+    lengths = {"b": 30, "a": 55, "c": 41}
+    ids = np.concatenate([[uid] * n for uid, n in lengths.items()])
+    steps = np.concatenate([np.arange(n)[::-1] for n in lengths.values()])
+    times = (
+        steps
+        if ds == "int"
+        else pd.Timestamp("2000-01-01")
+        + pd.to_timedelta(steps, unit="h" if ds == "hourly" else "D") * 30
+    )
+    order = rng.permutation(len(ids))
+    data = {
+        "unique_id": ids[order],
+        "ds": np.asarray(times)[order],
+        "y": rng.normal(size=len(ids))[order],
+    }
+    return frame(engine, data)
+
+
+def test_unequal_lengths_map_to_their_own_series(engine):
+    df = unequal_panel(engine)
+    features = compute_features(df, seasonal_period=4)
+    rows = features.to_dict("records") if engine == "pandas" else features.to_dicts()
+    assert [row["unique_id"] for row in rows] == ["a", "b", "c"]
+    source = df if engine == "pandas" else df.to_pandas()
+    for row in rows:
+        values = source[source.unique_id == row["unique_id"]].sort_values("ds").y
+        expected = compute_feature_set(values.to_numpy(), 4)
+        for name, value in expected.items():
+            assert row[name] == pytest.approx(value, nan_ok=True), name
+
+
+def test_pandas_output_has_a_fresh_range_index():
+    features = compute_features(panel("pandas"), seasonal_period=4)
+    pd.testing.assert_index_equal(features.index, pd.RangeIndex(3))
+
+
+def test_datetime_times_of_any_frequency_match_integer_times(engine):
+    expected = compute_features(unequal_panel(engine), seasonal_period=4)
+    for ds in ("hourly", "daily"):
+        actual = compute_features(unequal_panel(engine, ds), seasonal_period=4)
+        left = actual.to_pandas() if engine == "polars" else actual
+        right = expected.to_pandas() if engine == "polars" else expected
+        pd.testing.assert_frame_equal(left, right)
+
+
+def test_missing_datetime_raises():
+    df = unequal_panel("pandas", "daily")
+    df.loc[df.index[0], "ds"] = pd.NaT
+    with pytest.raises(ValueError, match="null"):
+        compute_features(df)
+
+
+def test_freq_derives_the_period_like_the_presets(engine):
+    df = unequal_panel(engine)
+    by_freq = compute_features(df, freq="QS")
+    by_period = compute_features(df, seasonal_period=4)
+    left = by_freq.to_pandas() if engine == "polars" else by_freq
+    right = by_period.to_pandas() if engine == "polars" else by_period
+    pd.testing.assert_frame_equal(left, right)
+    # An explicit period wins over freq, as in the presets.
+    explicit = compute_features(df, freq="MS", seasonal_period=4)
+    explicit = explicit.to_pandas() if engine == "polars" else explicit
+    pd.testing.assert_frame_equal(explicit, right)
+
+
+@pytest.mark.parametrize("kwargs", [{"seasonal_period": 1}, {"freq": "YS"}])
+def test_period_one_means_no_seasonality(kwargs):
+    df = unequal_panel("pandas")
+    pd.testing.assert_frame_equal(compute_features(df, **kwargs), compute_features(df))
+
+
+def test_integer_freq_is_rejected():
+    with pytest.raises(ValueError, match="offset alias"):
+        compute_features(panel("pandas"), freq=1)
+
+
+def test_undeclared_seasonality_is_logged_when_it_drops_out(caplog):
+    df = unequal_panel("pandas")
+    with caplog.at_level(logging.WARNING, logger="synforecast.evaluation"):
+        result = feature_coverage(df, df)
+    assert {"seasonal_strength", "seas_acf1"} <= set(result.constant_features_dropped)
+    assert any("No seasonal period declared" in r.message for r in caplog.records)
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="synforecast.evaluation"):
+        result = feature_coverage(df, df, freq="QS")
+    assert "seasonal_strength" in result.features_used
+    assert not any("No seasonal period" in r.message for r in caplog.records)
+    assert result.metadata["parameters"]["seasonal_period"] == 4
+
+
+def test_results_compare_by_identity_and_own_their_metadata(engine):
+    real = feature_frame(engine)
+    results = compare_feature_coverage(real, {"a": real, "b": real}, precomputed=True)
+    first, second = results["a"], results["b"]
+    assert first != second
+    assert first == first
+    assert len({first, second, first.real_diagnostics}) == 3
+    first.metadata["parameters"]["features"] = ("changed",)
+    assert second.metadata["parameters"]["features"] == ("x",)
+
+
+def test_summary_tabulates_scalar_scores(engine):
+    real = feature_frame(engine)
+    synthetic = feature_frame(engine, (-2.0, 2.0, 50.0))
+    result = feature_coverage(real, synthetic, precomputed=True)
+    summary = result.summary()
+    assert summary["miscoverage"] == result.miscoverage
+    assert summary["n_synthetic_retained"] == 3
+    assert summary["n_real_input"] == 3
+    assert summary["explained_variance"] == pytest.approx(1.0)
+    table = pd.DataFrame({"synthetic": summary}).T
+    assert table.loc["synthetic", "synthetic_out_of_range_fraction"] == pytest.approx(
+        1 / 3
+    )
+
+
+def test_native_missing_drop_end_to_end(engine):
+    rng = np.random.default_rng(5)
+    data = {
+        "unique_id": ["long1"] * 48 + ["long2"] * 48 + ["short"] * 15,
+        "ds": list(range(48)) * 2 + list(range(15)),
+        "y": rng.normal(size=111),
+    }
+    df = frame(engine, data)
+    with pytest.raises(ValueError, match="non-finite features"):
+        feature_coverage(df, df, seasonal_period=12)
+    result = feature_coverage(df, df, seasonal_period=12, missing="drop")
+    assert result.real_diagnostics.dropped_ids == ("short",)
+    assert set(result.real_diagnostics.drop_reasons["short"]) == {
+        "trend_strength",
+        "seasonal_strength",
+        "spike",
+        "lumpiness",
+        "max_level_shift",
+        "max_var_shift",
+    }
+
+
+def test_reference_pca_matches_scikit_learn(engine):
+    decomposition = pytest.importorskip("sklearn.decomposition")
+    rng = np.random.default_rng(8)
+    covariance = np.diag([4.0, 2.0, 1.0, 0.5])
+    real_x = rng.multivariate_normal(np.zeros(4), covariance, size=60)
+    syn_x = rng.multivariate_normal(np.ones(4), covariance, size=40)
+
+    def as_frame(x, prefix):
+        columns = {f"f{j}": x[:, j] for j in range(4)}
+        return frame(
+            engine, {"unique_id": [f"{prefix}{i}" for i in range(len(x))], **columns}
+        )
+
+    result = feature_coverage(
+        as_frame(real_x, "r"), as_frame(syn_x, "s"), precomputed=True
+    )
+    mean, std = real_x.mean(axis=0), real_x.std(axis=0)
+    pca = decomposition.PCA(2).fit((real_x - mean) / std)
+    signs = np.sign(
+        np.sum(pca.transform((real_x - mean) / std) * result.real_embedding, axis=0)
+    )
+    np.testing.assert_allclose(
+        result.real_embedding, pca.transform((real_x - mean) / std) * signs, atol=1e-10
+    )
+    np.testing.assert_allclose(
+        result.synthetic_embedding,
+        pca.transform((syn_x - mean) / std) * signs,
+        atol=1e-10,
+    )
+    np.testing.assert_allclose(result.explained_variance, pca.explained_variance_ratio_)
+    # Row order of the reference does not change the fitted space.
+    shuffled = rng.permutation(len(real_x))
+    again = feature_coverage(
+        as_frame(real_x[shuffled], "r"), as_frame(syn_x, "s"), precomputed=True
+    )
+    np.testing.assert_allclose(
+        again.synthetic_embedding, result.synthetic_embedding, atol=1e-10
+    )
+
+
+def test_large_constant_columns_are_detected_exactly(engine):
+    real = feature_frame(engine, constant=[123456.7] * 3)
+    synthetic = feature_frame(engine, constant=[123456.7, 123457.7, 123456.7])
+    result = feature_coverage(real, synthetic, precomputed=True)
+    assert result.constant_features_dropped == ("constant",)
+    assert result.synthetic_constant_feature_deviations == {"constant": 1}
+    assert result.n_synthetic_out_of_range == 0
+
+
+def test_feature_scaling_overflow_is_reported(engine):
+    real = feature_frame(engine, (-1e308, 0.0, 1e308))
+    with pytest.raises(ValueError, match="overflowed"):
+        feature_coverage(real, real, precomputed=True)
+
+
+def test_id_col_conflicts_and_empty_panels():
+    with pytest.raises(ValueError, match="id_col"):
+        compute_features(panel("pandas"), id_col="acf1")
+    with pytest.raises(ValueError, match="id_col must not be a selected feature"):
+        feature_coverage(
+            feature_frame("pandas"),
+            feature_frame("pandas"),
+            precomputed=True,
+            features=["unique_id"],
+        )
+    empty = pd.DataFrame({"unique_id": [], "ds": [], "y": []})
+    with pytest.raises(ValueError, match="at least one series"):
+        compute_features(empty)
+
+
+def test_worker_counts_give_identical_features():
+    rng = np.random.default_rng(4)
+    data = {
+        "unique_id": np.repeat([f"s{i}" for i in range(50)], 40),
+        "ds": np.tile(np.arange(40), 50),
+        "y": rng.normal(size=2000),
+    }
+    df = pd.DataFrame(data)
+    single = compute_features(df, seasonal_period=4, n_jobs=1)
+    for n_jobs in (4, -1):
+        pd.testing.assert_frame_equal(
+            compute_features(df, seasonal_period=4, n_jobs=n_jobs), single
+        )

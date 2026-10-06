@@ -683,7 +683,8 @@ monthly panels such as tourism demand and hospital counts; adding the preset
 on top of `interpretable_pool` raised coverage on those panels and on M1 monthly,
 was neutral on M4, and gave nothing on intermittent data. It is an addition
 on top of a pool, not a replacement for any part of it, and its effect on
-forecasting accuracy has not been measured:
+forecasting accuracy has not been measured. `freq` is required; pass the same
+value to the pool it is added to:
 
 ```python
 from synforecast import SynSet, interpretable_pool, seasonal_pool

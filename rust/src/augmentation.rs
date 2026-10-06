@@ -16,6 +16,9 @@ use crate::{fft, rng::SfRng};
 
 pub type Decomposition = (Vec<f64>, Vec<f64>, Vec<f64>);
 
+/// Number of native coverage features; matches Python FEATURE_NAMES.
+pub const FEATURE_SET_SIZE: usize = 12;
+
 #[derive(PartialEq)]
 struct Neighbor {
     distance: f64,
@@ -518,17 +521,26 @@ pub fn compute_features(
     if period == Some(0) || period == Some(1) {
         return Err("period must be >= 2 when provided".to_string());
     }
-    let (trend, seasonal, remainder) = classical_decompose(values, period)?;
+    let decomposition = classical_decompose(values, period)?;
+    features_from_decomposition(values, period, &decomposition)
+}
+
+fn features_from_decomposition(
+    values: &[f64],
+    period: Option<usize>,
+    decomposition: &Decomposition,
+) -> Result<(f64, f64, f64, f64), String> {
+    let (trend, seasonal, remainder) = decomposition;
     let trend_plus_remainder: Vec<f64> = trend
         .iter()
-        .zip(&remainder)
+        .zip(remainder)
         .map(|(trend, remainder)| trend + remainder)
         .collect();
     let trend_denominator = variance(&trend_plus_remainder);
     let trend_strength = if trend_denominator <= f64::EPSILON {
         0.0
     } else {
-        (1.0 - variance(&remainder) / trend_denominator).clamp(0.0, 1.0)
+        (1.0 - variance(remainder) / trend_denominator).clamp(0.0, 1.0)
     };
     let seasonal_strength = if period.is_none()
         || period.is_some_and(|period| period > values.len() / 2)
@@ -538,14 +550,14 @@ pub fn compute_features(
     } else {
         let seasonal_plus_remainder: Vec<f64> = seasonal
             .iter()
-            .zip(&remainder)
+            .zip(remainder)
             .map(|(seasonal, remainder)| seasonal + remainder)
             .collect();
         let denominator = variance(&seasonal_plus_remainder);
         if denominator <= f64::EPSILON {
             0.0
         } else {
-            (1.0 - variance(&remainder) / denominator).clamp(0.0, 1.0)
+            (1.0 - variance(remainder) / denominator).clamp(0.0, 1.0)
         }
     };
     let mean = values.iter().sum::<f64>() / values.len() as f64;
@@ -620,15 +632,18 @@ pub fn compute_feature_set(
     }
     let n = values.len();
     if n < 3 {
-        return Ok(vec![f64::NAN; 12]);
+        return Ok(vec![f64::NAN; FEATURE_SET_SIZE]);
     }
-    let (entropy, trend, seasonal, acf1) = compute_features(values, period)?;
-    let seasonal = if period.is_some_and(|p| p > n / 2) {
-        f64::NAN
-    } else {
-        seasonal
-    };
     let normalized = normalize_features(values);
+    let decomposition = classical_decompose(&normalized, period)?;
+    let (entropy, trend, seasonal, acf1) =
+        features_from_decomposition(&normalized, period, &decomposition)?;
+    let unusable_period = period.is_some_and(|p| p > n / 2);
+    let (trend, seasonal) = if unusable_period {
+        (f64::NAN, f64::NAN)
+    } else {
+        (trend, seasonal)
+    };
     let x_acf10 = if n > 10 {
         (1..=10)
             .map(|lag| feature_acf(&normalized, lag).powi(2))
@@ -642,15 +657,19 @@ pub fn compute_feature_set(
         .collect();
     let diff1_acf1 = feature_acf(&differences, 1);
     let seas_acf1 = period.map_or(0.0, |p| feature_acf(&normalized, p));
-    let (_, _, remainder) = classical_decompose(&normalized, period)?;
-    let mean = remainder.iter().sum::<f64>() / n as f64;
-    let deviations: Vec<f64> = remainder.iter().map(|x| x - mean).collect();
-    let total = deviations.iter().map(|x| x * x).sum::<f64>();
-    let loo_variances: Vec<f64> = deviations
-        .iter()
-        .map(|x| ((total - n as f64 / (n - 1) as f64 * x * x) / (n - 1) as f64).max(0.0))
-        .collect();
-    let spike = variance(&loo_variances);
+    let spike = if unusable_period {
+        f64::NAN
+    } else {
+        let remainder = &decomposition.2;
+        let mean = remainder.iter().sum::<f64>() / n as f64;
+        let deviations: Vec<f64> = remainder.iter().map(|x| x - mean).collect();
+        let total = deviations.iter().map(|x| x * x).sum::<f64>();
+        let loo_variances: Vec<f64> = deviations
+            .iter()
+            .map(|x| ((total - n as f64 / (n - 1) as f64 * x * x) / (n - 1) as f64).max(0.0))
+            .collect();
+        variance(&loo_variances)
+    };
     let width = window_size.or(period).unwrap_or(10);
     let (lumpiness, max_level_shift, max_var_shift) = if width <= n / 2 {
         let tile_variances: Vec<f64> = normalized.chunks_exact(width).map(variance).collect();
@@ -680,12 +699,14 @@ pub fn compute_feature_set(
     } else {
         (f64::NAN, f64::NAN, f64::NAN)
     };
-    let mut sorted = normalized.clone();
-    sorted.sort_by(f64::total_cmp);
+    let mut scratch = normalized.clone();
+    let (left, upper, _) = scratch.select_nth_unstable_by(n / 2, f64::total_cmp);
+    let upper = *upper;
     let median = if n.is_multiple_of(2) {
-        0.5 * (sorted[n / 2 - 1] + sorted[n / 2])
+        let lower = left.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        0.5 * (lower + upper)
     } else {
-        sorted[n / 2]
+        upper
     };
     let crossing_points = normalized
         .windows(2)
@@ -705,6 +726,37 @@ pub fn compute_feature_set(
         max_var_shift,
         crossing_points,
     ])
+}
+
+pub fn compute_feature_set_batch(
+    values: &[f64],
+    offsets: &[usize],
+    period: Option<usize>,
+    window_size: Option<usize>,
+) -> Result<Vec<f64>, String> {
+    if offsets.len() < 2
+        || offsets[0] != 0
+        || *offsets.last().unwrap() != values.len()
+        || offsets.windows(2).any(|pair| pair[1] <= pair[0])
+    {
+        return Err("offsets must increase strictly from 0 to len(values)".to_string());
+    }
+    let n_series = offsets.len() - 1;
+    let mut order: Vec<usize> = (0..n_series).collect();
+    order.sort_by_key(|&i| offsets[i + 1] - offsets[i]);
+    let rows = order
+        .par_iter()
+        .map(|&i| {
+            compute_feature_set(&values[offsets[i]..offsets[i + 1]], period, window_size)
+                .map(|row| (i, row))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let width = FEATURE_SET_SIZE;
+    let mut output = vec![0.0; n_series * width];
+    for (i, row) in rows {
+        output[i * width..(i + 1) * width].copy_from_slice(&row);
+    }
+    Ok(output)
 }
 
 /// Bootstrap decomposition remainders using randomly selected moving blocks.
@@ -863,6 +915,55 @@ mod tests {
         let features = compute_feature_set(&variance_change, None, None).unwrap();
         assert!((features[8] - 0.64).abs() < 1e-12);
         assert!((features[10] - 1.6).abs() < 1e-12);
+    }
+
+    #[test]
+    fn coverage_features_are_scale_invariant() {
+        let values: Vec<f64> = (0..120)
+            .map(|i| (i as f64 * 0.7).sin() + 0.3 * (i as f64 * 0.11).cos() + i as f64 * 0.01)
+            .collect();
+        let reference = compute_feature_set(&values, Some(12), None).unwrap();
+        for scale in [1e-12, 1e-9, 1e160] {
+            let scaled: Vec<f64> = values.iter().map(|x| x * scale).collect();
+            let features = compute_feature_set(&scaled, Some(12), None).unwrap();
+            for (actual, expected) in features.iter().zip(&reference) {
+                assert!((actual - expected).abs() <= 1e-8 * expected.abs().max(1e-2));
+            }
+        }
+    }
+
+    #[test]
+    fn coverage_unusable_period_leaves_decomposition_features_undefined() {
+        let values: Vec<f64> = (0..20).map(|i| (i as f64).sin()).collect();
+        let features = compute_feature_set(&values, Some(12), Some(5)).unwrap();
+        assert!(features[1].is_nan() && features[2].is_nan() && features[7].is_nan());
+        assert!(features[0].is_finite() && features[3].is_finite());
+        assert!(features[8].is_finite());
+        let usable = compute_feature_set(&values, Some(10), None).unwrap();
+        assert!(usable[1].is_finite() && usable[2].is_finite() && usable[7].is_finite());
+    }
+
+    #[test]
+    fn coverage_batch_matches_per_series_in_input_order() {
+        let series: Vec<Vec<f64>> = [31usize, 2, 64, 17, 64]
+            .iter()
+            .map(|&n| (0..n).map(|i| ((i * 7 + n) % 11) as f64).collect())
+            .collect();
+        let mut offsets = vec![0];
+        for values in &series {
+            offsets.push(offsets.last().unwrap() + values.len());
+        }
+        let flat: Vec<f64> = series.concat();
+        let rows = compute_feature_set_batch(&flat, &offsets, Some(4), None).unwrap();
+        for (i, values) in series.iter().enumerate() {
+            let expected = compute_feature_set(values, Some(4), None).unwrap();
+            let actual = &rows[i * FEATURE_SET_SIZE..(i + 1) * FEATURE_SET_SIZE];
+            for (a, e) in actual.iter().zip(&expected) {
+                assert!(a == e || (a.is_nan() && e.is_nan()));
+            }
+        }
+        assert!(compute_feature_set_batch(&flat, &[0, 3], None, None).is_err());
+        assert!(compute_feature_set_batch(&flat, &[0, 0, flat.len()], None, None).is_err());
     }
 
     #[test]

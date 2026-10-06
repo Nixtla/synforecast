@@ -7,10 +7,9 @@ SynForecast and do not reproduce an external feature package.
 
 from __future__ import annotations
 
+import copy
 import logging
-import os
 from collections.abc import Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from numbers import Integral
 from typing import Any, Literal
@@ -19,8 +18,13 @@ import narwhals.stable.v2 as nw
 import numpy as np
 from narwhals.stable.v2.typing import IntoDataFrameT
 
-from synforecast import _coverage
-from synforecast._features import FEATURE_NAMES, FEATURE_SCHEMA, compute_feature_set
+from synforecast import _coverage, base
+from synforecast._features import (
+    FEATURE_NAMES,
+    FEATURE_SCHEMA,
+    compute_feature_matrix,
+)
+from synforecast.presets import _seasonal_period_from_freq
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +37,13 @@ __all__ = [
 ]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class CoverageDiagnostics:
-    """Series retained or excluded from a corpus, in embedding row order."""
+    """Series retained or excluded from a corpus, in embedding row order.
+
+    ``drop_reasons`` maps each dropped ID to the names of its non-finite
+    features. Instances compare by identity, not by value.
+    """
 
     n_input: int
     retained_ids: tuple[Any, ...]
@@ -43,7 +51,7 @@ class CoverageDiagnostics:
     drop_reasons: dict[Any, tuple[str, ...]]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class CoverageResult:
     """Occupancy scores and the parameters needed to interpret them.
 
@@ -53,6 +61,11 @@ class CoverageResult:
     Out-of-range synthetic points are excluded from occupancy, but included
     in the denominator of ``synthetic_out_of_range_fraction``. These scores
     describe retained series; inspect the diagnostics before comparing corpora.
+
+    ``explained_variance`` is None for t-SNE. ``metadata`` holds the fitted
+    ``parameters`` and the ``reference_id`` fingerprint of the retained real
+    features; each result owns its copy. Instances compare by identity, since
+    several fields are arrays; compare ``summary()`` values instead.
     """
 
     miscoverage: float
@@ -79,6 +92,30 @@ class CoverageResult:
     grid_range: str
     space_id: str
     metadata: dict[str, Any]
+
+    def summary(self) -> dict[str, Any]:
+        """Return the scalar scores and retained counts as a flat dict.
+
+        ``pd.DataFrame({name: r.summary() for name, r in results.items()}).T``
+        tabulates the output of :func:`compare_feature_coverage`.
+        """
+        return {
+            "miscoverage": self.miscoverage,
+            "reverse_miscoverage": self.reverse_miscoverage,
+            "uncovered_real_cell_fraction": self.uncovered_real_cell_fraction,
+            "uncovered_real_series_fraction": self.uncovered_real_series_fraction,
+            "synthetic_out_of_range_fraction": self.synthetic_out_of_range_fraction,
+            "n_real_retained": len(self.real_diagnostics.retained_ids),
+            "n_real_input": self.real_diagnostics.n_input,
+            "n_synthetic_retained": len(self.synthetic_diagnostics.retained_ids),
+            "n_synthetic_input": self.synthetic_diagnostics.n_input,
+            "n_features_used": len(self.features_used),
+            "explained_variance": (
+                None
+                if self.explained_variance is None
+                else float(sum(self.explained_variance))
+            ),
+        }
 
     def plot(self, ax: Any = None) -> Any:
         """Plot occupied cells and uncovered real points; import matplotlib lazily.
@@ -129,12 +166,32 @@ def _integer(value: Any, name: str, minimum: int) -> int:
     return int(value)
 
 
-def _workers(n_jobs: int | None) -> int:
-    if n_jobs is None:
-        return 1
+def _workers(n_jobs: int) -> int:
+    """Resolve ``n_jobs`` as the generators do: -1 honours RAYON_NUM_THREADS."""
     if not isinstance(n_jobs, bool) and isinstance(n_jobs, Integral) and n_jobs == -1:
-        return os.cpu_count() or 1
-    return _integer(n_jobs, "n_jobs", 1)
+        return base._default_n_workers
+    if isinstance(n_jobs, bool) or not isinstance(n_jobs, Integral) or n_jobs < 1:
+        raise ValueError("n_jobs must be -1 (all CPUs) or an integer >= 1")
+    return int(n_jobs)
+
+
+def _seasonal_period(seasonal_period: int | None, freq: str | None) -> int | None:
+    """Resolve the declared period; 1 and yearly data mean no seasonality.
+
+    An explicit ``seasonal_period`` wins over ``freq``, matching the presets.
+    """
+    if seasonal_period is not None:
+        period = _integer(seasonal_period, "seasonal_period", 1)
+    elif freq is not None:
+        if not isinstance(freq, str):
+            raise ValueError(
+                "freq must be a pandas offset alias such as 'MS' or 'h'; pass "
+                "seasonal_period for integer time steps"
+            )
+        period = _seasonal_period_from_freq(freq)
+    else:
+        return None
+    return None if period == 1 else period
 
 
 def _feature_names(
@@ -155,7 +212,8 @@ def _feature_names(
 
 def _panel(
     df: IntoDataFrameT, id_col: str, time_col: str, target_col: str
-) -> tuple[nw.DataFrame[Any], list[np.ndarray]]:
+) -> tuple[nw.DataFrame[Any], np.ndarray, np.ndarray]:
+    """Return one ID row per series, the sorted targets, and series offsets."""
     frame = nw.from_native(df, eager_only=True)
     columns = [id_col, time_col, target_col]
     if len(set(columns)) != 3 or not set(columns) <= set(frame.columns):
@@ -173,73 +231,76 @@ def _panel(
             raise ValueError("Numeric panel IDs and times must be finite")
     if not frame.schema[target_col].is_numeric():
         raise ValueError("Panel targets must be numeric and finite")
-    if not np.all(np.isfinite(frame[target_col].to_numpy())):
-        raise ValueError("Panel targets must be numeric and finite")
     if frame.select(id_col, time_col).is_duplicated().any():
         raise ValueError("Panel timestamps must be unique within each series")
-    ordered = frame.select(columns).sort([id_col, time_col])
-    ids = ordered[id_col].to_numpy()
-    boundaries = np.r_[0, np.flatnonzero(ids[1:] != ids[:-1]) + 1, len(ids)]
+    ordered = nw.maybe_reset_index(frame.select(columns).sort([id_col, time_col]))
     values = np.asarray(ordered[target_col].to_numpy(), dtype=float)
-    arrays = [
-        values[start:stop]
-        for start, stop in zip(boundaries[:-1], boundaries[1:], strict=True)
-    ]
-    return ordered.select(id_col).unique(maintain_order=True), arrays
+    if not np.all(np.isfinite(values)):
+        raise ValueError("Panel targets must be numeric and finite")
+    ids = ordered[id_col].to_numpy()
+    offsets = np.r_[0, np.flatnonzero(ids[1:] != ids[:-1]) + 1, len(ids)]
+    first_rows = ordered.select(id_col)[offsets[:-1].tolist()]
+    return nw.maybe_reset_index(first_rows), values, offsets
 
 
 def compute_features(
     df: IntoDataFrameT,
     *,
     seasonal_period: int | None = None,
+    freq: str | None = None,
     window_size: int | None = None,
     features: Sequence[str] | None = None,
     id_col: str = "unique_id",
     time_col: str = "ds",
     target_col: str = "y",
-    n_jobs: int | None = None,
+    n_jobs: int = -1,
 ) -> IntoDataFrameT:
     """Return one row of native features per series in the caller's engine.
 
-    The native_v1 schema fixes feature definitions and order.
-    ``features=None`` selects all twelve features. Supply an explicit list
-    to fix a representation. ``seasonal_period`` is an observation count >= 2;
-    None denotes no declared seasonality. Short series yield NaN for undefined
-    features and one summary log warning. Invalid raw inputs raise.
+    The ``native_v1`` schema fixes feature definitions and order. Every
+    feature is computed on the series normalized to zero mean and unit
+    variance, so none depends on the input scale. Features depend on
+    observation counts, not on the calendar of ``time_col``.
+    ``crossing_points`` is a raw count and therefore grows with series
+    length, so compare panels of comparable length. Short series yield NaN
+    for undefined features and one summary log warning; invalid raw inputs
+    raise.
 
-    ``window_size`` explicitly sets the width (>=2) for lumpiness and level/
-    variance shifts. None uses the seasonal period, or 10 without one. It does
-    not change decomposition or seasonal ACF. Use one fixed width per panel;
-    short nonseasonal panels can, for example, select five-observation windows.
+    Args:
+        df: Long-format panel with ID, time, and finite numeric target columns.
+        seasonal_period: Seasonal period in observations. 1 means no
+            seasonality. Takes precedence over ``freq``.
+        freq: Pandas offset alias used to derive the period when
+            ``seasonal_period`` is None, with the same convention as the
+            presets (hourly 24, daily 7, weekly 52, monthly 12, quarterly 4,
+            yearly none). Without either, no seasonality is declared and the
+            two seasonal features are zero for every series.
+        window_size: Width (>= 2) for lumpiness and the level/variance
+            shifts. None uses the seasonal period, or 10 without one. It does
+            not change the decomposition or seasonal ACF. Use one fixed width
+            per panel; short nonseasonal panels can, for example, use 5.
+        features: Feature names to return, in that order. None returns all
+            twelve ``native_v1`` features.
+        id_col: Series identifier column.
+        time_col: Time column, used only for ordering.
+        target_col: Target column.
+        n_jobs: Native worker threads; -1 uses all CPUs (honouring
+            ``RAYON_NUM_THREADS``), as in the generators.
 
-    ``n_jobs=None`` uses one worker, -1 uses available CPUs, and a positive
-    integer selects that many threads over native computations. The private
-    MAR-targeting feature helper is unchanged.
-
-    Features depend on observation counts, not on the calendar: ``freq`` is
-    never inspected. ``crossing_points`` is a raw count and therefore grows
-    with series length, so compare panels of comparable length.
+    Returns:
+        A frame in the input engine with ``id_col`` followed by the selected
+        feature columns, one row per series, sorted by ID.
     """
     names = _feature_names(features, FEATURE_NAMES)
     if id_col in names:
         raise ValueError("id_col must not conflict with a feature name")
-    if seasonal_period is not None:
-        seasonal_period = _integer(seasonal_period, "seasonal_period", 2)
+    period = _seasonal_period(seasonal_period, freq)
     if window_size is not None:
         window_size = _integer(window_size, "window_size", 2)
     workers = _workers(n_jobs)
-    ids, arrays = _panel(df, id_col, time_col, target_col)
-
-    def extract(values: np.ndarray) -> list[float]:
-        result = compute_feature_set(values, seasonal_period, window_size)
-        return [result[name] for name in names]
-
-    if workers == 1:
-        rows = list(map(extract, arrays))
-    else:
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            rows = list(executor.map(extract, arrays))
-    values = np.asarray(rows)
+    ids, flat, offsets = _panel(df, id_col, time_col, target_col)
+    matrix = compute_feature_matrix(flat, offsets, period, window_size, workers)
+    values = matrix[:, [FEATURE_NAMES.index(name) for name in names]]
     invalid = ~np.isfinite(values)
     if invalid.any():
         counts = {
@@ -312,6 +373,7 @@ def compare_feature_coverage(
     synthetics: Mapping[str, IntoDataFrameT],
     *,
     seasonal_period: int | None = None,
+    freq: str | None = None,
     window_size: int | None = None,
     features: Sequence[str] | None = None,
     precomputed: bool = False,
@@ -321,7 +383,7 @@ def compare_feature_coverage(
     n_bins: int = 30,
     seed: int | None = None,
     missing: Literal["raise", "drop"] = "raise",
-    n_jobs: int | None = None,
+    n_jobs: int = -1,
     id_col: str = "unique_id",
     time_col: str = "ds",
     target_col: str = "y",
@@ -329,31 +391,57 @@ def compare_feature_coverage(
     """Compare synthetic corpora using a common feature space and grid.
 
     Defaults fit the scaler, PCA, constant-column selection, and padded grid
-    on retained real data only. Synthetic corpora cannot shift that space.
-    ``fit='pooled'`` fits jointly; ``grid_range=None`` follows ``fit``. Pooled
-    scores can change when a corpus is added and are a sensitivity analysis.
-    t-SNE requires ``fit='pooled'``, an explicit seed, and >30 retained series.
-
-    ``precomputed=True`` expects an ID column and numeric feature columns;
-    None selects all non-ID columns and requires matching schemas. It skips
-    native extraction, so ``seasonal_period`` and ``window_size`` are rejected
-    rather than silently ignored; record their values with the cache instead.
-    Otherwise native extraction uses the same keywords as
-    :func:`compute_features`, and ``window_size`` is recorded in the
-    fitted-space parameters.
+    on retained real data only, so synthetic corpora cannot shift that space
+    and adding a corpus leaves existing scores unchanged. Corpus size still
+    affects occupancy; compare matched sizes.
 
     Features are computed per series from observation counts alone, so the
     frequency and calendar of ``time_col`` are never compared across corpora,
     and ``crossing_points`` is a raw count that grows with series length.
     Generate synthetic series at lengths comparable to the real panel; the
     preset pools default to fixed lengths that may not match yours.
-    ``missing='raise'`` rejects undefined feature values; 'drop' explicitly
-    evaluates complete cases and reports excluded IDs. No sampling is implicit.
-    ``n_bins`` sets both grid axes, so each corpus retains two ``n_bins**2``
-    boolean occupancy grids; memory grows quadratically and the default 30 is
-    a few hundred bytes, while a four-digit ``n_bins`` reaches megabytes.
-    Result metadata stores fitted parameters and the native or caller-defined
-    schema; callers should record external extraction settings separately.
+
+    Args:
+        real: Reference panel, or its feature frame when ``precomputed``.
+        synthetics: Corpora to score, keyed by name, in the same form as
+            ``real``.
+        seasonal_period: Native extraction period, as in
+            :func:`compute_features`. Without it or ``freq``, the seasonal
+            features are constant and drop out of the space (logged).
+        freq: Pandas offset alias from which to derive the period, as in
+            :func:`compute_features`.
+        window_size: Native extraction window, as in :func:`compute_features`.
+        features: Feature columns to embed. None selects all twelve native
+            features or, when ``precomputed``, all non-ID columns, which must
+            then match across corpora.
+        precomputed: Treat inputs as feature frames (an ID column plus numeric
+            feature columns) and skip native extraction. ``seasonal_period``,
+            ``freq``, ``window_size``, and non-default ``time_col`` and
+            ``target_col`` are then rejected rather than silently ignored;
+            record extraction settings alongside the cache.
+        embedding: ``"pca"``, or ``"tsne"`` (requires scikit-learn,
+            ``fit="pooled"``, an explicit ``seed``, and more than 30 retained
+            series).
+        fit: ``"real"`` fits the space on the reference alone; ``"pooled"``
+            fits on all corpora jointly, a sensitivity analysis whose scores
+            change when a corpus is added.
+        grid_range: ``"real"`` (padded reference range) or ``"pooled"``.
+            None follows ``fit``.
+        n_bins: Grid cells per axis. Each result holds two ``n_bins**2``
+            boolean grids, about 1.8 KB at the default 30.
+        seed: t-SNE random state.
+        missing: ``"raise"`` rejects undefined feature values; ``"drop"``
+            evaluates complete cases and reports excluded IDs and reasons.
+        n_jobs: Threads for native extraction and the t-SNE neighbour search;
+            -1 uses all CPUs, as in the generators.
+        id_col: Series identifier column.
+        time_col: Time column of raw panels.
+        target_col: Target column of raw panels.
+
+    Returns:
+        A :class:`CoverageResult` per synthetic corpus, keyed as
+        ``synthetics``. Each result's metadata stores the fitted parameters
+        and the native or caller-defined schema.
     """
     if (
         not isinstance(synthetics, Mapping)
@@ -374,6 +462,8 @@ def compare_feature_coverage(
         )
     n_bins = _integer(n_bins, "n_bins", 1)
     workers = _workers(n_jobs)
+    if features is not None and not isinstance(features, str) and id_col in features:
+        raise ValueError("id_col must not be a selected feature")
     if embedding == "tsne":
         if fit != "pooled" or seed is None:
             raise ValueError("t-SNE requires fit='pooled' and an explicit seed")
@@ -385,9 +475,18 @@ def compare_feature_coverage(
             name
             for name, value in (
                 ("seasonal_period", seasonal_period),
+                ("freq", freq),
                 ("window_size", window_size),
             )
             if value is not None
+        ]
+        ignored += [
+            name
+            for name, value, default in (
+                ("time_col", time_col, "ds"),
+                ("target_col", target_col, "y"),
+            )
+            if value != default
         ]
         if ignored:
             raise ValueError(
@@ -407,12 +506,14 @@ def compare_feature_coverage(
                         "Precomputed feature columns must match across corpora"
                     )
         schema = "precomputed"
+        period = None
     else:
         names = _feature_names(features, FEATURE_NAMES)
+        period = _seasonal_period(seasonal_period, freq)
         frames = [
             compute_features(
                 frame,
-                seasonal_period=seasonal_period,
+                seasonal_period=period,
                 window_size=window_size,
                 features=names,
                 id_col=id_col,
@@ -423,8 +524,6 @@ def compare_feature_coverage(
             for frame in frames
         ]
         schema = FEATURE_SCHEMA
-    if id_col in names:
-        raise ValueError("id_col must not be a selected feature")
     prepared = [
         _feature_matrix(frame, names, id_col, missing, label)
         for frame, label in zip(frames, ["real", *corpus_names], strict=True)
@@ -433,13 +532,24 @@ def compare_feature_coverage(
     diagnostics = [item[1] for item in prepared]
     embedded = _coverage.embed_features(matrices, embedding, fit, seed, workers)
     edges = _coverage.grid_edges(embedded.coordinates, n_bins, grid_range)
+    constant_names = [names[j] for j in embedded.constants]
+    seasonal_dropped = [
+        name for name in ("seasonal_strength", "seas_acf1") if name in constant_names
+    ]
+    if not precomputed and period is None and seasonal_dropped:
+        logger.warning(
+            "No seasonal period declared, so %s are constant and excluded from "
+            "the coverage space; pass seasonal_period or freq to compare "
+            "seasonality",
+            seasonal_dropped,
+        )
     parameters = {
         **embedded.parameters,
         "features": names,
         "schema": schema,
-        "seasonal_period": seasonal_period if not precomputed else None,
+        "seasonal_period": period,
         "window_size": window_size if not precomputed else None,
-        "effective_window_size": (window_size or seasonal_period or 10)
+        "effective_window_size": (window_size or period or 10)
         if not precomputed
         else None,
         "embedding": embedding,
@@ -471,7 +581,8 @@ def compare_feature_coverage(
         deviations = {
             names[column]: int(
                 np.count_nonzero(
-                    np.abs(matrices[i][:, column] - value) > _coverage.CONSTANT_ATOL
+                    np.abs(matrices[i][:, column] - value)
+                    > _coverage.constant_tolerance(value)
                 )
             )
             for column, value in zip(
@@ -499,14 +610,17 @@ def compare_feature_coverage(
             n_synthetic_out_of_range=out_of_range,
             synthetic_out_of_range_fraction=out_of_range / len(inside),
             features_used=tuple(names[j] for j in embedded.kept),
-            constant_features_dropped=tuple(names[j] for j in embedded.constants),
+            constant_features_dropped=tuple(constant_names),
             synthetic_constant_feature_deviations=deviations,
             real_diagnostics=diagnostics[0],
             synthetic_diagnostics=diagnostics[i],
             fit=fit,
             grid_range=grid_range,
             space_id=space_id,
-            metadata={"parameters": parameters, "reference_id": reference_id},
+            metadata={
+                "parameters": copy.deepcopy(parameters),
+                "reference_id": reference_id,
+            },
         )
     return results
 
@@ -516,6 +630,7 @@ def feature_coverage(
     synthetic: IntoDataFrameT,
     *,
     seasonal_period: int | None = None,
+    freq: str | None = None,
     window_size: int | None = None,
     features: Sequence[str] | None = None,
     precomputed: bool = False,
@@ -525,7 +640,7 @@ def feature_coverage(
     n_bins: int = 30,
     seed: int | None = None,
     missing: Literal["raise", "drop"] = "raise",
-    n_jobs: int | None = None,
+    n_jobs: int = -1,
     id_col: str = "unique_id",
     time_col: str = "ds",
     target_col: str = "y",
@@ -535,6 +650,7 @@ def feature_coverage(
         real,
         {"synthetic": synthetic},
         seasonal_period=seasonal_period,
+        freq=freq,
         window_size=window_size,
         features=features,
         precomputed=precomputed,

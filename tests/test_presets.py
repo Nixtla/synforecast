@@ -18,7 +18,7 @@ from synforecast.generators import (
 from synforecast.presets import _seasonal_period_from_freq
 
 
-class TestBalancedPool:
+class TestInterpretablePool:
     """Tests for the interpretable_pool function."""
 
     def test_returns_list_of_generators(self) -> None:
@@ -199,7 +199,7 @@ class TestPretrainingPool:
         from synforecast import pretraining_pool
 
         pool = pretraining_pool(
-            include_balanced=False,
+            include_interpretable=False,
             n_meta_variants=2,
             min_length=64,
             max_length=64,
@@ -338,7 +338,7 @@ def _seasonal_period_of(gen: BaseGenerator) -> int | None:
     return None
 
 
-class TestBalancedPoolSeasonalPeriod:
+class TestInterpretablePoolSeasonalPeriod:
     """Tests that interpretable_pool's seasonal variants follow freq."""
 
     @staticmethod
@@ -465,9 +465,9 @@ class TestSeasonalPool:
     def test_none_seed_and_reproducibility(self) -> None:
         from synforecast import seasonal_pool
 
-        assert all(g.seed is None for g in seasonal_pool(seed=None))
-        first = seasonal_pool(seed=3)[0].generate(1, n_jobs=1)
-        second = seasonal_pool(seed=3)[0].generate(1, n_jobs=1)
+        assert all(g.seed is None for g in seasonal_pool(freq="MS", seed=None))
+        first = seasonal_pool(freq="MS", seed=3)[0].generate(1, n_jobs=1)
+        second = seasonal_pool(freq="MS", seed=3)[0].generate(1, n_jobs=1)
         assert first["y"].tolist() == second["y"].tolist()
 
 
@@ -475,12 +475,31 @@ class TestDeprecatedBalancedPool:
     def test_alias_warns_and_returns_identical_generators(self) -> None:
         from synforecast import balanced_pool, interpretable_pool
 
-        with pytest.warns(DeprecationWarning, match="interpretable_pool"):
+        with pytest.warns(DeprecationWarning, match="interpretable_pool") as record:
             legacy = balanced_pool(min_length=30, max_length=30, freq="QS", seed=5)
+        assert record[0].filename == __file__
         current = interpretable_pool(min_length=30, max_length=30, freq="QS", seed=5)
         assert [g.model_dump(mode="json") for g in legacy] == [
             g.model_dump(mode="json") for g in current
         ]
+
+    def test_include_balanced_keyword_warns_and_still_works(self) -> None:
+        with pytest.warns(DeprecationWarning, match="include_interpretable") as record:
+            legacy = pretraining_pool(include_balanced=False, n_meta_variants=1)
+        assert record[0].filename == __file__
+        current = pretraining_pool(include_interpretable=False, n_meta_variants=1)
+        assert [g.model_dump(mode="json") for g in legacy] == [
+            g.model_dump(mode="json") for g in current
+        ]
+
+    def test_current_names_emit_no_deprecation_warning(self) -> None:
+        from synforecast import seasonal_pool
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            interpretable_pool()
+            pretraining_pool(freq="MS", include_seasonal=True)
+            seasonal_pool(freq="MS")
 
 
 class TestPretrainingPoolSeasonalFlag:
@@ -517,7 +536,10 @@ class TestPretrainingPoolSeasonalFlag:
             yearly = pretraining_pool(freq="YS", include_seasonal=True)
         assert len(yearly) == 54
         meta = pretraining_pool(
-            freq="QS", include_balanced=False, include_seasonal=True, n_meta_variants=1
+            freq="QS",
+            include_interpretable=False,
+            include_seasonal=True,
+            n_meta_variants=1,
         )
         assert len(meta) == 4 + 8
 
@@ -585,3 +607,51 @@ class TestPretrainingPoolSeasonalPeriodForwarding:
         with pytest.warns(UserWarning, match="include_seasonal=True was ignored"):
             yearly = pretraining_pool(freq="YS", include_seasonal=True)
         assert len(yearly) == len(pretraining_pool(freq="YS"))
+
+
+class TestSeasonalPoolArguments:
+    def test_freq_is_required(self) -> None:
+        from synforecast import seasonal_pool
+
+        with pytest.raises(TypeError, match="freq"):
+            seasonal_pool()  # type: ignore[call-arg]
+
+    @pytest.mark.parametrize("key", ["alias", "level", "phi"])
+    def test_per_generator_keys_are_rejected(self, key: str) -> None:
+        from synforecast import seasonal_pool
+
+        with pytest.raises(ValueError, match=f"seasonal_pool sets .*{key}"):
+            seasonal_pool(freq="MS", **{key: "x" if key == "alias" else 1.0})
+
+    def test_alias_through_pretraining_pool_is_rejected_clearly(self) -> None:
+        # alias is accepted by every pretraining generator, so it reaches
+        # seasonal_pool, which assigns its own aliases.
+        with pytest.raises(ValueError, match="seasonal_pool sets .*alias"):
+            pretraining_pool(freq="MS", include_seasonal=True, alias="x")
+
+    def test_explicit_period_one_is_rejected(self) -> None:
+        from synforecast import seasonal_pool
+
+        with pytest.raises(ValueError, match="at least 2"):
+            seasonal_pool(freq="MS", seasonal_period=1)
+
+
+class TestPretrainingPoolSeasonalPeriodValidation:
+    @pytest.mark.parametrize("include_interpretable", [True, False])
+    def test_non_positive_period_raises_regardless_of_composition(
+        self, include_interpretable: bool
+    ) -> None:
+        with pytest.raises(ValueError, match="seasonal_period must be >= 1"):
+            pretraining_pool(
+                include_interpretable=include_interpretable,
+                include_seasonal=True,
+                seasonal_period=0,
+            )
+
+    def test_explicit_period_one_warning_does_not_suggest_passing_it(self) -> None:
+        with pytest.warns(
+            UserWarning, match="seasonal_period=1 has no seasonal cycle"
+        ) as record:
+            pool = pretraining_pool(freq="MS", include_seasonal=True, seasonal_period=1)
+        assert "explicitly" not in str(record[0].message)
+        assert len(pool) == 54

@@ -478,7 +478,7 @@ def pretraining_pool(
     max_length: int = 1024,
     freq: str | int = "D",
     seed: int | None = 42,
-    include_balanced: bool = True,
+    include_interpretable: bool = True,
     n_meta_variants: int = 3,
     seasonal_period: int | None = None,
     include_seasonal: bool = False,
@@ -506,10 +506,12 @@ def pretraining_pool(
         freq: Frequency for all generators, as a pandas offset alias or integer.
         seed: Base random seed. Each generator gets a distinct offset. Set to
             None for random seeds.
-        include_balanced: When True (default), prepend the full
+        include_interpretable: When True (default), prepend the full
             :func:`interpretable_pool`; when False, return only the
             meta-generators (a purely procedural pretraining corpus), plus the
-            seasonal instances if ``include_seasonal`` is also set.
+            seasonal instances if ``include_seasonal`` is also set. The former
+            keyword ``include_balanced`` is still accepted with a
+            ``DeprecationWarning``.
         n_meta_variants: Number of independently-seeded instances of each
             meta-generator (default 3). More instances give the meta-generators
             a larger share when series are spread evenly across the pool, as in
@@ -538,13 +540,23 @@ def pretraining_pool(
         >>> df = SynSet(pool).generate(n_series_per_generator=1)
 
         >>> # Purely procedural corpus (meta-generators only)
-        >>> meta = pretraining_pool(include_balanced=False)
+        >>> meta = pretraining_pool(include_interpretable=False)
 
         >>> # Add the strongly seasonal instances for monthly targets
         >>> seasonal = pretraining_pool(freq="MS", include_seasonal=True)
     """
+    if "include_balanced" in base_kwargs:
+        warnings.warn(
+            "include_balanced is deprecated and will be removed in a future "
+            "release; use include_interpretable.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        include_interpretable = base_kwargs.pop("include_balanced")
     if n_meta_variants < 1:
         raise ValueError("n_meta_variants must be >= 1")
+    if seasonal_period is not None and seasonal_period < 1:
+        raise ValueError(f"seasonal_period must be >= 1, got {seasonal_period}")
 
     base: dict[str, Any] = {
         "min_length": min_length,
@@ -573,10 +585,19 @@ def pretraining_pool(
             else seasonal_period
         )
         if period < 2:
+            source = (
+                f"freq={freq!r} yields a seasonal period of {period}"
+                if seasonal_period is None
+                else f"seasonal_period={seasonal_period} has no seasonal cycle"
+            )
+            hint = (
+                " Pass seasonal_period explicitly to add it anyway."
+                if seasonal_period is None
+                else ""
+            )
             warnings.warn(
-                f"include_seasonal=True was ignored: freq={freq!r} yields a "
-                f"seasonal period of {period}, and seasonal_pool needs at "
-                "least 2. Pass seasonal_period explicitly to add it anyway.",
+                f"include_seasonal=True was ignored: {source}, and "
+                f"seasonal_pool needs a period of at least 2.{hint}",
                 UserWarning,
                 stacklevel=2,
             )
@@ -591,7 +612,7 @@ def pretraining_pool(
                 **base_kwargs,
             )
 
-    if not include_balanced:
+    if not include_interpretable:
         return meta + seasonal
 
     balanced = interpretable_pool(
@@ -617,7 +638,8 @@ def _seasonal_factors(period: int, sharpness: float) -> list[float]:
 def seasonal_pool(
     min_length: int = 200,
     max_length: int = 200,
-    freq: str | int = "MS",
+    *,
+    freq: str | int,
     seed: int | None = 42,
     seasonal_period: int | None = None,
     **base_kwargs: Any,
@@ -649,18 +671,19 @@ def seasonal_pool(
     Args:
         min_length: Minimum series length for all generators.
         max_length: Maximum series length for all generators.
-        freq: Frequency for all generators, as a pandas offset alias or integer.
-            Defaults to ``"MS"``, the frequency this pool was evaluated at,
-            which differs from the ``"D"`` default of :func:`interpretable_pool`
-            and :func:`pretraining_pool`. Pass the same ``freq`` to both when
-            combining them, or the combined corpus mixes frequencies.
+        freq: Frequency for all generators, as a pandas offset alias or
+            integer. Required, because the pool is meant to be combined with
+            another and its period derives from ``freq``: pass the same value
+            to :func:`interpretable_pool` or :func:`pretraining_pool`, whose
+            default is ``"D"``. Evaluated at ``"QS"`` and ``"MS"``.
         seed: Base random seed; generator ``i`` receives ``seed + i``. Set to
             None for random seeds.
         seasonal_period: Seasonal period in time steps. Defaults to None,
             which derives it from ``freq`` as in :func:`interpretable_pool`; it
             must be at least 2, so yearly frequencies need an explicit value.
         **base_kwargs: Additional keyword arguments passed to all generators
-            (e.g., engine, id_col, time_col, target_col).
+            (e.g., engine, id_col, time_col, target_col). Keys the pool sets
+            per generator, such as ``alias`` or ``level``, raise ValueError.
 
     Returns:
         List of 8 BaseGenerator instances ready for use with SynSet.
@@ -687,6 +710,11 @@ def seasonal_pool(
 
     def _seed(i: int) -> int | None:
         return seed + i if seed is not None else None
+
+    def _make(
+        cls: type[BaseGenerator], **settings: Any
+    ) -> tuple[type[BaseGenerator], dict[str, Any]]:
+        return cls, settings
 
     tsi: dict[str, Any] = {
         "seasonal_periods": [float(period)],
@@ -717,16 +745,16 @@ def seasonal_pool(
         "beta": 0.02,
         "phi": 0.9,
     }
-    return [
-        TSIGenerator(**base, seed=_seed(0), alias="tsi_moderate_multiplicative", **tsi),
-        TSIGenerator(
-            **base,
+    specs = [
+        _make(TSIGenerator, seed=_seed(0), alias="tsi_moderate_multiplicative", **tsi),
+        _make(
+            TSIGenerator,
             seed=_seed(1),
             alias="tsi_moderate_additive",
             **{**tsi, "multiplicative_prob": 0.0, "trend_slope_range": (-3.0, 3.0)},
         ),
-        TSIGenerator(
-            **base,
+        _make(
+            TSIGenerator,
             seed=_seed(2),
             alias="tsi_persistent",
             **{
@@ -738,8 +766,8 @@ def seasonal_pool(
                 "ar1_phi_range": (0.8, 0.97),
             },
         ),
-        TSIGenerator(
-            **base,
+        _make(
+            TSIGenerator,
             seed=_seed(3),
             alias="tsi_weak_seasonal",
             **{
@@ -749,8 +777,8 @@ def seasonal_pool(
                 "noise_scale_range": (1.0, 6.0),
             },
         ),
-        ETSGenerator(
-            **base,
+        _make(
+            ETSGenerator,
             seed=_seed(4),
             alias="ets_MAdM_noisy",
             error_type="mul",
@@ -763,8 +791,8 @@ def seasonal_pool(
             seasonal=_seasonal_factors(period, 0.5),
             **ets,
         ),
-        ETSGenerator(
-            **base,
+        _make(
+            ETSGenerator,
             seed=_seed(5),
             alias="ets_AAdA_noisy",
             error_type="add",
@@ -777,8 +805,8 @@ def seasonal_pool(
             seasonal=[20 * math.cos(2 * math.pi * k / period) for k in range(period)],
             **ets,
         ),
-        SeasonalGenerator(
-            **base,
+        _make(
+            SeasonalGenerator,
             seed=_seed(6),
             alias="seasonal_noisy_level_breaks",
             seasonality_period=period,
@@ -791,8 +819,8 @@ def seasonal_pool(
             changepoint_type="level",
             changepoint_level_changes=[0.8, -0.7],
         ),
-        SeasonalGenerator(
-            **base,
+        _make(
+            SeasonalGenerator,
             seed=_seed(7),
             alias="seasonal_noisy_trend_breaks",
             seasonality_period=period,
@@ -805,3 +833,10 @@ def seasonal_pool(
             changepoint_trend_changes=[0.01, -0.015],
         ),
     ]
+    clash = sorted(base_kwargs.keys() & set().union(*(spec[1] for spec in specs)))
+    if clash:
+        raise ValueError(
+            f"seasonal_pool sets {clash} per generator; do not pass them as "
+            "keyword arguments"
+        )
+    return [cls(**base, **settings) for cls, settings in specs]
