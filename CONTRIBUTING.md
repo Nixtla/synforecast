@@ -175,3 +175,23 @@ To make a release:
 3. On GitHub, choose **Releases → Draft a new release**. Create the matching
    `vX.Y.Z` tag targeting `main`, generate or edit the release notes, and
    publish the release.
+
+### Refreshing the lockfiles
+
+After updating both `version` fields, refresh only the `synforecast` entry in
+each lockfile:
+
+```bash
+uv lock
+cargo update -p synforecast --manifest-path rust/Cargo.toml
+```
+
+Then check that the lockfiles match the manifests:
+
+```bash
+uv lock --check
+cargo metadata --locked --manifest-path rust/Cargo.toml > /dev/null
+```
+
+The diff should touch only `pyproject.toml`, `rust/Cargo.toml`, `uv.lock`, and
+`rust/Cargo.lock`, with one version line changed in each lockfile.
