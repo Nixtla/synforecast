@@ -2423,7 +2423,7 @@ limitations under the License.
 ## Apache License 2.0
 
 Applies to:
-- synforecast 0.1.0
+- synforecast 0.2.0
 - libc 0.2.182
 - portable-atomic-util 0.2.5
 - portable-atomic 1.13.1

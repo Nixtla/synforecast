@@ -195,6 +195,14 @@ uv lock --check
 cargo metadata --locked --manifest-path rust/Cargo.toml > /dev/null
 ```
 
+The Rust license notices list the crate's own version, so regenerate them too
+(otherwise the `rust-licenses` pre-commit hook fails in lint):
+
+```bash
+make rust_licenses
+```
+
 The diff should touch only `pyproject.toml`, `rust/Cargo.toml`,
-`CITATION.cff`, `CHANGELOG.md`, `uv.lock`, and `rust/Cargo.lock`, with one
-version line changed in each lockfile.
+`CITATION.cff`, `CHANGELOG.md`, `uv.lock`, `rust/Cargo.lock`, and
+`synforecast/THIRD_PARTY_RUST.md`, with one version line changed in each
+lockfile and in the license notices.
