@@ -1,6 +1,25 @@
 # Changelog
 
 ## Unreleased
+<<<<<<< Updated upstream
+=======
+
+### Changed
+
+- The cyclic variants of `interpretable_pool` take their mean period from
+  the seasonal period instead of a fixed 50 steps.
+
+### Fixed
+
+- Overlays (changepoints, anomalies, missingness) no longer affect each
+  other or the base series. Previously, enabling one could move another, and
+  for IoTSensor and DailyActiveUsers change later series.
+- Same-seed output changes for the cyclic pool variants, IoTSensor,
+  DailyActiveUsers, and multi-series ETS/StateSpace `generate_with_states`;
+  with overlays enabled also for KernelSynth, Copula, VAR and TCM.
+
+## 0.2.0 - 2026-10-12
+>>>>>>> Stashed changes
 
 - Added `synforecast.evaluation`: `compute_features` extracts a frozen
   twelve-feature `native_v1` schema per series in one parallel native call,
