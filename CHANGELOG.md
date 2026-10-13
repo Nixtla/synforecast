@@ -22,7 +22,8 @@
 - Renamed `balanced_pool` to `interpretable_pool` and `include_balanced` to
   `include_interpretable`. The old names still work but warn.
 - `interpretable_pool` derives its seasonal period from `freq` instead of
-  hardcoding 12, and accepts a `seasonal_period` override.
+  hardcoding 12, and accepts a `seasonal_period` override. Its cyclic
+  variants take their mean period from it instead of a fixed 50 steps.
 - `SynAugment.mbb` and `SynAugment.dba` skip unusable series with a warning.
 - Removed the unused dense pairwise-DTW API.
 
@@ -32,5 +33,15 @@
   above AR order 32, and raises instead of silently substituting noise.
 - MAR fallback noise honors `standardize=True`.
 - Native MAR coefficient-offset overflow.
+- Overlays (changepoints, anomalies, missingness) no longer affect each
+  other or the base series. Previously, enabling one could move another, and
+  for IoTSensor and DailyActiveUsers change later series.
+
+### Reproducibility
+
+- Same-seed output differs from 0.1.0 for the cyclic pool variants,
+  IoTSensor, DailyActiveUsers, and multi-series ETS/StateSpace
+  `generate_with_states`; with overlays enabled also for KernelSynth, Copula,
+  VAR and TCM.
 
 ## 0.1.0 - Initial release
