@@ -61,3 +61,29 @@ def test_overlays_and_missingness_are_kept() -> None:
 def test_rejects_nonpositive_n_series(n_series: int) -> None:
     with pytest.raises(ValueError):
         POOL[0].generate_values(n_series)
+
+
+@pytest.mark.parametrize(
+    "member",
+    range(len(pretraining_pool(min_length=8, max_length=8, freq="YS", seed=1))),
+)
+def test_long_yearly_series_need_no_calendar(member: int) -> None:
+    # 2,273 yearly steps from 2000 run past pandas' datetime range; values-only draws must not build a calendar.
+    gen = pretraining_pool(
+        min_length=2273,
+        max_length=2273,
+        freq="YS",
+        seed=1,
+        members=[member],
+    )
+    (values,) = gen[0].generate_values(1, n_jobs=1)
+    assert values.shape == (2273,) and np.isfinite(values).sum() >= 2
+
+
+def test_values_only_mode_is_reset_after_the_call() -> None:
+    gen = pretraining_pool(min_length=30, max_length=30, freq="D", seed=2, members=[0])[
+        0
+    ]
+    gen.generate_values(2, n_jobs=1)
+    frame = gen.generate(1, n_jobs=1)
+    assert "ds" in frame.columns and str(frame["ds"].dtype).startswith("datetime64")

@@ -301,6 +301,8 @@ class BaseGenerator(BaseModel, ABC):
     _start_datetime: pd.Timestamp = PrivateAttr()
     _rng: np.random.Generator = PrivateAttr()
     _ts_cache: np.ndarray | None = PrivateAttr(default=None)
+    # Set by generate_values: no calendar is built and generate() returns the series metadata.
+    _values_only: bool = PrivateAttr(default=False)
 
     @property
     def start_datetime(self) -> pd.Timestamp:
@@ -418,6 +420,9 @@ class BaseGenerator(BaseModel, ABC):
         All series share the same start, so a single range of max_length is
         cached and sliced per series.
         """
+        if self._values_only:
+            # Values-only draws need no calendar; long coarse-frequency ranges can exceed pandas' datetime bounds.
+            return np.arange(length, dtype=np.int64)
         cache = self._ts_cache
         if cache is None or len(cache) < length:
             periods = max(length, self.max_length)
@@ -721,6 +726,8 @@ class BaseGenerator(BaseModel, ABC):
         Returns:
             DataFrame in the configured engine.
         """
+        if self._values_only:
+            return series_metadata
         # Flatten core columns
         flat_values = np.concatenate([m.values for m in series_metadata])
         flat_timestamps = np.concatenate([m.timestamps for m in series_metadata])
@@ -857,7 +864,9 @@ class BaseGenerator(BaseModel, ABC):
         Draws exactly the series :meth:`generate` would draw from the same
         generator state (native Rust batch path where available, including
         changepoint, anomaly and missing-data overlays, with missing points as
-        NaN), so it suits pretraining streams that need values only.
+        NaN), so it suits pretraining streams that need values only. No calendar
+        is built, so lengths beyond pandas' datetime range (e.g. thousands of
+        yearly steps) work.
 
         Args:
             n_series (int): Number of time series to generate.
@@ -870,21 +879,13 @@ class BaseGenerator(BaseModel, ABC):
         """
         if n_series < 1:
             raise ValueError(f"n_series must be a positive integer, got {n_series}.")
-        if type(self).generate is not BaseGenerator.generate:
-            # Generators with their own generate() (e.g. jointly simulated panels) define the draw there.
-            frame = nw.from_native(
-                self.generate(n_series, n_jobs=n_jobs), eager_only=True
-            )
-            ids = frame[self.id_col].unique(maintain_order=True).to_list()
-            return [
-                frame.filter(nw.col(self.id_col) == i)[self.target_col]
-                .to_numpy()
-                .astype(np.float64)
-                for i in ids
-            ]
-        if n_jobs == -1:
-            n_jobs = _default_n_workers
-        return [m.values for m in self._generate_parallel(n_series, 0, n_jobs)]
+        self._values_only = True
+        try:
+            # generate() hands back the series metadata instead of a DataFrame, also for generators overriding it.
+            metadata = self.generate(n_series, n_jobs=n_jobs)
+        finally:
+            self._values_only = False
+        return [np.asarray(m.values, dtype=np.float64) for m in metadata]
 
     def _generate_parallel(
         self,
