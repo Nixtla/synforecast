@@ -975,7 +975,10 @@ mod tests {
                     .map(|(j, c)| c * (2.0 * PI * j as f64 * r as f64 / p).cos())
                     .sum();
                 let exact = gp_kernel(r as f64, 4, ls, 1.0, p);
-                assert!((series - exact).abs() < 1e-12, "ls={ls} p={p} r={r}: {series} vs {exact}");
+                assert!(
+                    (series - exact).abs() < 1e-12,
+                    "ls={ls} p={p} r={r}: {series} vs {exact}"
+                );
             }
         }
     }

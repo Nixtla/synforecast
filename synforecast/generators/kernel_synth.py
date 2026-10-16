@@ -9,6 +9,47 @@ from synforecast.base import BaseGenerator
 _MAX_ABS = 1e8
 _MIN_STD = 1e-8
 _MAX_RETRIES = 8
+# Jitter escalations on a numerical Levinson breakdown before redrawing the composition.
+_MAX_REGULARIZATIONS = 4
+
+# Kernel kind ids shared with the Rust batch kernel (rust/src/generators/kernel_synth.rs).
+_KIND_IDS = {
+    "rbf": 0,
+    "rational_quadratic": 1,
+    "periodic": 2,
+    "linear": 3,
+    "white": 4,
+    "constant": 5,
+}
+
+Terms = list[np.ndarray | None]
+
+
+def _add_terms(a: Terms, b: Terms) -> Terms:
+    """Sum of two kernel polynomials in ``x x'``, coefficient by coefficient."""
+    out: Terms = []
+    for degree in range(max(len(a), len(b))):
+        left = a[degree] if degree < len(a) else None
+        right = b[degree] if degree < len(b) else None
+        if left is None or right is None:
+            out.append(right if left is None else left)
+        else:
+            out.append(left + right)
+    return out
+
+
+def _multiply_terms(a: Terms, b: Terms) -> Terms:
+    """Product of two kernel polynomials: degrees add, lag coefficients multiply elementwise."""
+    out: Terms = [None] * (len(a) + len(b) - 1)
+    for i, left in enumerate(a):
+        if left is None:
+            continue
+        for j, right in enumerate(b):
+            if right is None:
+                continue
+            product = left * right
+            out[i + j] = product if out[i + j] is None else out[i + j] + product
+    return out
 
 
 class KernelSynthGenerator(BaseGenerator):
@@ -41,6 +82,15 @@ class KernelSynthGenerator(BaseGenerator):
         - white: ``w`` on the diagonal — independent noise
         - constant: a constant offset
 
+    Every base kernel except the linear one is stationary, so a composition
+    is a polynomial ``K(x, x') = sum_d (x x')^d T_d(x - x')`` with stationary
+    PSD coefficients ``T_d``. Each series is sampled exactly as
+    ``sum_d x^d * f_d`` with independent ``f_d ~ GP(0, T_d)``, each drawn by
+    an O(n^2) Durbin-Levinson recursion; no dense covariance matrix is formed.
+    Bulk ``generate()`` calls run this in the Rust batch path; Rust and NumPy
+    RNG streams are seed-deterministic within their paths but not bit-for-bit
+    equivalent.
+
     Because a composed kernel can be near-degenerate or produce an exploding
     scale, non-finite, near-constant, or ``|y| >= 1e8`` draws are redrawn a
     bounded number of times before falling back to Gaussian noise.
@@ -62,8 +112,10 @@ class KernelSynthGenerator(BaseGenerator):
             kernel (default: [0.1, 1.0]).
         include_constant (bool): Include a constant kernel in the bank
             (default: True).
-        jitter (float): Diagonal jitter added before factorization for
-            numerical stability (default: 1e-6).
+        jitter (float): Diagonal jitter added to each polynomial term
+            ``T_d`` for numerical stability, escalated tenfold (up to four
+            times) when the Levinson recursion still breaks down
+            (default: 1e-6).
         standardize (bool): Standardize each sampled series to zero mean and
             unit variance. Kernel compositions span extreme scales, so
             standardization keeps the pool comparable for pretraining
@@ -150,10 +202,28 @@ class KernelSynthGenerator(BaseGenerator):
         object.__setattr__(self, "_bank", bank)
         return self
 
+    def _get_batch_params(self) -> tuple[np.ndarray, list[np.ndarray]]:
+        """Encode the kernel bank for the Rust batch kernel.
+
+        The Rust kernel draws each composition itself, so only the bank and
+        the sampling settings are passed. Ordering and kind ids must match the
+        ``GEN_KERNEL_SYNTH`` dispatch arm in ``rust/src/batch.rs`` /
+        ``rust/src/generators/kernel_synth.rs``:
+
+        scalars: [max_kernels, jitter, standardize]
+        arrays:  [kernel kind ids (``_KIND_IDS``), kernel parameters]
+        """
+        kinds = np.array([_KIND_IDS[kind] for kind, _ in self._bank], dtype=float)
+        params = np.array([param for _, param in self._bank], dtype=float)
+        scalars = np.array(
+            [float(self.max_kernels), self.jitter, float(self.standardize)]
+        )
+        return scalars, [kinds, params]
+
     def _lag_kernel(
         self, spec: tuple[str, float], length: int, lag: np.ndarray
-    ) -> np.ndarray | None:
-        """Stationary base kernel as a function of the lag; None for the linear kernel."""
+    ) -> np.ndarray:
+        """Stationary base kernel as a function of the lag."""
         kind, param = spec
         if kind == "rbf":
             return np.exp(-0.5 * (lag * lag) / param**2)
@@ -166,27 +236,30 @@ class KernelSynthGenerator(BaseGenerator):
             values = np.zeros(length)
             values[0] = param
             return values
-        if kind == "constant":
-            return np.full(length, param)
-        return None
+        return np.full(length, param)
 
-    @staticmethod
-    def _toeplitz(values: np.ndarray) -> np.ndarray:
-        """Dense symmetric Toeplitz matrix with first row ``values``."""
-        n = len(values)
-        index = np.arange(n)
-        return values[np.abs(index[:, None] - index[None, :])]
+    def _base_terms(
+        self, spec: tuple[str, float], length: int, lag: np.ndarray
+    ) -> list[np.ndarray | None]:
+        """One bank entry as polynomial terms: ``s^2 + x x'`` for the linear kernel, a degree-0 term otherwise."""
+        kind, param = spec
+        if kind == "linear":
+            return [np.full(length, param**2) if param > 0 else None, np.ones(length)]
+        return [self._lag_kernel(spec, length, lag)]
 
-    def _sample_prior(self, K: np.ndarray, length: int) -> np.ndarray:
-        """Draw one sample from N(0, K), robust to ill-conditioned K."""
-        K = K + self.jitter * np.eye(length)
-        try:
-            factor = np.linalg.cholesky(K)
-        except np.linalg.LinAlgError:
-            eigvals, eigvecs = np.linalg.eigh(K)
-            eigvals = np.maximum(eigvals, 0.0)
-            factor = eigvecs * np.sqrt(eigvals)[None, :]
-        return factor @ self.rng.standard_normal(length)
+    def _kernel_terms(
+        self, indices: np.ndarray, ops: list[bool], length: int, lag: np.ndarray
+    ) -> list[np.ndarray | None]:
+        """Coefficients ``T_d`` of ``K(x, x') = sum_d (x x')^d T_d(x - x')`` for one composition.
+
+        ``ops[j]`` combines the running kernel with ``bank[indices[j + 1]]``:
+        True adds, False multiplies. ``None`` entries are zero terms.
+        """
+        terms = self._base_terms(self._bank[indices[0]], length, lag)
+        for index, add in zip(indices[1:], ops, strict=True):
+            comp = self._base_terms(self._bank[index], length, lag)
+            terms = _add_terms(terms, comp) if add else _multiply_terms(terms, comp)
+        return terms
 
     @staticmethod
     def _levinson_sample(c: np.ndarray, z: np.ndarray) -> np.ndarray | None:
@@ -210,50 +283,47 @@ class KernelSynthGenerator(BaseGenerator):
             x[t] = phi[:t] @ x[t - 1 :: -1] + np.sqrt(v) * z[t]
         return x
 
-    def _compose_and_sample(self, length: int, x: np.ndarray) -> np.ndarray:
-        """Draw a kernel composition and sample one path from its GP prior."""
-        n_bank = len(self._bank)
+    def _sample_stationary(self, c: np.ndarray) -> np.ndarray | None:
+        """One draw from N(0, Toeplitz(c) + jitter I); the jitter escalates on a numerical breakdown."""
+        n = len(c)
+        scale = max(abs(float(c[0])), np.finfo(float).tiny)
+        if np.all(np.abs(c - c[0]) <= 1e-12 * scale):
+            # Constant (rank-one) kernel: one shared normal, which Levinson cannot factor.
+            level = np.sqrt(max(float(c[0]), 0.0)) * self.rng.standard_normal()
+            return level + np.sqrt(self.jitter) * self.rng.standard_normal(n)
+        if not np.any(c[1:]):
+            # White kernel: independent normals.
+            sd = np.sqrt(max(float(c[0]) + self.jitter, 0.0))
+            return sd * self.rng.standard_normal(n)
+        z = self.rng.standard_normal(n)
+        extra = self.jitter
+        for _ in range(_MAX_REGULARIZATIONS):
+            shifted = c.copy()
+            shifted[0] += extra
+            values = self._levinson_sample(shifted, z)
+            if values is not None and np.all(np.isfinite(values)):
+                return values
+            extra = max(10.0 * extra, 1e-10 * scale)
+        return None
+
+    def _compose_and_sample(self, length: int, x: np.ndarray) -> np.ndarray | None:
+        """Draw a kernel composition and sample one path from its GP prior; None on breakdown."""
         n_kernels = int(self.rng.integers(1, self.max_kernels + 1))
-        indices = self.rng.integers(0, n_bank, size=n_kernels)
-        # Stationary compositions stay a function of the lag; the linear kernel forces the dense matrix.
-        lag = x - x[0]
+        indices = self.rng.integers(0, len(self._bank), size=n_kernels)
+        # True -> add (mix behaviors), False -> multiply (modulate behaviors)
+        ops = [bool(self.rng.integers(0, 2) == 0) for _ in range(n_kernels - 1)]
+        terms = self._kernel_terms(indices, ops, length, x - x[0])
 
-        def dense(part: np.ndarray | None, spec: tuple[str, float]) -> np.ndarray:
-            if part is not None:
-                return self._toeplitz(part)
-            return spec[1] ** 2 + x[:, None] * x[None, :]
-
-        spec = self._bank[indices[0]]
-        K = self._lag_kernel(spec, length, lag)
-        K_dense = None if K is not None else dense(None, spec)
-        for j in range(1, n_kernels):
-            spec = self._bank[indices[j]]
-            comp = self._lag_kernel(spec, length, lag)
-            add = self.rng.integers(0, 2) == 0
-            # 0 -> add (mix behaviors), 1 -> multiply (modulate behaviors)
-            if K_dense is None and comp is not None:
-                K = K + comp if add else K * comp
+        # Independent stationary draws per degree: y = sum_d x^d * f_d has covariance K.
+        values = np.zeros(length)
+        for degree, c in enumerate(terms):
+            if c is None or not np.any(c):
                 continue
-            left = K_dense if K_dense is not None else dense(K, spec)
-            right = dense(comp, spec)
-            K_dense = left + right if add else left * right
-
-        if K_dense is not None:
-            return self._sample_prior(K_dense, length)
-        c = K.copy()
-        c[0] += self.jitter
-        z = self.rng.standard_normal(length)
-        values = self._levinson_sample(c, z)
-        if values is not None and np.all(np.isfinite(values)):
-            return values
-        # Breakdown on a near-singular kernel: the dense path, on the same normal draws.
-        K_dense = self._toeplitz(c)
-        try:
-            factor = np.linalg.cholesky(K_dense)
-        except np.linalg.LinAlgError:
-            eigvals, eigvecs = np.linalg.eigh(K_dense)
-            factor = eigvecs * np.sqrt(np.maximum(eigvals, 0.0))[None, :]
-        return factor @ z
+            part = self._sample_stationary(c)
+            if part is None:
+                return None
+            values += x**degree * part
+        return values
 
     def generate_single_series(self, length: int) -> np.ndarray:
         """Generate one KernelSynth series.
@@ -268,7 +338,7 @@ class KernelSynthGenerator(BaseGenerator):
 
         for _ in range(_MAX_RETRIES):
             values = self._compose_and_sample(length, x)
-            if not np.all(np.isfinite(values)):
+            if values is None or not np.all(np.isfinite(values)):
                 continue
             if np.abs(values).max() >= _MAX_ABS:
                 continue

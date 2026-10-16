@@ -14,11 +14,13 @@
 
 ### Changed
 
-- `KernelSynthGenerator` composes stationary kernels as functions of the lag
-  and samples them with an O(n^2) Durbin-Levinson recursion (the same Cholesky
-  factor). Compositions with a linear kernel keep the dense path, with a
-  cheaper Gram matrix. At length 2,273 a draw takes about 12 ms instead of
-  280-970 ms.
+- `KernelSynthGenerator` writes each composition as a polynomial in `x x'`
+  with stationary coefficients, `K = sum_d (x x')^d T_d(x - x')`, and samples
+  it exactly as `sum_d x^d * f_d` from independent O(n^2) Durbin-Levinson
+  draws. No composition forms a dense covariance or an O(n^3) Cholesky any
+  more, including those with a linear kernel. Bulk `generate()` runs it in the
+  Rust batch path. `jitter` is now added to each polynomial term and escalated
+  on a numerical breakdown.
 - `GaussianProcessGenerator(kernel="periodic")` samples exactly from the
   periodic kernel's Fourier series in O(n J) instead of an O(n^3) Cholesky:
   about 1 ms instead of 560 ms at length 2,273.
@@ -27,10 +29,13 @@
 
 - Same-seed output of periodic `GaussianProcessGenerator` differs from 0.2.0;
   the sampled distribution is unchanged.
-- `KernelSynthGenerator` output equals 0.2.0 to floating-point rounding
-  (within 1e-7 of the series' standard deviation), not bit for bit.
-- Every other generator, and `pretraining_pool` with `members=None`, is
-  bit-identical to 0.2.0.
+- Same-seed output of `KernelSynthGenerator` differs from 0.2.0, and its Rust
+  batch path and NumPy `generate_single_series` path differ from each other;
+  the sampled distribution is unchanged up to the jitter.
+- `pretraining_pool` and `interpretable_pool` build the same generators with
+  the same seeds as 0.2.0; only their KernelSynth and periodic
+  `GaussianProcessGenerator` entries produce different output. Every other
+  generator is bit-identical to 0.2.0.
 
 ## 0.2.0 - 2026-10-12
 

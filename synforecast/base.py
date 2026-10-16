@@ -71,6 +71,7 @@ _GEN_TYPE_MAP: dict[str, int] = {
     "TSIGenerator": 28,
     "TCMGenerator": 29,
     "MARGenerator": 30,
+    "KernelSynthGenerator": 31,
 }
 
 
