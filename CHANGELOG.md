@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `BaseGenerator.generate_values(n_series, n_jobs)`: the series `generate`
+  would draw, as value arrays without building a DataFrame (native Rust batch
+  path where available).
+- `members=` on `pretraining_pool`, `interpretable_pool` and `seasonal_pool`:
+  build only the selected pool entries, each identical to the full pool's
+  entry. Drawing one member per series no longer constructs the whole pool
+  (0.11 ms instead of 3.6 ms per draw).
+
+### Changed
+
+- `KernelSynthGenerator` composes stationary kernels as functions of the lag
+  and samples them with an O(n^2) Durbin-Levinson recursion (the same Cholesky
+  factor). Compositions with a linear kernel keep the dense path, with a
+  cheaper Gram matrix. At length 2,273 a draw takes about 12 ms instead of
+  280-970 ms.
+- `GaussianProcessGenerator(kernel="periodic")` samples exactly from the
+  periodic kernel's Fourier series in O(n J) instead of an O(n^3) Cholesky:
+  about 1 ms instead of 560 ms at length 2,273.
+
+### Reproducibility
+
+- Same-seed output of periodic `GaussianProcessGenerator` differs from 0.2.0;
+  the sampled distribution is unchanged.
+- `KernelSynthGenerator` output equals 0.2.0 to floating-point rounding
+  (within 1e-7 of the series' standard deviation), not bit for bit.
+- Every other generator, and `pretraining_pool` with `members=None`, is
+  bit-identical to 0.2.0.
+
 ## 0.2.0 - 2026-10-12
 
 ### Added

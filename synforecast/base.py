@@ -851,6 +851,41 @@ class BaseGenerator(BaseModel, ABC):
 
         return self._build_dataframe(all_metadata)
 
+    def generate_values(self, n_series: int, n_jobs: int = -1) -> list[np.ndarray]:
+        """Generate series as value arrays, without building a DataFrame.
+
+        Draws exactly the series :meth:`generate` would draw from the same
+        generator state (native Rust batch path where available, including
+        changepoint, anomaly and missing-data overlays, with missing points as
+        NaN), so it suits pretraining streams that need values only.
+
+        Args:
+            n_series (int): Number of time series to generate.
+            n_jobs (int): Number of parallel workers. -1 (default) uses
+                ``RAYON_NUM_THREADS`` if set, otherwise all logical cores.
+                Results are seed-deterministic and do not depend on n_jobs.
+
+        Returns:
+            List of ``n_series`` 1-D float arrays.
+        """
+        if n_series < 1:
+            raise ValueError(f"n_series must be a positive integer, got {n_series}.")
+        if type(self).generate is not BaseGenerator.generate:
+            # Generators with their own generate() (e.g. jointly simulated panels) define the draw there.
+            frame = nw.from_native(
+                self.generate(n_series, n_jobs=n_jobs), eager_only=True
+            )
+            ids = frame[self.id_col].unique(maintain_order=True).to_list()
+            return [
+                frame.filter(nw.col(self.id_col) == i)[self.target_col]
+                .to_numpy()
+                .astype(np.float64)
+                for i in ids
+            ]
+        if n_jobs == -1:
+            n_jobs = _default_n_workers
+        return [m.values for m in self._generate_parallel(n_series, 0, n_jobs)]
+
     def _generate_parallel(
         self,
         n_series: int,
