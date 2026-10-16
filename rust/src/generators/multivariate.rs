@@ -636,12 +636,70 @@ pub fn gaussian_process_cholesky(
     }
 }
 
+/// Cosine-series weights e^{-q} I_0(q), 2 e^{-q} I_j(q) (q = 1/l^2) of the periodic kernel, via normalized Miller recurrence, summing to `a2`.
+fn periodic_fourier_weights(length_scale: f64, a2: f64) -> Vec<f64> {
+    let q = 1.0 / (length_scale * length_scale);
+    let start = (q + 60.0 + 12.0 * q.sqrt()).ceil().min(200_000.0) as usize;
+    let mut i = vec![0.0_f64; start + 2];
+    i[start] = 1e-300;
+    for j in (1..=start).rev() {
+        i[j - 1] = i[j + 1] + (2.0 * j as f64 / q) * i[j];
+        if i[j - 1] > 1e250 {
+            for v in i.iter_mut().skip(j - 1) {
+                *v *= 1e-250;
+            }
+        }
+    }
+    let norm = i[0] + 2.0 * i[1..=start].iter().sum::<f64>();
+    let mut weights = Vec::with_capacity(start + 1);
+    weights.push(a2 * i[0] / norm);
+    for v in &i[1..=start] {
+        let w = 2.0 * a2 * v / norm;
+        if w < a2 * 1e-17 && weights.len() > 1 {
+            break;
+        }
+        weights.push(w);
+    }
+    weights
+}
+
+/// Exact periodic-kernel GP sample as sum_j sqrt(c_j)(a_j cos + b_j sin)(2 pi j t / p), O(n J), truncated below 1e-17.
+pub fn gaussian_process_periodic_fourier(
+    out: &mut [f64],
+    length_scale: f64,
+    amplitude: f64,
+    period: f64,
+    mean: f64,
+    noise_variance: f64,
+    seed: u64,
+) {
+    let mut rng = SfRng::new(seed);
+    let weights = periodic_fourier_weights(length_scale, amplitude * amplitude);
+    let a0 = weights[0].sqrt() * rng.standard_normal();
+    out.iter_mut().for_each(|v| *v = mean + a0);
+    for (j, w) in weights.iter().enumerate().skip(1) {
+        let scale = w.sqrt();
+        let (a, b) = (scale * rng.standard_normal(), scale * rng.standard_normal());
+        let omega = 2.0 * PI * j as f64 / period;
+        for (t, v) in out.iter_mut().enumerate() {
+            let (s, c) = (omega * t as f64).sin_cos();
+            *v += a * c + b * s;
+        }
+    }
+    if noise_variance > 0.0 {
+        let sd = noise_variance.sqrt();
+        for v in out.iter_mut() {
+            *v += sd * rng.standard_normal();
+        }
+    }
+}
+
 /// Gaussian process wrapper.
 /// Uses FFT-based circulant embedding (O(n log n)) for rapidly-decaying
 /// stationary kernels. The periodic kernel's circulant embedding is strongly
 /// non-PSD when the period does not divide the padded size, and clamping the
 /// negative eigenvalues inflates the marginal variance and attenuates the
-/// periodicity — so periodic kernels use exact Cholesky sampling instead.
+/// periodicity — so periodic kernels are sampled exactly from their Fourier series instead.
 pub fn gaussian_process(
     out: &mut [f64],
     kernel_id: i32,
@@ -653,9 +711,8 @@ pub fn gaussian_process(
     seed: u64,
 ) {
     if kernel_id == 4 {
-        gaussian_process_cholesky(
+        gaussian_process_periodic_fourier(
             out,
-            kernel_id,
             length_scale,
             amplitude,
             period,
@@ -894,6 +951,52 @@ mod tests {
             let mut out = vec![0.0; N];
             gaussian_process(&mut out, kernel_id, 10.0, 1.0, 1.0, 0.0, 0.01, 42);
             assert_finite(&out, &format!("gp_matern_{kernel_id}"));
+        }
+    }
+
+    #[test]
+    fn test_periodic_fourier_weights_sum_to_variance() {
+        for &ls in &[0.05, 0.3, 1.0, 5.0, 20.0, 200.0] {
+            let w = periodic_fourier_weights(ls, 2.5);
+            let total: f64 = w.iter().sum();
+            assert!((total - 2.5).abs() < 1e-12, "ls={ls} total={total}");
+            assert!(w.iter().all(|v| v.is_finite() && *v >= 0.0));
+        }
+    }
+
+    #[test]
+    fn test_periodic_fourier_series_reproduces_kernel() {
+        for &(ls, p) in &[(0.3, 7.0), (1.0, 12.0), (20.0, 50.0), (0.1, 24.5)] {
+            let w = periodic_fourier_weights(ls, 1.0);
+            for r in 0..200 {
+                let series: f64 = w
+                    .iter()
+                    .enumerate()
+                    .map(|(j, c)| c * (2.0 * PI * j as f64 * r as f64 / p).cos())
+                    .sum();
+                let exact = gp_kernel(r as f64, 4, ls, 1.0, p);
+                assert!((series - exact).abs() < 1e-12, "ls={ls} p={p} r={r}: {series} vs {exact}");
+            }
+        }
+    }
+
+    #[test]
+    fn test_periodic_fourier_empirical_covariance_matches_kernel() {
+        let (n, draws, ls, amp, p) = (40, 20_000, 0.7, 1.5, 9.0);
+        let mut sum = vec![0.0_f64; n];
+        let mut cross = vec![0.0_f64; n];
+        let mut out = vec![0.0; n];
+        for s in 0..draws {
+            gaussian_process_periodic_fourier(&mut out, ls, amp, p, 0.0, 0.0, 1000 + s as u64);
+            for t in 0..n {
+                sum[t] += out[t];
+                cross[t] += out[0] * out[t];
+            }
+        }
+        for t in 0..n {
+            let cov = cross[t] / draws as f64 - (sum[0] / draws as f64) * (sum[t] / draws as f64);
+            let exact = gp_kernel(t as f64, 4, ls, amp, p);
+            assert!((cov - exact).abs() < 0.08, "lag {t}: {cov} vs {exact}");
         }
     }
 

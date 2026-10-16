@@ -150,29 +150,32 @@ class KernelSynthGenerator(BaseGenerator):
         object.__setattr__(self, "_bank", bank)
         return self
 
-    def _gram(
-        self,
-        spec: tuple[str, float],
-        length: int,
-        r: np.ndarray,
-        r2: np.ndarray,
-        outer: np.ndarray,
-    ) -> np.ndarray:
-        """Gram matrix for one base kernel on the normalized grid."""
+    def _lag_kernel(
+        self, spec: tuple[str, float], length: int, lag: np.ndarray
+    ) -> np.ndarray | None:
+        """Stationary base kernel as a function of the lag; None for the linear kernel."""
         kind, param = spec
         if kind == "rbf":
-            return np.exp(-0.5 * r2 / param**2)
+            return np.exp(-0.5 * (lag * lag) / param**2)
         if kind == "rational_quadratic":
-            return (1.0 + r2 / (2.0 * param)) ** (-param)
+            return (1.0 + (lag * lag) / (2.0 * param)) ** (-param)
         if kind == "periodic":
             p_norm = param / length
-            return np.exp(-2.0 * np.sin(np.pi * r / p_norm) ** 2)
-        if kind == "linear":
-            return param**2 + outer
+            return np.exp(-2.0 * np.sin(np.pi * lag / p_norm) ** 2)
         if kind == "white":
-            return param * np.eye(length)
-        # constant
-        return param * np.ones((length, length))
+            values = np.zeros(length)
+            values[0] = param
+            return values
+        if kind == "constant":
+            return np.full(length, param)
+        return None
+
+    @staticmethod
+    def _toeplitz(values: np.ndarray) -> np.ndarray:
+        """Dense symmetric Toeplitz matrix with first row ``values``."""
+        n = len(values)
+        index = np.arange(n)
+        return values[np.abs(index[:, None] - index[None, :])]
 
     def _sample_prior(self, K: np.ndarray, length: int) -> np.ndarray:
         """Draw one sample from N(0, K), robust to ill-conditioned K."""
@@ -185,25 +188,72 @@ class KernelSynthGenerator(BaseGenerator):
             factor = eigvecs * np.sqrt(eigvals)[None, :]
         return factor @ self.rng.standard_normal(length)
 
-    def _compose_and_sample(
-        self,
-        length: int,
-        r: np.ndarray,
-        r2: np.ndarray,
-        outer: np.ndarray,
-    ) -> np.ndarray:
+    @staticmethod
+    def _levinson_sample(c: np.ndarray, z: np.ndarray) -> np.ndarray | None:
+        """L @ z for the Cholesky factor L of Toeplitz(c), by Durbin-Levinson in O(n^2); None on breakdown."""
+        n = len(c)
+        x = np.empty(n)
+        phi = np.empty(n)
+        v = c[0]
+        if not v > 0:
+            return None
+        x[0] = np.sqrt(v) * z[0]
+        for t in range(1, n):
+            kappa = (c[t] - phi[: t - 1] @ c[t - 1 : 0 : -1]) / v
+            if not abs(kappa) < 1.0:
+                return None
+            phi[: t - 1] = phi[: t - 1] - kappa * phi[t - 2 :: -1] if t > 1 else phi[:0]
+            phi[t - 1] = kappa
+            v *= 1.0 - kappa * kappa
+            if not v > 0:
+                return None
+            x[t] = phi[:t] @ x[t - 1 :: -1] + np.sqrt(v) * z[t]
+        return x
+
+    def _compose_and_sample(self, length: int, x: np.ndarray) -> np.ndarray:
         """Draw a kernel composition and sample one path from its GP prior."""
         n_bank = len(self._bank)
         n_kernels = int(self.rng.integers(1, self.max_kernels + 1))
         indices = self.rng.integers(0, n_bank, size=n_kernels)
+        # Stationary compositions stay a function of the lag; the linear kernel forces the dense matrix.
+        lag = x - x[0]
 
-        K = self._gram(self._bank[indices[0]], length, r, r2, outer)
+        def dense(part: np.ndarray | None, spec: tuple[str, float]) -> np.ndarray:
+            if part is not None:
+                return self._toeplitz(part)
+            return spec[1] ** 2 + x[:, None] * x[None, :]
+
+        spec = self._bank[indices[0]]
+        K = self._lag_kernel(spec, length, lag)
+        K_dense = None if K is not None else dense(None, spec)
         for j in range(1, n_kernels):
-            comp = self._gram(self._bank[indices[j]], length, r, r2, outer)
+            spec = self._bank[indices[j]]
+            comp = self._lag_kernel(spec, length, lag)
+            add = self.rng.integers(0, 2) == 0
             # 0 -> add (mix behaviors), 1 -> multiply (modulate behaviors)
-            K = K + comp if self.rng.integers(0, 2) == 0 else K * comp
+            if K_dense is None and comp is not None:
+                K = K + comp if add else K * comp
+                continue
+            left = K_dense if K_dense is not None else dense(K, spec)
+            right = dense(comp, spec)
+            K_dense = left + right if add else left * right
 
-        return self._sample_prior(K, length)
+        if K_dense is not None:
+            return self._sample_prior(K_dense, length)
+        c = K.copy()
+        c[0] += self.jitter
+        z = self.rng.standard_normal(length)
+        values = self._levinson_sample(c, z)
+        if values is not None and np.all(np.isfinite(values)):
+            return values
+        # Breakdown on a near-singular kernel: the dense path, on the same normal draws.
+        K_dense = self._toeplitz(c)
+        try:
+            factor = np.linalg.cholesky(K_dense)
+        except np.linalg.LinAlgError:
+            eigvals, eigvecs = np.linalg.eigh(K_dense)
+            factor = eigvecs * np.sqrt(np.maximum(eigvals, 0.0))[None, :]
+        return factor @ z
 
     def generate_single_series(self, length: int) -> np.ndarray:
         """Generate one KernelSynth series.
@@ -215,13 +265,9 @@ class KernelSynthGenerator(BaseGenerator):
             Array of time series values
         """
         x = np.linspace(0.0, 1.0, length) if length > 1 else np.zeros(1)
-        diff = x[:, None] - x[None, :]
-        r = np.abs(diff)
-        r2 = diff * diff
-        outer = x[:, None] * x[None, :]
 
         for _ in range(_MAX_RETRIES):
-            values = self._compose_and_sample(length, r, r2, outer)
+            values = self._compose_and_sample(length, x)
             if not np.all(np.isfinite(values)):
                 continue
             if np.abs(values).max() >= _MAX_ABS:
