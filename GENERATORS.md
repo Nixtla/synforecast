@@ -671,9 +671,9 @@ df = SynSet(pretraining_pool(min_length=512, max_length=512, freq="h")).generate
 )
 ```
 
-KernelSynth and Gaussian-process sampling require covariance factorizations,
-whose cost grows cubically with series length. Scale the length and number of
-series gradually when building a large corpus.
+KernelSynth samples each series with Durbin-Levinson recursions whose cost
+grows quadratically with series length. Scale the length and number of series
+gradually when building a large corpus.
 
 The opt-in `seasonal_pool()` preset adds eight configured instances of
 `TSIGenerator`, `ETSGenerator`, and `SeasonalGenerator` with a pronounced
@@ -828,9 +828,8 @@ mv = Multivariatizer(
 df = mv.generate(n_series=4)
 ```
 
-TSI, TCM, and MAR use the Rust batch path for bulk `generate()` calls;
-KernelSynth runs through the threaded NumPy path. MAR feature computation and
-the MBB/DBA numeric kernels are also native. Rust and NumPy RNG streams provide
+TSI, TCM, MAR, and KernelSynth use the Rust batch path for bulk `generate()`
+calls. MAR feature computation and the MBB/DBA numeric kernels are also native. Rust and NumPy RNG streams provide
 seed determinism within their respective paths but are not bit-for-bit
 equivalent. Reproduce performance measurements on your hardware with the
 scripts in `benchmarks/`; benchmark results are not API guarantees.

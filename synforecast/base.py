@@ -71,6 +71,7 @@ _GEN_TYPE_MAP: dict[str, int] = {
     "TSIGenerator": 28,
     "TCMGenerator": 29,
     "MARGenerator": 30,
+    "KernelSynthGenerator": 31,
 }
 
 
@@ -301,6 +302,8 @@ class BaseGenerator(BaseModel, ABC):
     _start_datetime: pd.Timestamp = PrivateAttr()
     _rng: np.random.Generator = PrivateAttr()
     _ts_cache: np.ndarray | None = PrivateAttr(default=None)
+    # Set by generate_values: no calendar is built and generate() returns the series metadata.
+    _values_only: bool = PrivateAttr(default=False)
 
     @property
     def start_datetime(self) -> pd.Timestamp:
@@ -418,6 +421,9 @@ class BaseGenerator(BaseModel, ABC):
         All series share the same start, so a single range of max_length is
         cached and sliced per series.
         """
+        if self._values_only:
+            # Long coarse-frequency ranges can exceed pandas' datetime bounds.
+            return np.arange(length, dtype=np.int64)
         cache = self._ts_cache
         if cache is None or len(cache) < length:
             periods = max(length, self.max_length)
@@ -721,6 +727,15 @@ class BaseGenerator(BaseModel, ABC):
         Returns:
             DataFrame in the configured engine.
         """
+        if self._values_only:
+            # Correlated exogenous draws still advance self.rng, as in generate().
+            if self.exogenous is not None and self.exogenous.correlated:
+                flat_values = np.concatenate([m.values for m in series_metadata])
+                for exog_config in self.exogenous.correlated:
+                    generate_correlated_exog(
+                        series_metadata, flat_values, exog_config, self.rng
+                    )
+            return series_metadata
         # Flatten core columns
         flat_values = np.concatenate([m.values for m in series_metadata])
         flat_timestamps = np.concatenate([m.timestamps for m in series_metadata])
@@ -850,6 +865,34 @@ class BaseGenerator(BaseModel, ABC):
         all_metadata = self._generate_parallel(n_series, start_id, n_jobs)
 
         return self._build_dataframe(all_metadata)
+
+    def generate_values(self, n_series: int, n_jobs: int = -1) -> list[np.ndarray]:
+        """Generate series as value arrays, without building a DataFrame.
+
+        Draws exactly the series :meth:`generate` would, with the same overlays
+        (missing points as NaN), and leaves the generator in the same state.
+        No DataFrame, exogenous column, or calendar is built, so lengths beyond
+        pandas' datetime range work.
+
+        Args:
+            n_series (int): Number of time series to generate.
+            n_jobs (int): Number of parallel workers. -1 (default) uses
+                ``RAYON_NUM_THREADS`` if set, otherwise all logical cores.
+                Results are seed-deterministic and do not depend on n_jobs.
+
+        Returns:
+            One 1-D float array per series in id order (``n_series * n_sensors``
+            for ``IoTSensorGenerator``).
+        """
+        if n_series < 1:
+            raise ValueError(f"n_series must be a positive integer, got {n_series}.")
+        self._values_only = True
+        try:
+            # In values-only mode generate() returns the metadata, also when overridden.
+            metadata = self.generate(n_series, n_jobs=n_jobs)
+        finally:
+            self._values_only = False
+        return [np.asarray(m.values, dtype=np.float64) for m in metadata]
 
     def _generate_parallel(
         self,

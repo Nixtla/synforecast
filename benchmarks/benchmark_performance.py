@@ -3,10 +3,9 @@
 Measures wall-clock time per generator (every mechanism, including the
 meta-generators that only ``pretraining_pool`` adds), the ``balanced_pool``
 throughput grid, and the per-family cost breakdown of ``pretraining_pool``
-across series lengths. The breakdown shows how the meta-generators, chiefly
-KernelSynth with its O(n^3) Cholesky factorization, come to dominate the cost of
-a long-series corpus. Can save results to JSON for cross-branch or cross-machine
-comparison.
+across series lengths. The breakdown shows which families come to dominate the
+cost of a long-series corpus. Can save results to JSON for cross-branch or
+cross-machine comparison.
 
 Usage:
     # Run and display results
