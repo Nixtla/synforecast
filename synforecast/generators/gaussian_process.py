@@ -27,14 +27,20 @@ class GaussianProcessGenerator(BaseGenerator):
         - periodic: ``a^2 exp(-2 sin^2(pi r / period) / l^2)`` — exact
           periodicity
 
+    The periodic kernel is sampled exactly for any length scale: an integer
+    period by a circulant FFT over one period, tiled; a non-integer period by
+    the kernel's cosine series (about ``9.2 / l`` terms), or by an O(n^2)
+    Durbin-Levinson recursion when the series would need more terms than the
+    path has points. The other kernels use FFT circulant embedding.
+
     Args:
         kernel (str): Kernel type (default: 'rbf').
         length_scale (float): Kernel length scale (default: 20.0).
         amplitude (float): Signal amplitude / output scale (default: 1.0).
         period (float): Period for the periodic kernel (default: 50.0).
         mean (float): Mean function value (default: 0.0).
-        noise_variance (float): Observation noise variance, also acts as
-            jitter for the Cholesky factorization (default: 1e-6).
+        noise_variance (float): Variance of independent observation noise
+            added to each point (default: 1e-6).
     """
 
     kernel: Literal["rbf", "matern_0.5", "matern_1.5", "matern_2.5", "periodic"] = (

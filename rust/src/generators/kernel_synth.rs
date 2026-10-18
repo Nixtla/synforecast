@@ -141,7 +141,7 @@ fn kernel_terms(
 ///
 /// Returns `None` on breakdown (a non-positive innovation variance or a reflection
 /// coefficient outside (-1, 1), i.e. a numerically non-PD matrix).
-fn levinson_sample(c: &[f64], extra: f64, z: &[f64]) -> Option<Vec<f64>> {
+pub(crate) fn levinson_sample(c: &[f64], extra: f64, z: &[f64]) -> Option<Vec<f64>> {
     let n = c.len();
     let mut v = c[0] + extra;
     // NaN fails every comparison, so test the accepted range rather than its complement.

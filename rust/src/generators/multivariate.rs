@@ -1,5 +1,6 @@
 use crate::distributions;
 use crate::fft;
+use crate::generators::kernel_synth;
 use crate::linalg;
 use crate::rng::SfRng;
 use nalgebra::{DMatrix, DVector};
@@ -595,10 +596,145 @@ pub fn gaussian_process_fft(
     }
 }
 
-/// Cholesky-based GP sampling (fallback for non-stationary or when FFT fails)
-pub fn gaussian_process_cholesky(
+/// Re-synchronize the rotation recurrence with an exact `sin_cos` this often, bounding its drift.
+const ROTATION_RESYNC: usize = 256;
+
+/// Cosine-series weights c_0 = e^{-q} I_0(q), c_j = 2 e^{-q} I_j(q) (q = 1/l^2) of the periodic kernel, scaled to sum to `a2`.
+///
+/// The ratios I_j / I_{j-1} come from the backward continued fraction
+/// r_j = q / (2j + q r_{j+1}) (Miller's algorithm in ratio form), which cannot
+/// overflow for any q >= 0, including q = 0 (an infinite length scale, a
+/// constant kernel). Starting 30 sqrt(q) + 40 terms out leaves a start-up error
+/// of order exp(-800) for the ~9.2 sqrt(q) terms that survive the 1e-18 cutoff.
+/// Callers bound sqrt(q) (see `gaussian_process_periodic`), which bounds the work.
+fn periodic_fourier_weights(length_scale: f64, a2: f64) -> Vec<f64> {
+    let q = 1.0 / (length_scale * length_scale);
+    let start = (40.0 + 30.0 * q.sqrt()).ceil() as usize;
+    let mut ratio = vec![0.0_f64; start + 1];
+    let mut r = 0.0;
+    for j in (1..=start).rev() {
+        r = q / (2.0 * j as f64 + q * r);
+        ratio[j] = r;
+    }
+    // rel[j] = I_j(q) / I_0(q), truncated once it falls below 1e-18.
+    let mut rel = vec![1.0_f64];
+    let mut m = 1.0;
+    for &r in &ratio[1..] {
+        m *= r;
+        if m < 1e-18 {
+            break;
+        }
+        rel.push(m);
+    }
+    let norm = rel[0] + 2.0 * rel[1..].iter().sum::<f64>();
+    rel.iter()
+        .enumerate()
+        .map(|(j, &m)| {
+            if j == 0 {
+                a2 * m / norm
+            } else {
+                2.0 * a2 * m / norm
+            }
+        })
+        .collect()
+}
+
+/// Complex DFT of any length (radix-2 for powers of two, Bluestein otherwise).
+fn dft(mut x: Vec<Complex64>) -> Vec<Complex64> {
+    if x.len().is_power_of_two() {
+        fft::fft_radix2(&mut x, false);
+        x
+    } else {
+        fft::fft_bluestein(&x)
+    }
+}
+
+/// One period of an integer-period periodic GP, exactly: on the integer grid the
+/// process is p-periodic with a circulant p x p covariance, whose eigenvalues are
+/// the DFT of the kernel row. Re(DFT(sqrt(lambda / p) * w)) for complex standard
+/// normals w has exactly that covariance. O(p log p) at any length scale.
+fn periodic_one_period(rng: &mut SfRng, p: usize, length_scale: f64, amplitude: f64) -> Vec<f64> {
+    let row: Vec<f64> = (0..p)
+        .map(|r| gp_kernel(r as f64, 4, length_scale, amplitude, p as f64))
+        .collect();
+    let eigenvalues = fft::rfft(&row);
+    // The eigenvalues are non-negative in exact arithmetic. Zero those within FFT rounding
+    // of zero, whose square roots (~1e-8) would otherwise ripple a constant-kernel path.
+    let floor = 1e-13 * eigenvalues.iter().map(|l| l.re.max(0.0)).sum::<f64>();
+    let w: Vec<Complex64> = eigenvalues
+        .iter()
+        .map(|lambda| {
+            let lambda = if lambda.re > floor { lambda.re } else { 0.0 };
+            let scale = (lambda / p as f64).sqrt();
+            Complex64::new(scale * rng.standard_normal(), scale * rng.standard_normal())
+        })
+        .collect();
+    dft(w).iter().map(|v| v.re).collect()
+}
+
+/// Periodic GP from the kernel's cosine series, sum_j sqrt(c_j)(a_j cos + b_j sin)(2 pi j t / p), in O(n J).
+fn periodic_fourier_series(
+    rng: &mut SfRng,
     out: &mut [f64],
-    kernel_id: i32,
+    length_scale: f64,
+    amplitude: f64,
+    period: f64,
+) {
+    let weights = periodic_fourier_weights(length_scale, amplitude * amplitude);
+    let a0 = weights[0].sqrt() * rng.standard_normal();
+    out.iter_mut().for_each(|v| *v += a0);
+    for (j, w) in weights.iter().enumerate().skip(1) {
+        let scale = w.sqrt();
+        let (a, b) = (scale * rng.standard_normal(), scale * rng.standard_normal());
+        let omega = 2.0 * PI * j as f64 / period;
+        let (sin_step, cos_step) = omega.sin_cos();
+        let (mut s, mut c) = (0.0_f64, 1.0_f64);
+        for (t, v) in out.iter_mut().enumerate() {
+            if t % ROTATION_RESYNC == 0 {
+                (s, c) = (omega * t as f64).sin_cos();
+            }
+            *v += a * c + b * s;
+            (s, c) = (s * cos_step + c * sin_step, c * cos_step - s * sin_step);
+        }
+    }
+}
+
+/// Periodic GP by Durbin-Levinson on its Toeplitz covariance, for length scales so short
+/// that the cosine series needs more terms than the series has points.
+fn periodic_levinson(
+    rng: &mut SfRng,
+    out: &mut [f64],
+    length_scale: f64,
+    amplitude: f64,
+    period: f64,
+) {
+    let n = out.len();
+    let a2 = amplitude * amplitude;
+    let row: Vec<f64> = (0..n)
+        .map(|r| gp_kernel(r as f64, 4, length_scale, amplitude, period))
+        .collect();
+    let z: Vec<f64> = (0..n).map(|_| rng.standard_normal()).collect();
+    let mut extra = 0.0;
+    for _ in 0..6 {
+        if let Some(path) = kernel_synth::levinson_sample(&row, extra, &z) {
+            out.iter_mut().zip(&path).for_each(|(v, p)| *v += p);
+            return;
+        }
+        extra = (10.0 * extra).max(1e-12 * a2);
+    }
+    // Numerically singular even with jitter: the short-length-scale limit, white noise.
+    let sd = amplitude.abs();
+    out.iter_mut().zip(&z).for_each(|(v, zv)| *v += sd * zv);
+}
+
+/// Exact periodic-kernel GP sample on the integer grid, for any length scale.
+///
+/// - Integer period p (up to 4 max(n, 1024)): one period by a size-p circulant
+///   DFT, tiled to the series length.
+/// - Otherwise the kernel's cosine series in O(n J), J ~ 9.2 / l terms, or
+///   Durbin-Levinson in O(n^2) once J would exceed n.
+pub fn gaussian_process_periodic(
+    out: &mut [f64],
     length_scale: f64,
     amplitude: f64,
     period: f64,
@@ -607,85 +743,27 @@ pub fn gaussian_process_cholesky(
     seed: u64,
 ) {
     let n = out.len();
+    if n == 0 {
+        return;
+    }
     let mut rng = SfRng::new(seed);
+    out.iter_mut().for_each(|v| *v = mean);
 
-    let mut k_data = vec![0.0_f64; n * n];
-    for i in 0..n {
-        for j in i..n {
-            let r = (j - i) as f64;
-            let mut val = gp_kernel(r, kernel_id, length_scale, amplitude, period);
-            if i == j {
-                val += noise_variance;
-            }
-            k_data[i * n + j] = val;
-            k_data[j * n + i] = val;
+    let rounded = period.round();
+    let integer_period = (period - rounded).abs() <= 1e-9 * period.max(1.0)
+        && rounded >= 1.0
+        && rounded <= (4 * n.max(1024)) as f64;
+    if integer_period {
+        let cycle = periodic_one_period(&mut rng, rounded as usize, length_scale, amplitude);
+        for (v, c) in out.iter_mut().zip(cycle.iter().cycle()) {
+            *v += c;
         }
-    }
-    let k_mat = linalg::flat_to_matrix(&k_data, n, n);
-
-    let l = linalg::cholesky_with_fallback(&k_mat);
-
-    let mut z = DVector::zeros(n);
-    for i in 0..n {
-        z[i] = rng.standard_normal();
+    } else if 9.2 / length_scale + 10.0 > n as f64 {
+        periodic_levinson(&mut rng, out, length_scale, amplitude, period);
+    } else {
+        periodic_fourier_series(&mut rng, out, length_scale, amplitude, period);
     }
 
-    let f_vec = &l * &z;
-    for i in 0..n {
-        out[i] = mean + f_vec[i];
-    }
-}
-
-/// Cosine-series weights e^{-q} I_0(q), 2 e^{-q} I_j(q) (q = 1/l^2) of the periodic kernel, via normalized Miller recurrence, summing to `a2`.
-fn periodic_fourier_weights(length_scale: f64, a2: f64) -> Vec<f64> {
-    let q = 1.0 / (length_scale * length_scale);
-    let start = (q + 60.0 + 12.0 * q.sqrt()).ceil().min(200_000.0) as usize;
-    let mut i = vec![0.0_f64; start + 2];
-    i[start] = 1e-300;
-    for j in (1..=start).rev() {
-        i[j - 1] = i[j + 1] + (2.0 * j as f64 / q) * i[j];
-        if i[j - 1] > 1e250 {
-            for v in i.iter_mut().skip(j - 1) {
-                *v *= 1e-250;
-            }
-        }
-    }
-    let norm = i[0] + 2.0 * i[1..=start].iter().sum::<f64>();
-    let mut weights = Vec::with_capacity(start + 1);
-    weights.push(a2 * i[0] / norm);
-    for v in &i[1..=start] {
-        let w = 2.0 * a2 * v / norm;
-        if w < a2 * 1e-17 && weights.len() > 1 {
-            break;
-        }
-        weights.push(w);
-    }
-    weights
-}
-
-/// Exact periodic-kernel GP sample as sum_j sqrt(c_j)(a_j cos + b_j sin)(2 pi j t / p), O(n J), truncated below 1e-17.
-pub fn gaussian_process_periodic_fourier(
-    out: &mut [f64],
-    length_scale: f64,
-    amplitude: f64,
-    period: f64,
-    mean: f64,
-    noise_variance: f64,
-    seed: u64,
-) {
-    let mut rng = SfRng::new(seed);
-    let weights = periodic_fourier_weights(length_scale, amplitude * amplitude);
-    let a0 = weights[0].sqrt() * rng.standard_normal();
-    out.iter_mut().for_each(|v| *v = mean + a0);
-    for (j, w) in weights.iter().enumerate().skip(1) {
-        let scale = w.sqrt();
-        let (a, b) = (scale * rng.standard_normal(), scale * rng.standard_normal());
-        let omega = 2.0 * PI * j as f64 / period;
-        for (t, v) in out.iter_mut().enumerate() {
-            let (s, c) = (omega * t as f64).sin_cos();
-            *v += a * c + b * s;
-        }
-    }
     if noise_variance > 0.0 {
         let sd = noise_variance.sqrt();
         for v in out.iter_mut() {
@@ -699,7 +777,7 @@ pub fn gaussian_process_periodic_fourier(
 /// stationary kernels. The periodic kernel's circulant embedding is strongly
 /// non-PSD when the period does not divide the padded size, and clamping the
 /// negative eigenvalues inflates the marginal variance and attenuates the
-/// periodicity — so periodic kernels are sampled exactly from their Fourier series instead.
+/// periodicity — so periodic kernels are sampled exactly by `gaussian_process_periodic` instead.
 pub fn gaussian_process(
     out: &mut [f64],
     kernel_id: i32,
@@ -711,7 +789,7 @@ pub fn gaussian_process(
     seed: u64,
 ) {
     if kernel_id == 4 {
-        gaussian_process_periodic_fourier(
+        gaussian_process_periodic(
             out,
             length_scale,
             amplitude,
@@ -956,17 +1034,36 @@ mod tests {
 
     #[test]
     fn test_periodic_fourier_weights_sum_to_variance() {
-        for &ls in &[0.05, 0.3, 1.0, 5.0, 20.0, 200.0] {
+        for &ls in &[
+            1e-3,
+            0.05,
+            0.3,
+            1.0,
+            5.0,
+            20.0,
+            200.0,
+            1e30,
+            1e160,
+            f64::INFINITY,
+        ] {
             let w = periodic_fourier_weights(ls, 2.5);
             let total: f64 = w.iter().sum();
             assert!((total - 2.5).abs() < 1e-12, "ls={ls} total={total}");
             assert!(w.iter().all(|v| v.is_finite() && *v >= 0.0));
         }
+        // An infinite length scale is the constant kernel.
+        assert_eq!(periodic_fourier_weights(f64::INFINITY, 2.5), vec![2.5]);
     }
 
     #[test]
     fn test_periodic_fourier_series_reproduces_kernel() {
-        for &(ls, p) in &[(0.3, 7.0), (1.0, 12.0), (20.0, 50.0), (0.1, 24.5)] {
+        for &(ls, p) in &[
+            (0.3, 7.0),
+            (1.0, 12.0),
+            (20.0, 50.0),
+            (0.1, 24.5),
+            (0.01, 7.3),
+        ] {
             let w = periodic_fourier_weights(ls, 1.0);
             for r in 0..200 {
                 let series: f64 = w
@@ -984,22 +1081,86 @@ mod tests {
     }
 
     #[test]
-    fn test_periodic_fourier_empirical_covariance_matches_kernel() {
-        let (n, draws, ls, amp, p) = (40, 20_000, 0.7, 1.5, 9.0);
-        let mut sum = vec![0.0_f64; n];
-        let mut cross = vec![0.0_f64; n];
-        let mut out = vec![0.0; n];
-        for s in 0..draws {
-            gaussian_process_periodic_fourier(&mut out, ls, amp, p, 0.0, 0.0, 1000 + s as u64);
+    fn test_periodic_empirical_covariance_matches_kernel() {
+        // Integer period (circulant), non-integer (cosine series), short length scale (Levinson).
+        for &(ls, p) in &[(0.7, 9.0), (0.7, 9.5), (0.2, 9.5)] {
+            let (n, draws, amp) = (40, 20_000, 1.5);
+            let mut sum = vec![0.0_f64; n];
+            let mut cross = vec![0.0_f64; n];
+            let mut out = vec![0.0; n];
+            for s in 0..draws {
+                gaussian_process_periodic(&mut out, ls, amp, p, 0.0, 0.0, 1000 + s as u64);
+                for t in 0..n {
+                    sum[t] += out[t];
+                    cross[t] += out[0] * out[t];
+                }
+            }
             for t in 0..n {
-                sum[t] += out[t];
-                cross[t] += out[0] * out[t];
+                let cov =
+                    cross[t] / draws as f64 - (sum[0] / draws as f64) * (sum[t] / draws as f64);
+                let exact = gp_kernel(t as f64, 4, ls, amp, p);
+                assert!(
+                    (cov - exact).abs() < 0.08,
+                    "ls={ls} p={p} lag {t}: {cov} vs {exact}"
+                );
             }
         }
-        for t in 0..n {
-            let cov = cross[t] / draws as f64 - (sum[0] / draws as f64) * (sum[t] / draws as f64);
-            let exact = gp_kernel(t as f64, 4, ls, amp, p);
-            assert!((cov - exact).abs() < 0.08, "lag {t}: {cov} vs {exact}");
+    }
+
+    #[test]
+    fn test_periodic_integer_period_is_exactly_periodic() {
+        let (n, p) = (200, 12);
+        let mut out = vec![0.0; n];
+        gaussian_process_periodic(&mut out, 0.7, 1.0, p as f64, 3.0, 0.0, 7);
+        for t in 0..n - p {
+            assert!((out[t] - out[t + p]).abs() < 1e-12, "t {t}");
+        }
+    }
+
+    #[test]
+    fn test_periodic_extreme_length_scales() {
+        let n = 2000;
+        let mut out = vec![0.0; n];
+        for &p in &[2.0, 7.0, 7.3] {
+            // Huge length scales: the constant kernel, so a constant path.
+            for &ls in &[1e30, 1e160, f64::INFINITY] {
+                gaussian_process_periodic(&mut out, ls, 1.0, p, 0.0, 0.0, 3);
+                assert!(out.iter().all(|v| v.is_finite()), "ls={ls} p={p}");
+                assert!(
+                    out.iter().all(|v| (v - out[0]).abs() < 1e-9),
+                    "ls={ls} p={p}"
+                );
+            }
+        }
+        // Tiny length scale, integer period 2: independent values within a period, repeated.
+        gaussian_process_periodic(&mut out, 1e-8, 1.0, 2.0, 0.0, 0.0, 3);
+        assert!(out.iter().all(|v| v.is_finite()));
+        assert!((out[0] - out[1]).abs() > 1e-6);
+        assert!(out.windows(3).all(|w| w[0] == w[2]));
+        // Tiny length scale, non-integer period (Levinson path): unit variance, uncorrelated
+        // at lag 1. Lag 73 is exactly 10 periods, so one path repeats every 73 steps;
+        // estimate across seeds rather than along a path.
+        let draws = 2000;
+        let mut short = vec![0.0; 60];
+        let (mut s00, mut s01) = (0.0, 0.0);
+        for seed in 0..draws {
+            gaussian_process_periodic(&mut short, 1e-8, 1.0, 7.3, 0.0, 0.0, seed);
+            assert!(short.iter().all(|v| v.is_finite()));
+            s00 += short[0] * short[0];
+            s01 += short[0] * short[1];
+        }
+        let (var, cov) = (s00 / draws as f64, s01 / draws as f64);
+        assert!((var - 1.0).abs() < 0.15, "variance {var}");
+        assert!(cov.abs() < 0.1, "lag-1 covariance {cov}");
+    }
+
+    #[test]
+    fn test_periodic_deterministic() {
+        for &p in &[12.0, 7.3] {
+            assert_deterministic(
+                |o| gaussian_process(o, 4, 0.7, 1.0, p, 0.0, 0.01, 42),
+                "gp_periodic",
+            );
         }
     }
 

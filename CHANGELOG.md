@@ -21,9 +21,11 @@
   more, including those with a linear kernel. Bulk `generate()` runs it in the
   Rust batch path. `jitter` is now added to each polynomial term and escalated
   on a numerical breakdown.
-- `GaussianProcessGenerator(kernel="periodic")` samples exactly from the
-  periodic kernel's Fourier series in O(n J) instead of an O(n^3) Cholesky:
-  about 1 ms instead of 560 ms at length 2,273.
+- `GaussianProcessGenerator(kernel="periodic")` samples exactly without an
+  O(n^3) Cholesky, for any length scale. An integer period samples one period
+  by a circulant FFT and tiles it; a non-integer period uses the kernel's
+  cosine series in O(n J), or Durbin-Levinson in O(n^2) for length scales so
+  short that J would exceed n. About 1 ms instead of 560 ms at length 2,273.
 
 ### Reproducibility
 
