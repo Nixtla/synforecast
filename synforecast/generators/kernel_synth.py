@@ -9,10 +9,10 @@ from synforecast.base import BaseGenerator
 _MAX_ABS = 1e8
 _MIN_STD = 1e-8
 _MAX_RETRIES = 8
-# Jitter escalations on a numerical Levinson breakdown before redrawing the composition.
+# Tenfold jitter escalations on a Levinson breakdown before the composition is redrawn.
 _MAX_REGULARIZATIONS = 4
 
-# Kernel kind ids shared with the Rust batch kernel (rust/src/generators/kernel_synth.rs).
+# Shared with rust/src/generators/kernel_synth.rs.
 _KIND_IDS = {
     "rbf": 0,
     "rational_quadratic": 1,
@@ -82,14 +82,11 @@ class KernelSynthGenerator(BaseGenerator):
         - white: ``w`` on the diagonal — independent noise
         - constant: a constant offset
 
-    Every base kernel except the linear one is stationary, so a composition
-    is a polynomial ``K(x, x') = sum_d (x x')^d T_d(x - x')`` with stationary
-    PSD coefficients ``T_d``. Each series is sampled exactly as
-    ``sum_d x^d * f_d`` with independent ``f_d ~ GP(0, T_d)``, each drawn by
-    an O(n^2) Durbin-Levinson recursion; no dense covariance matrix is formed.
-    Bulk ``generate()`` calls run this in the Rust batch path; Rust and NumPy
-    RNG streams are seed-deterministic within their paths but not bit-for-bit
-    equivalent.
+    Each composition is a polynomial ``K = sum_d (x x')^d T_d(x - x')`` with
+    stationary PSD ``T_d`` (only the linear kernel is non-stationary), sampled
+    exactly as ``sum_d x^d * f_d`` with independent O(n^2) Durbin-Levinson
+    draws ``f_d ~ GP(0, T_d)``. Bulk ``generate()`` runs in the Rust batch
+    path, whose RNG stream differs from NumPy's.
 
     Because a composed kernel can be near-degenerate or produce an exploding
     scale, non-finite, near-constant, or ``|y| >= 1e8`` draws are redrawn a
@@ -112,10 +109,8 @@ class KernelSynthGenerator(BaseGenerator):
             kernel (default: [0.1, 1.0]).
         include_constant (bool): Include a constant kernel in the bank
             (default: True).
-        jitter (float): Diagonal jitter added to each polynomial term
-            ``T_d`` for numerical stability, escalated tenfold (up to four
-            times) when the Levinson recursion still breaks down
-            (default: 1e-6).
+        jitter (float): Diagonal jitter added to each term ``T_d``, escalated
+            if the recursion still breaks down (default: 1e-6).
         standardize (bool): Standardize each sampled series to zero mean and
             unit variance. Kernel compositions span extreme scales, so
             standardization keeps the pool comparable for pretraining
@@ -203,12 +198,7 @@ class KernelSynthGenerator(BaseGenerator):
         return self
 
     def _get_batch_params(self) -> tuple[np.ndarray, list[np.ndarray]]:
-        """Encode the kernel bank for the Rust batch kernel.
-
-        The Rust kernel draws each composition itself, so only the bank and
-        the sampling settings are passed. Ordering and kind ids must match the
-        ``GEN_KERNEL_SYNTH`` dispatch arm in ``rust/src/batch.rs`` /
-        ``rust/src/generators/kernel_synth.rs``:
+        """Encode the bank for ``GEN_KERNEL_SYNTH`` in ``rust/src/batch.rs``.
 
         scalars: [max_kernels, jitter, standardize]
         arrays:  [kernel kind ids (``_KIND_IDS``), kernel parameters]
@@ -250,11 +240,7 @@ class KernelSynthGenerator(BaseGenerator):
     def _kernel_terms(
         self, indices: np.ndarray, ops: list[bool], length: int, lag: np.ndarray
     ) -> list[np.ndarray | None]:
-        """Coefficients ``T_d`` of ``K(x, x') = sum_d (x x')^d T_d(x - x')`` for one composition.
-
-        ``ops[j]`` combines the running kernel with ``bank[indices[j + 1]]``:
-        True adds, False multiplies. ``None`` entries are zero terms.
-        """
+        """Coefficients ``T_d`` of one composition; ``ops[j]`` is True to add ``bank[indices[j + 1]]``, False to multiply."""
         terms = self._base_terms(self._bank[indices[0]], length, lag)
         for index, add in zip(indices[1:], ops, strict=True):
             comp = self._base_terms(self._bank[index], length, lag)
@@ -292,7 +278,6 @@ class KernelSynthGenerator(BaseGenerator):
             level = np.sqrt(max(float(c[0]), 0.0)) * self.rng.standard_normal()
             return level + np.sqrt(self.jitter) * self.rng.standard_normal(n)
         if not np.any(c[1:]):
-            # White kernel: independent normals.
             sd = np.sqrt(max(float(c[0]) + self.jitter, 0.0))
             return sd * self.rng.standard_normal(n)
         z = self.rng.standard_normal(n)
@@ -310,11 +295,8 @@ class KernelSynthGenerator(BaseGenerator):
         """Draw a kernel composition and sample one path from its GP prior; None on breakdown."""
         n_kernels = int(self.rng.integers(1, self.max_kernels + 1))
         indices = self.rng.integers(0, len(self._bank), size=n_kernels)
-        # True -> add (mix behaviors), False -> multiply (modulate behaviors)
         ops = [bool(self.rng.integers(0, 2) == 0) for _ in range(n_kernels - 1)]
         terms = self._kernel_terms(indices, ops, length, x - x[0])
-
-        # Independent stationary draws per degree: y = sum_d x^d * f_d has covariance K.
         values = np.zeros(length)
         for degree, c in enumerate(terms):
             if c is None or not np.any(c):

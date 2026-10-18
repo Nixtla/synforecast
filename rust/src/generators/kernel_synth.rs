@@ -1,18 +1,10 @@
 //! KernelSynth generator: GP samples from randomly composed kernels.
 //!
-//! Port of `synforecast/generators/kernel_synth.py`. RNG streams do not match
-//! numpy — parity with the Python reference is statistical, not bitwise.
-//!
-//! The linear kernel is `s^2 + x x'` and every other base kernel is
-//! stationary, so any `+`/`*` composition of the bank is a polynomial in
-//! `x x'` whose coefficients are stationary kernels of the lag:
-//!
-//!   K(x, x') = sum_d (x x')^d T_d(x - x').
-//!
-//! Each `T_d` is a sum of Schur products of PSD kernels with non-negative
-//! coefficients, hence PSD, so `y = sum_d x^d * f_d` with independent
-//! `f_d ~ GP(0, T_d)` has covariance exactly `K`. Each `f_d` is sampled by a
-//! Durbin-Levinson recursion in O(n^2); no dense covariance is formed.
+//! Port of `synforecast/generators/kernel_synth.py`; parity with numpy is
+//! statistical, not bitwise. The linear kernel is `s^2 + x x'` and the others
+//! are stationary, so every composition is `K = sum_d (x x')^d T_d(x - x')`
+//! with PSD `T_d`, and `y = sum_d x^d * f_d` with independent
+//! `f_d ~ GP(0, T_d)` (Durbin-Levinson, O(n^2)) has covariance exactly `K`.
 //!
 //! Scalar parameter layout (must match `KernelSynthGenerator._get_batch_params`):
 //!   0: max_kernels   1: jitter   2: standardize (0/1)
@@ -33,17 +25,16 @@ const KIND_LINEAR: i32 = 3;
 const KIND_WHITE: i32 = 4;
 const KIND_CONSTANT: i32 = 5;
 
-// Output guards — mirror _MAX_ABS / _MIN_STD / _MAX_RETRIES in kernel_synth.py
+// Guards and retry budgets — mirror kernel_synth.py
 const MAX_ABS: f64 = 1e8;
 const MIN_STD: f64 = 1e-8;
 const MAX_RETRIES: usize = 8;
-// Jitter escalations on a numerical Levinson breakdown — mirrors _MAX_REGULARIZATIONS
 const MAX_REGULARIZATIONS: usize = 4;
 
 /// Coefficients `T_d` of the composition, indexed by the degree `d`; `None` is a zero term.
 type Terms = Vec<Option<Vec<f64>>>;
 
-/// Stationary base kernel evaluated at the lags `lag` (the normalized grid offsets).
+/// Stationary base kernel at the normalized-grid lags `lag`.
 fn lag_kernel(kind: i32, param: f64, lag: &[f64]) -> Vec<f64> {
     let length = lag.len() as f64;
     match kind {
@@ -137,14 +128,11 @@ fn kernel_terms(
     terms
 }
 
-/// `L z` for the Cholesky factor `L` of `Toeplitz(c) + extra I`, by Durbin-Levinson in O(n^2).
-///
-/// Returns `None` on breakdown (a non-positive innovation variance or a reflection
-/// coefficient outside (-1, 1), i.e. a numerically non-PD matrix).
+/// `L z` for the Cholesky factor `L` of `Toeplitz(c) + extra I`, by Durbin-Levinson in O(n^2);
+/// `None` if the matrix is numerically not positive definite.
 pub(crate) fn levinson_sample(c: &[f64], extra: f64, z: &[f64]) -> Option<Vec<f64>> {
     let n = c.len();
     let mut v = c[0] + extra;
-    // NaN fails every comparison, so test the accepted range rather than its complement.
     if v.is_nan() || v <= 0.0 {
         return None;
     }
@@ -202,7 +190,6 @@ fn sample_stationary(rng: &mut SfRng, c: &[f64], jitter: f64) -> Option<Vec<f64>
         return Some((0..n).map(|_| level + sd * rng.standard_normal()).collect());
     }
     if c[1..].iter().all(|&v| v == 0.0) {
-        // White kernel: independent normals.
         let sd = (c0 + jitter).max(0.0).sqrt();
         return Some((0..n).map(|_| sd * rng.standard_normal()).collect());
     }
@@ -231,7 +218,7 @@ fn compose_and_sample(
     let indices: Vec<usize> = (0..n_kernels)
         .map(|_| rng.integers(0, n_bank) as usize)
         .collect();
-    // true -> add (mix behaviors), false -> multiply (modulate behaviors)
+    // true = add, false = multiply
     let ops: Vec<bool> = (1..n_kernels).map(|_| rng.integers(0, 2) == 0).collect();
 
     // x[0] == 0, so the grid doubles as the lag vector.
@@ -257,11 +244,7 @@ fn mean_and_pop_std(x: &[f64]) -> (f64, f64) {
     (mean, var.sqrt())
 }
 
-/// Generate one KernelSynth series into `out`.
-///
-/// Non-finite, `|y| >= MAX_ABS`, or near-constant draws are redrawn up to
-/// `MAX_RETRIES` times; if the budget is exhausted the series falls back to
-/// standard Gaussian noise, as in the Python reference.
+/// Generate one KernelSynth series into `out`; rejected draws are retried, then fall back to noise.
 pub fn kernel_synth(out: &mut [f64], sp: &[f64], kinds: &[f64], params: &[f64], seed: u64) {
     let length = out.len();
     if length == 0 {
@@ -309,7 +292,6 @@ pub fn kernel_synth(out: &mut [f64], sp: &[f64], kinds: &[f64], params: &[f64], 
         out.copy_from_slice(&values);
         return;
     }
-    // Retry budget exhausted (pathological bank): fall back to noise.
     out.iter_mut().for_each(|v| *v = rng.standard_normal());
 }
 
@@ -492,7 +474,7 @@ mod tests {
 
     #[test]
     fn test_constant_bank_without_jitter_falls_back_to_noise() {
-        // A constant draw is near-constant, so every retry is rejected and the noise fallback applies.
+        // Constant draws are rejected on every retry.
         let mut out = vec![0.0; 200];
         kernel_synth(&mut out, &[1.0, 0.0, 1.0], &[5.0], &[1.0], 9);
         let (_, std) = mean_and_pop_std(&out);

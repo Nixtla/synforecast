@@ -80,7 +80,6 @@ def _frame_values(df) -> list[np.ndarray]:
 
 
 def test_repeated_calls_follow_generate_with_correlated_exogenous() -> None:
-    """Correlated exogenous columns draw from the generator's RNG; values-only calls must advance it too."""
     kwargs = {
         "min_length": 30,
         "max_length": 50,
@@ -135,7 +134,7 @@ def test_rejects_nonpositive_n_series(n_series: int) -> None:
     range(len(pretraining_pool(min_length=8, max_length=8, freq="YS", seed=1))),
 )
 def test_long_yearly_series_need_no_calendar(member: int) -> None:
-    # 2,273 yearly steps from 2000 run past pandas' datetime range; values-only draws must not build a calendar.
+    # 2,273 yearly steps run past pandas' datetime range.
     gen = pretraining_pool(
         min_length=2273,
         max_length=2273,

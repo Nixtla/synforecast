@@ -183,14 +183,8 @@ def interpretable_pool(
             Defaults to None, which builds all 42. Each selected instance is
             identical to the same entry of the full pool, and the others are
             never constructed.
-            Indices must lie in ``0..len(pool) - 1`` (negative or larger
-            ones raise IndexError); duplicates give separate, identical
-            instances. Each entry's seed is fixed by ``seed``, so rebuilding a
-            member with the same ``seed`` repeats its series, and consecutive
-            ``seed`` values can map variants of one class onto the same seed.
-            For a stream of fresh draws, build each member once and keep
-            drawing from it, or give every rebuild its own 64-bit seed, e.g.
-            from ``np.random.SeedSequence(base).generate_state(n, np.uint64)``.
+            Entry seeds are fixed by ``seed``, so for fresh draws reuse built
+            members or give each rebuild its own 64-bit seed.
         **base_kwargs: Additional keyword arguments passed to all generators
             (e.g., engine, id_col, time_col, target_col).
 
@@ -640,20 +634,11 @@ def pretraining_pool(
         members: Indices of the pool entries to build, in the order given.
             Defaults to None, which builds the whole pool. Each selected
             instance is identical to the same entry of the full pool and the
-            others are never constructed, so drawing one member per series
-            avoids constructing the whole pool every time. The layout is the
-            42 interpretable entries (if ``include_interpretable``), then
+            others are never constructed. Order: interpretable entries, then
             ``n_meta_variants`` each of TSI, TCM, KernelSynth and MAR, then
-            the 8 seasonal entries (if ``include_seasonal`` applies), so
-            indices depend on those arguments.
-            Indices must lie in ``0..len(pool) - 1`` (negative or larger
-            ones raise IndexError); duplicates give separate, identical
-            instances. Each entry's seed is fixed by ``seed``, so rebuilding a
-            member with the same ``seed`` repeats its series, and consecutive
-            ``seed`` values can map variants of one class onto the same seed.
-            For a stream of fresh draws, build each member once and keep
-            drawing from it, or give every rebuild its own 64-bit seed, e.g.
-            from ``np.random.SeedSequence(base).generate_state(n, np.uint64)``.
+            seasonal entries.
+            Entry seeds are fixed by ``seed``, so for fresh draws reuse built
+            members or give each rebuild its own 64-bit seed.
         **base_kwargs: Additional keyword arguments passed to all generators
             (e.g., engine, id_col, time_col, target_col).
 
@@ -804,14 +789,8 @@ def seasonal_pool(
             Defaults to None, which builds all 8. Each selected instance is
             identical to the same entry of the full pool, and the others are
             never constructed.
-            Indices must lie in ``0..len(pool) - 1`` (negative or larger
-            ones raise IndexError); duplicates give separate, identical
-            instances. Each entry's seed is fixed by ``seed``, so rebuilding a
-            member with the same ``seed`` repeats its series, and consecutive
-            ``seed`` values can map variants of one class onto the same seed.
-            For a stream of fresh draws, build each member once and keep
-            drawing from it, or give every rebuild its own 64-bit seed, e.g.
-            from ``np.random.SeedSequence(base).generate_state(n, np.uint64)``.
+            Entry seeds are fixed by ``seed``, so for fresh draws reuse built
+            members or give each rebuild its own 64-bit seed.
         **base_kwargs: Additional keyword arguments passed to all generators
             (e.g., engine, id_col, time_col, target_col). Keys the pool sets
             per generator, such as ``alias`` or ``level``, raise ValueError.

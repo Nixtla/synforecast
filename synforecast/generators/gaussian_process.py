@@ -27,11 +27,9 @@ class GaussianProcessGenerator(BaseGenerator):
         - periodic: ``a^2 exp(-2 sin^2(pi r / period) / l^2)`` — exact
           periodicity
 
-    The periodic kernel is sampled exactly for any length scale: an integer
-    period by a circulant FFT over one period, tiled; a non-integer period by
-    the kernel's cosine series (about ``9.2 / l`` terms), or by an O(n^2)
-    Durbin-Levinson recursion when the series would need more terms than the
-    path has points. The other kernels use FFT circulant embedding.
+    The periodic kernel is sampled exactly: one period by circulant FFT for an
+    integer period, otherwise its cosine series, or Durbin-Levinson for very
+    short length scales. The other kernels use FFT circulant embedding.
 
     Args:
         kernel (str): Kernel type (default: 'rbf').

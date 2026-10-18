@@ -596,17 +596,14 @@ pub fn gaussian_process_fft(
     }
 }
 
-/// Re-synchronize the rotation recurrence with an exact `sin_cos` this often, bounding its drift.
+/// Steps between exact `sin_cos` resyncs of the rotation recurrence.
 const ROTATION_RESYNC: usize = 256;
 
-/// Cosine-series weights c_0 = e^{-q} I_0(q), c_j = 2 e^{-q} I_j(q) (q = 1/l^2) of the periodic kernel, scaled to sum to `a2`.
+/// Cosine-series weights c_0 = e^{-q} I_0(q), c_j = 2 e^{-q} I_j(q) (q = 1/l^2) of the periodic kernel, summing to `a2`.
 ///
-/// The ratios I_j / I_{j-1} come from the backward continued fraction
-/// r_j = q / (2j + q r_{j+1}) (Miller's algorithm in ratio form), which cannot
-/// overflow for any q >= 0, including q = 0 (an infinite length scale, a
-/// constant kernel). Starting 30 sqrt(q) + 40 terms out leaves a start-up error
-/// of order exp(-800) for the ~9.2 sqrt(q) terms that survive the 1e-18 cutoff.
-/// Callers bound sqrt(q) (see `gaussian_process_periodic`), which bounds the work.
+/// Miller's algorithm in ratio form, r_j = I_j / I_{j-1} = q / (2j + q r_{j+1}), cannot
+/// overflow for any q >= 0. Starting 30 sqrt(q) + 40 terms out makes the start-up error
+/// negligible for the ~9.2 sqrt(q) terms above the 1e-18 cutoff.
 fn periodic_fourier_weights(length_scale: f64, a2: f64) -> Vec<f64> {
     let q = 1.0 / (length_scale * length_scale);
     let start = (40.0 + 30.0 * q.sqrt()).ceil() as usize;
@@ -616,7 +613,7 @@ fn periodic_fourier_weights(length_scale: f64, a2: f64) -> Vec<f64> {
         r = q / (2.0 * j as f64 + q * r);
         ratio[j] = r;
     }
-    // rel[j] = I_j(q) / I_0(q), truncated once it falls below 1e-18.
+    // rel[j] = I_j / I_0
     let mut rel = vec![1.0_f64];
     let mut m = 1.0;
     for &r in &ratio[1..] {
@@ -649,17 +646,14 @@ fn dft(mut x: Vec<Complex64>) -> Vec<Complex64> {
     }
 }
 
-/// One period of an integer-period periodic GP, exactly: on the integer grid the
-/// process is p-periodic with a circulant p x p covariance, whose eigenvalues are
-/// the DFT of the kernel row. Re(DFT(sqrt(lambda / p) * w)) for complex standard
-/// normals w has exactly that covariance. O(p log p) at any length scale.
+/// One exact period of an integer-period GP: its p x p covariance is circulant, so
+/// Re(DFT(sqrt(lambda / p) * w)) for complex standard normals w samples it in O(p log p).
 fn periodic_one_period(rng: &mut SfRng, p: usize, length_scale: f64, amplitude: f64) -> Vec<f64> {
     let row: Vec<f64> = (0..p)
         .map(|r| gp_kernel(r as f64, 4, length_scale, amplitude, p as f64))
         .collect();
     let eigenvalues = fft::rfft(&row);
-    // The eigenvalues are non-negative in exact arithmetic. Zero those within FFT rounding
-    // of zero, whose square roots (~1e-8) would otherwise ripple a constant-kernel path.
+    // Zero rounding-level eigenvalues; their square roots (~1e-8) would ripple a constant path.
     let floor = 1e-13 * eigenvalues.iter().map(|l| l.re.max(0.0)).sum::<f64>();
     let w: Vec<Complex64> = eigenvalues
         .iter()
@@ -699,8 +693,7 @@ fn periodic_fourier_series(
     }
 }
 
-/// Periodic GP by Durbin-Levinson on its Toeplitz covariance, for length scales so short
-/// that the cosine series needs more terms than the series has points.
+/// Periodic GP by Durbin-Levinson, for length scales whose cosine series would exceed n terms.
 fn periodic_levinson(
     rng: &mut SfRng,
     out: &mut [f64],
@@ -722,17 +715,14 @@ fn periodic_levinson(
         }
         extra = (10.0 * extra).max(1e-12 * a2);
     }
-    // Numerically singular even with jitter: the short-length-scale limit, white noise.
+    // Still singular: use the short-length-scale limit, white noise.
     let sd = amplitude.abs();
     out.iter_mut().zip(&z).for_each(|(v, zv)| *v += sd * zv);
 }
 
-/// Exact periodic-kernel GP sample on the integer grid, for any length scale.
-///
-/// - Integer period p (up to 4 max(n, 1024)): one period by a size-p circulant
-///   DFT, tiled to the series length.
-/// - Otherwise the kernel's cosine series in O(n J), J ~ 9.2 / l terms, or
-///   Durbin-Levinson in O(n^2) once J would exceed n.
+/// Exact periodic-kernel GP sample for any length scale: an integer period (up to
+/// 4 max(n, 1024)) by circulant DFT, tiled; otherwise the cosine series in O(n J),
+/// J ~ 9.2 / l, or Durbin-Levinson once J would exceed n.
 pub fn gaussian_process_periodic(
     out: &mut [f64],
     length_scale: f64,
@@ -1051,7 +1041,6 @@ mod tests {
             assert!((total - 2.5).abs() < 1e-12, "ls={ls} total={total}");
             assert!(w.iter().all(|v| v.is_finite() && *v >= 0.0));
         }
-        // An infinite length scale is the constant kernel.
         assert_eq!(periodic_fourier_weights(f64::INFINITY, 2.5), vec![2.5]);
     }
 
@@ -1122,7 +1111,7 @@ mod tests {
         let n = 2000;
         let mut out = vec![0.0; n];
         for &p in &[2.0, 7.0, 7.3] {
-            // Huge length scales: the constant kernel, so a constant path.
+            // Huge length scales: a constant path.
             for &ls in &[1e30, 1e160, f64::INFINITY] {
                 gaussian_process_periodic(&mut out, ls, 1.0, p, 0.0, 0.0, 3);
                 assert!(out.iter().all(|v| v.is_finite()), "ls={ls} p={p}");
@@ -1132,14 +1121,12 @@ mod tests {
                 );
             }
         }
-        // Tiny length scale, integer period 2: independent values within a period, repeated.
+        // Tiny length scale, period 2: two independent values, repeated.
         gaussian_process_periodic(&mut out, 1e-8, 1.0, 2.0, 0.0, 0.0, 3);
         assert!(out.iter().all(|v| v.is_finite()));
         assert!((out[0] - out[1]).abs() > 1e-6);
         assert!(out.windows(3).all(|w| w[0] == w[2]));
-        // Tiny length scale, non-integer period (Levinson path): unit variance, uncorrelated
-        // at lag 1. Lag 73 is exactly 10 periods, so one path repeats every 73 steps;
-        // estimate across seeds rather than along a path.
+        // Tiny length scale, period 7.3 (Levinson). A path repeats every 73 steps, so estimate across seeds.
         let draws = 2000;
         let mut short = vec![0.0; 60];
         let (mut s00, mut s01) = (0.0, 0.0);
