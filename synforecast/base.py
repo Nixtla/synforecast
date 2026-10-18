@@ -728,6 +728,14 @@ class BaseGenerator(BaseModel, ABC):
             DataFrame in the configured engine.
         """
         if self._values_only:
+            # Correlated exogenous columns draw from self.rng; advance it as the
+            # frame build would, so later calls keep matching generate().
+            if self.exogenous is not None and self.exogenous.correlated:
+                flat_values = np.concatenate([m.values for m in series_metadata])
+                for exog_config in self.exogenous.correlated:
+                    generate_correlated_exog(
+                        series_metadata, flat_values, exog_config, self.rng
+                    )
             return series_metadata
         # Flatten core columns
         flat_values = np.concatenate([m.values for m in series_metadata])
@@ -863,11 +871,13 @@ class BaseGenerator(BaseModel, ABC):
         """Generate series as value arrays, without building a DataFrame.
 
         Draws exactly the series :meth:`generate` would draw from the same
-        generator state (native Rust batch path where available, including
-        changepoint, anomaly and missing-data overlays, with missing points as
-        NaN), so it suits pretraining streams that need values only. No calendar
-        is built, so lengths beyond pandas' datetime range (e.g. thousands of
-        yearly steps) work.
+        generator state, and leaves the generator in the same state, so a
+        sequence of calls matches the same sequence of :meth:`generate` calls.
+        Changepoint, anomaly and missing-data overlays are applied as in
+        :meth:`generate` (missing points are NaN), on the native Rust batch path
+        where available. No DataFrame, exogenous column, or calendar is built,
+        so it suits pretraining streams that need values only, and lengths
+        beyond pandas' datetime range (e.g. thousands of yearly steps) work.
 
         Args:
             n_series (int): Number of time series to generate.
@@ -876,7 +886,10 @@ class BaseGenerator(BaseModel, ABC):
                 Results are seed-deterministic and do not depend on n_jobs.
 
         Returns:
-            List of ``n_series`` 1-D float arrays.
+            One 1-D float array per generated series, in id order: ``n_series``
+            arrays, except for generators whose ``n_series`` counts groups of
+            series (``IoTSensorGenerator`` with ``n_sensors > 1`` returns
+            ``n_series * n_sensors``).
         """
         if n_series < 1:
             raise ValueError(f"n_series must be a positive integer, got {n_series}.")

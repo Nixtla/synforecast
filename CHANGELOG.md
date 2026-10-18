@@ -10,7 +10,9 @@
 - `members=` on `pretraining_pool`, `interpretable_pool` and `seasonal_pool`:
   build only the selected pool entries, each identical to the full pool's
   entry. Drawing one member per series no longer constructs the whole pool
-  (0.11 ms instead of 3.6 ms per draw).
+  (0.11 ms instead of 3.6 ms per draw). Entry seeds are fixed by `seed`, so
+  a stream of fresh draws should reuse built members or give each rebuild its
+  own 64-bit seed (see the `members` docs).
 
 ### Changed
 

@@ -3,6 +3,13 @@
 import numpy as np
 import pytest
 
+from synforecast.base import BaseGenerator
+from synforecast.exogenous import CorrelatedExogConfig, ExogenousConfig
+from synforecast.generators import (
+    IoTSensorGenerator,
+    KernelSynthGenerator,
+    TCMGenerator,
+)
 from synforecast.generators.sarima import SARIMAGenerator
 from synforecast.presets import pretraining_pool
 
@@ -25,20 +32,80 @@ def test_values_match_generate(member: int) -> None:
     values = pretraining_pool(**kwargs)[0].generate_values(n_series=3, n_jobs=1)
     assert len(values) == 3
     for i, v in enumerate(values):
+        assert v.dtype == np.float64
         expected = df.loc[
             df["unique_id"] == df["unique_id"].unique()[i], "y"
         ].to_numpy()
         np.testing.assert_array_equal(v, expected)
 
 
-def test_values_do_not_depend_on_workers() -> None:
-    one = pretraining_pool(
-        min_length=64, max_length=64, freq="h", seed=8, members=[45]
-    )[0].generate_values(6, n_jobs=1)
-    many = pretraining_pool(
-        min_length=64, max_length=64, freq="h", seed=8, members=[45]
-    )[0].generate_values(6, n_jobs=4)
+class _ThreadedWalk(BaseGenerator):
+    """No Rust batch kernel, so generation takes the threaded path."""
+
+    def generate_single_series(self, length: int) -> np.ndarray:
+        return np.cumsum(self.rng.standard_normal(length))
+
+
+def _pool_member(cls: type[BaseGenerator]) -> BaseGenerator:
+    kwargs = {"min_length": 64, "max_length": 64, "freq": "h", "seed": 8}
+    index = next(
+        i for i, g in enumerate(pretraining_pool(**kwargs)) if isinstance(g, cls)
+    )
+    return pretraining_pool(**kwargs, members=[index])[0]
+
+
+@pytest.mark.parametrize(
+    "make",
+    [
+        pytest.param(lambda: _pool_member(KernelSynthGenerator), id="native"),
+        pytest.param(lambda: _pool_member(TCMGenerator), id="override"),
+        pytest.param(
+            lambda: _ThreadedWalk(min_length=64, max_length=64, freq="h", seed=8),
+            id="threaded",
+        ),
+    ],
+)
+def test_values_do_not_depend_on_workers(make) -> None:
+    one = make().generate_values(6, n_jobs=1)
+    many = make().generate_values(6, n_jobs=4)
     for a, b in zip(one, many, strict=True):
+        np.testing.assert_array_equal(a, b)
+
+
+def _frame_values(df) -> list[np.ndarray]:
+    return [
+        group["y"].to_numpy()
+        for _, group in df.groupby("unique_id", observed=True, sort=False)
+    ]
+
+
+def test_repeated_calls_follow_generate_with_correlated_exogenous() -> None:
+    """Correlated exogenous columns draw from the generator's RNG; values-only calls must advance it too."""
+    kwargs = {
+        "min_length": 30,
+        "max_length": 50,
+        "freq": "D",
+        "seed": 4,
+        "exogenous": ExogenousConfig(
+            correlated=[CorrelatedExogConfig(name="x", correlation=0.7)]
+        ),
+    }
+    values_gen, frame_gen = SARIMAGenerator(**kwargs), SARIMAGenerator(**kwargs)
+    for _ in range(3):
+        values = values_gen.generate_values(2, n_jobs=1)
+        expected = _frame_values(frame_gen.generate(2, n_jobs=1))
+        for a, b in zip(values, expected, strict=True):
+            np.testing.assert_array_equal(a, b)
+
+
+def test_grouped_generators_return_one_array_per_series() -> None:
+    kwargs = {"min_length": 40, "max_length": 40, "freq": "h", "seed": 6}
+    values = IoTSensorGenerator(**kwargs, n_sensors=3).generate_values(2, n_jobs=1)
+    expected = _frame_values(
+        IoTSensorGenerator(**kwargs, n_sensors=3).generate(2, n_jobs=1)
+    )
+    assert len(values) == len(expected) == 6
+    for a, b in zip(values, expected, strict=True):
         np.testing.assert_array_equal(a, b)
 
 
