@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `FitAndSimulate`, `Mixup`, `MovingBlockBootstrap` and `DBA`: frozen
+  augmentation specs run with `apply()`, plus `analyze` in
+  `synforecast.augment`. `source_col` records provenance (`Mixup`: anchor,
+  `DBA`: reference; other blended series still contribute values); `augment`
+  and `mixup` keep extra columns.
+
+### Changed
+
+- A spec's `apply` returns identical output for the same spec, data and seed.
+- Invalid arguments raise pydantic `ValidationError` (a `ValueError`, with
+  pydantic's messages, including bounds and unknown generator names) when a
+  spec is built; numeric fields reject bools and strings. Warnings log from
+  `synforecast.augment`, and the AR(1) summary no longer starts with
+  `SynAugment`.
+- `generator_override` keys are stored and matched as `str(key)`, so a spec
+  round-trips through `model_dump`/JSON to an equal spec.
+
+### Fixed
+
+- `augment` is reproducible on polars input, `_aug_` ids no longer collide
+  with existing ids, and unknown `generator_override` keys warn.
+- `mixup(alpha=nan or inf)` is rejected.
+- `SynAugment(seed=...)` rejects bools and strings, like spec seeds.
+
 ## 0.2.0 - 2026-10-12
 
 ### Added
