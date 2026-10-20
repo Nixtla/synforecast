@@ -112,7 +112,7 @@ Synthetic series IDs follow the pattern ``"{original_id}_aug_{i}"``.
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
 `n_augment` | <code>[int](#int)</code> | Number of synthetic series to generate per original series, from 1 to 1000 (default: 1) | *required*
-`generator_override` | <code>[dict](#dict) \| None</code> | Optional dict mapping unique_id to generator name. Overrides automatic generator selection for specified series. Keys may be any hashable and are stored as ``str(key)``; a series matches when ``str(id)`` equals a key, so ``1`` and ``"1"`` are the same key. Stored as a read-only mapping; ``model_dump`` returns a plain dict. Keys matching no series are warned about; ``apply`` raises ValueError if no key matches any series. Example: &#123;"series_0": "SARIMAGenerator"&#125; | *required*
+`generator_override` | <code>[dict](#dict) \| None</code> | Optional dict mapping unique_id to generator name. Overrides automatic generator selection for specified series. Keys may be any hashable and are stored as ``str(key)``; a series matches when ``str(id)`` equals a key, so ``1`` and ``"1"`` are the same key. Stored as a read-only mapping; ``model_dump`` returns a plain dict. Keys matching no series are warned about and ignored, so one spec can be reused on subsets. Example: &#123;"series_0": "SARIMAGenerator"&#125; | *required*
 `on_error` | <code>[str](#str)</code> | What to do when a fitted generator fails for a series. 'raise' (default) propagates the error; 'ar1' substitutes an AR(1) series matching the source's mean, std, and lag-1 autocorrelation, and reports all substitutions in a single warning at the end of `apply`. | *required*
 `seed` | <code>[int](#int) \| None</code> | Default random seed for ``apply`` (default: None) | *required*
 
@@ -160,7 +160,7 @@ Type | Description
 Type | Description
 ---- | -----------
 <code>[ValidationError](#ValidationError)</code> | If ``seed`` is not a non-negative integer.
-<code>[ValueError](#ValueError)</code> | If ``df`` is missing required columns, ``source_col`` clashes with an input column, no series is usable, or no ``generator_override`` key matches a series (FitAndSimulate).
+<code>[ValueError](#ValueError)</code> | If ``df`` is missing required columns, ``source_col`` clashes with an input column, or no series is usable.
 <code>[RuntimeError](#RuntimeError)</code> | If a FitAndSimulate generator fails and ``on_error='raise'`` (the default).
 
 #### `FitAndSimulate.apply_series`
@@ -273,7 +273,7 @@ Type | Description
 Type | Description
 ---- | -----------
 <code>[ValidationError](#ValidationError)</code> | If ``seed`` is not a non-negative integer.
-<code>[ValueError](#ValueError)</code> | If ``df`` is missing required columns, ``source_col`` clashes with an input column, no series is usable, or no ``generator_override`` key matches a series (FitAndSimulate).
+<code>[ValueError](#ValueError)</code> | If ``df`` is missing required columns, ``source_col`` clashes with an input column, or no series is usable.
 <code>[RuntimeError](#RuntimeError)</code> | If a FitAndSimulate generator fails and ``on_error='raise'`` (the default).
 
 
@@ -364,7 +364,7 @@ Type | Description
 Type | Description
 ---- | -----------
 <code>[ValidationError](#ValidationError)</code> | If ``seed`` is not a non-negative integer.
-<code>[ValueError](#ValueError)</code> | If ``df`` is missing required columns, ``source_col`` clashes with an input column, no series is usable, or no ``generator_override`` key matches a series (FitAndSimulate).
+<code>[ValueError](#ValueError)</code> | If ``df`` is missing required columns, ``source_col`` clashes with an input column, or no series is usable.
 <code>[RuntimeError](#RuntimeError)</code> | If a FitAndSimulate generator fails and ``on_error='raise'`` (the default).
 
 
@@ -464,7 +464,7 @@ Type | Description
 Type | Description
 ---- | -----------
 <code>[ValidationError](#ValidationError)</code> | If ``seed`` is not a non-negative integer.
-<code>[ValueError](#ValueError)</code> | If ``df`` is missing required columns, ``source_col`` clashes with an input column, no series is usable, or no ``generator_override`` key matches a series (FitAndSimulate).
+<code>[ValueError](#ValueError)</code> | If ``df`` is missing required columns, ``source_col`` clashes with an input column, or no series is usable.
 <code>[RuntimeError](#RuntimeError)</code> | If a FitAndSimulate generator fails and ``on_error='raise'`` (the default).
 
 
@@ -642,7 +642,7 @@ Type | Description
 
 Type | Description
 ---- | -----------
-<code>[ValueError](#ValueError)</code> | If DataFrame is missing required columns, n_augment &lt; 1, generator_override names an unsupported generator, or no generator_override key matches a series
+<code>[ValueError](#ValueError)</code> | If DataFrame is missing required columns, n_augment &lt; 1, or generator_override names an unsupported generator
 <code>[RuntimeError](#RuntimeError)</code> | If a fitted generator fails for a series and the instance was created with on_error='raise' (the default)
 
 <details class="example" open markdown="1">
