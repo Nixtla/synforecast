@@ -594,7 +594,7 @@ fn dispatch_generator(
             // sp: [max_kernels, jitter, standardize]
             // ap: [kernel_kind_ids, kernel_params]
             check_params!(sp, 3, ap, 2, "kernel_synth");
-            kernel_synth::kernel_synth(out, sp, &ap[0], &ap[1], seed);
+            kernel_synth::kernel_synth(out, sp, &ap[0], &ap[1], seed)?;
         }
         _ => return Err(format!("unknown generator type: {gen_type}")),
     }

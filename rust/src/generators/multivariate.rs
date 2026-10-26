@@ -1070,6 +1070,33 @@ mod tests {
     }
 
     #[test]
+    fn test_periodic_fourier_series_long_path_matches_direct_evaluation() {
+        // Many resyncs of the rotation recurrence: compare against sin_cos at every step.
+        let (n, ls, amp, p) = (2000, 0.7, 1.3, 24.5);
+        let mut out = vec![0.0; n];
+        periodic_fourier_series(&mut SfRng::new(11), &mut out, ls, amp, p);
+
+        let mut rng = SfRng::new(11);
+        let weights = periodic_fourier_weights(ls, amp * amp);
+        let a0 = weights[0].sqrt() * rng.standard_normal();
+        let mut expected = vec![a0; n];
+        for (j, w) in weights.iter().enumerate().skip(1) {
+            let (a, b) = (
+                w.sqrt() * rng.standard_normal(),
+                w.sqrt() * rng.standard_normal(),
+            );
+            let omega = 2.0 * PI * j as f64 / p;
+            for (t, e) in expected.iter_mut().enumerate() {
+                let (s, c) = (omega * t as f64).sin_cos();
+                *e += a * c + b * s;
+            }
+        }
+        for (t, (o, e)) in out.iter().zip(&expected).enumerate() {
+            assert!((o - e).abs() < 1e-10, "t {t}: {o} vs {e}");
+        }
+    }
+
+    #[test]
     fn test_periodic_empirical_covariance_matches_kernel() {
         // Integer period (circulant), non-integer (cosine series), short length scale (Levinson).
         for &(ls, p) in &[(0.7, 9.0), (0.7, 9.5), (0.2, 9.5)] {

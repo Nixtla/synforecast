@@ -28,8 +28,9 @@ class GaussianProcessGenerator(BaseGenerator):
           periodicity
 
     The periodic kernel is sampled exactly: one period by circulant FFT for an
-    integer period, otherwise its cosine series, or Durbin-Levinson for very
-    short length scales. The other kernels use FFT circulant embedding.
+    integer period up to ``4 * max(length, 1024)``, otherwise its cosine
+    series, or Durbin-Levinson for very short length scales. The other kernels
+    use FFT circulant embedding.
 
     Args:
         kernel (str): Kernel type (default: 'rbf').

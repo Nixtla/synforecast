@@ -6,9 +6,12 @@ import pytest
 from synforecast.base import BaseGenerator
 from synforecast.exogenous import CorrelatedExogConfig, ExogenousConfig
 from synforecast.generators import (
+    CopulaGenerator,
+    DailyActiveUsersGenerator,
     IoTSensorGenerator,
     KernelSynthGenerator,
     TCMGenerator,
+    VARGenerator,
 )
 from synforecast.generators.sarima import SARIMAGenerator
 from synforecast.presets import pretraining_pool
@@ -108,6 +111,18 @@ def test_grouped_generators_return_one_array_per_series() -> None:
         np.testing.assert_array_equal(a, b)
 
 
+@pytest.mark.parametrize(
+    "cls", [CopulaGenerator, VARGenerator, DailyActiveUsersGenerator]
+)
+def test_overriding_generators_outside_the_pool(cls: type[BaseGenerator]) -> None:
+    kwargs = {"min_length": 30, "max_length": 50, "freq": "D", "seed": 9}
+    values = cls(**kwargs).generate_values(3, n_jobs=1)
+    expected = _frame_values(cls(**kwargs).generate(3, n_jobs=1))
+    assert len(values) == len(expected) == 3
+    for a, b in zip(values, expected, strict=True):
+        np.testing.assert_array_equal(a, b)
+
+
 def test_overlays_and_missingness_are_kept() -> None:
     kwargs = {
         "min_length": 60,
@@ -143,10 +158,12 @@ def test_long_yearly_series_need_no_calendar(member: int) -> None:
         members=[member],
     )
     (values,) = gen[0].generate_values(1, n_jobs=1)
-    assert values.shape == (2273,) and np.isfinite(values).sum() >= 2
+    assert values.shape == (2273,)
+    # No missing-data overlay; only the failing IoT sensor drops values (~35%).
+    assert np.isfinite(values).mean() >= 0.5
 
 
-def test_values_only_mode_is_reset_after_the_call() -> None:
+def test_generate_still_builds_the_calendar_after_generate_values() -> None:
     gen = pretraining_pool(min_length=30, max_length=30, freq="D", seed=2, members=[0])[
         0
     ]

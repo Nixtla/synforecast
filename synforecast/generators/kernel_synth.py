@@ -3,14 +3,8 @@
 import numpy as np
 from pydantic import Field, model_validator
 
+from synforecast._lib import multivariate as _rs_mv
 from synforecast.base import BaseGenerator
-
-# Divergence guards, mirroring the other pretraining generators (TSI/TCM).
-_MAX_ABS = 1e8
-_MIN_STD = 1e-8
-_MAX_RETRIES = 8
-# Tenfold jitter escalations on a Levinson breakdown before the composition is redrawn.
-_MAX_REGULARIZATIONS = 4
 
 # Shared with rust/src/generators/kernel_synth.rs.
 _KIND_IDS = {
@@ -21,35 +15,8 @@ _KIND_IDS = {
     "white": 4,
     "constant": 5,
 }
-
-Terms = list[np.ndarray | None]
-
-
-def _add_terms(a: Terms, b: Terms) -> Terms:
-    """Sum of two kernel polynomials in ``x x'``, coefficient by coefficient."""
-    out: Terms = []
-    for degree in range(max(len(a), len(b))):
-        left = a[degree] if degree < len(a) else None
-        right = b[degree] if degree < len(b) else None
-        if left is None or right is None:
-            out.append(right if left is None else left)
-        else:
-            out.append(left + right)
-    return out
-
-
-def _multiply_terms(a: Terms, b: Terms) -> Terms:
-    """Product of two kernel polynomials: degrees add, lag coefficients multiply elementwise."""
-    out: Terms = [None] * (len(a) + len(b) - 1)
-    for i, left in enumerate(a):
-        if left is None:
-            continue
-        for j, right in enumerate(b):
-            if right is None:
-                continue
-            product = left * right
-            out[i + j] = product if out[i + j] is None else out[i + j] + product
-    return out
+# Mirrors MAX_KERNELS in rust/src/generators/kernel_synth.rs.
+_MAX_KERNELS = 64
 
 
 class KernelSynthGenerator(BaseGenerator):
@@ -69,7 +36,9 @@ class KernelSynthGenerator(BaseGenerator):
     (e.g. locally periodic, amplitude-varying seasonality). SynForecast makes
     the bank configurable, expresses seasonal periods in time steps on a
     normalized grid, and adds bounded retries, divergence guards, and optional
-    standardization.
+    standardization. It also replaces the reference's dense Cholesky sampler
+    with the exact O(n^2) polynomial decomposition described below, which
+    adds ``jitter`` to each term and escalates it on a numerical breakdown.
 
     Base kernels (r = |x_i - x_j|, all on the normalized grid):
         - rbf: ``exp(-r^2 / (2 l^2))`` — smooth, length-scale ``l``
@@ -85,8 +54,8 @@ class KernelSynthGenerator(BaseGenerator):
     Each composition is a polynomial ``K = sum_d (x x')^d T_d(x - x')`` with
     stationary PSD ``T_d`` (only the linear kernel is non-stationary), sampled
     exactly as ``sum_d x^d * f_d`` with independent O(n^2) Durbin-Levinson
-    draws ``f_d ~ GP(0, T_d)``. Bulk ``generate()`` runs in the Rust batch
-    path, whose RNG stream differs from NumPy's.
+    draws ``f_d ~ GP(0, T_d)``. Both bulk ``generate()`` and
+    ``generate_single_series`` run this sampler in Rust.
 
     Because a composed kernel can be near-degenerate or produce an exploding
     scale, non-finite, near-constant, or ``|y| >= 1e8`` draws are redrawn a
@@ -94,7 +63,8 @@ class KernelSynthGenerator(BaseGenerator):
 
     Args:
         max_kernels (int): Maximum number of base kernels composed per series;
-            the count is drawn uniformly from ``1..max_kernels`` (default: 5).
+            the count is drawn uniformly from ``1..max_kernels`` (default: 5,
+            at most 64).
         seasonal_periods (list[float]): Periodic-kernel periods, in time steps,
             forming the periodic entries of the bank (default: a broad set from
             4 up to 730 covering common hourly/daily/weekly/quarterly/yearly
@@ -109,8 +79,10 @@ class KernelSynthGenerator(BaseGenerator):
             kernel (default: [0.1, 1.0]).
         include_constant (bool): Include a constant kernel in the bank
             (default: True).
-        jitter (float): Diagonal jitter added to each term ``T_d``, escalated
-            if the recursion still breaks down (default: 1e-6).
+        jitter (float): Diagonal jitter added to each term ``T_d``. On a
+            numerical breakdown it is escalated tenfold up to three times, to
+            at least ``1e-6`` times the term's variance even when ``jitter`` is
+            0 (default: 1e-6).
         standardize (bool): Standardize each sampled series to zero mean and
             unit variance. Kernel compositions span extreme scales, so
             standardization keeps the pool comparable for pretraining
@@ -119,7 +91,10 @@ class KernelSynthGenerator(BaseGenerator):
     """
 
     max_kernels: int = Field(
-        default=5, ge=1, description="Max base kernels composed per series"
+        default=5,
+        ge=1,
+        le=_MAX_KERNELS,
+        description="Max base kernels composed per series",
     )
     seasonal_periods: list[float] = Field(
         default=[
@@ -210,105 +185,10 @@ class KernelSynthGenerator(BaseGenerator):
         )
         return scalars, [kinds, params]
 
-    def _lag_kernel(
-        self, spec: tuple[str, float], length: int, lag: np.ndarray
-    ) -> np.ndarray:
-        """Stationary base kernel as a function of the lag."""
-        kind, param = spec
-        if kind == "rbf":
-            return np.exp(-0.5 * (lag * lag) / param**2)
-        if kind == "rational_quadratic":
-            return (1.0 + (lag * lag) / (2.0 * param)) ** (-param)
-        if kind == "periodic":
-            p_norm = param / length
-            return np.exp(-2.0 * np.sin(np.pi * lag / p_norm) ** 2)
-        if kind == "white":
-            values = np.zeros(length)
-            values[0] = param
-            return values
-        return np.full(length, param)
-
-    def _base_terms(
-        self, spec: tuple[str, float], length: int, lag: np.ndarray
-    ) -> list[np.ndarray | None]:
-        """One bank entry as polynomial terms: ``s^2 + x x'`` for the linear kernel, a degree-0 term otherwise."""
-        kind, param = spec
-        if kind == "linear":
-            return [np.full(length, param**2) if param > 0 else None, np.ones(length)]
-        return [self._lag_kernel(spec, length, lag)]
-
-    def _kernel_terms(
-        self, indices: np.ndarray, ops: list[bool], length: int, lag: np.ndarray
-    ) -> list[np.ndarray | None]:
-        """Coefficients ``T_d`` of one composition; ``ops[j]`` is True to add ``bank[indices[j + 1]]``, False to multiply."""
-        terms = self._base_terms(self._bank[indices[0]], length, lag)
-        for index, add in zip(indices[1:], ops, strict=True):
-            comp = self._base_terms(self._bank[index], length, lag)
-            terms = _add_terms(terms, comp) if add else _multiply_terms(terms, comp)
-        return terms
-
-    @staticmethod
-    def _levinson_sample(c: np.ndarray, z: np.ndarray) -> np.ndarray | None:
-        """L @ z for the Cholesky factor L of Toeplitz(c), by Durbin-Levinson in O(n^2); None on breakdown."""
-        n = len(c)
-        x = np.empty(n)
-        phi = np.empty(n)
-        v = c[0]
-        if not v > 0:
-            return None
-        x[0] = np.sqrt(v) * z[0]
-        for t in range(1, n):
-            kappa = (c[t] - phi[: t - 1] @ c[t - 1 : 0 : -1]) / v
-            if not abs(kappa) < 1.0:
-                return None
-            phi[: t - 1] = phi[: t - 1] - kappa * phi[t - 2 :: -1] if t > 1 else phi[:0]
-            phi[t - 1] = kappa
-            v *= 1.0 - kappa * kappa
-            if not v > 0:
-                return None
-            x[t] = phi[:t] @ x[t - 1 :: -1] + np.sqrt(v) * z[t]
-        return x
-
-    def _sample_stationary(self, c: np.ndarray) -> np.ndarray | None:
-        """One draw from N(0, Toeplitz(c) + jitter I); the jitter escalates on a numerical breakdown."""
-        n = len(c)
-        scale = max(abs(float(c[0])), np.finfo(float).tiny)
-        if np.all(np.abs(c - c[0]) <= 1e-12 * scale):
-            # Constant (rank-one) kernel: one shared normal, which Levinson cannot factor.
-            level = np.sqrt(max(float(c[0]), 0.0)) * self.rng.standard_normal()
-            return level + np.sqrt(self.jitter) * self.rng.standard_normal(n)
-        if not np.any(c[1:]):
-            sd = np.sqrt(max(float(c[0]) + self.jitter, 0.0))
-            return sd * self.rng.standard_normal(n)
-        z = self.rng.standard_normal(n)
-        extra = self.jitter
-        for _ in range(_MAX_REGULARIZATIONS):
-            shifted = c.copy()
-            shifted[0] += extra
-            values = self._levinson_sample(shifted, z)
-            if values is not None and np.all(np.isfinite(values)):
-                return values
-            extra = max(10.0 * extra, 1e-10 * scale)
-        return None
-
-    def _compose_and_sample(self, length: int, x: np.ndarray) -> np.ndarray | None:
-        """Draw a kernel composition and sample one path from its GP prior; None on breakdown."""
-        n_kernels = int(self.rng.integers(1, self.max_kernels + 1))
-        indices = self.rng.integers(0, len(self._bank), size=n_kernels)
-        ops = [bool(self.rng.integers(0, 2) == 0) for _ in range(n_kernels - 1)]
-        terms = self._kernel_terms(indices, ops, length, x - x[0])
-        values = np.zeros(length)
-        for degree, c in enumerate(terms):
-            if c is None or not np.any(c):
-                continue
-            part = self._sample_stationary(c)
-            if part is None:
-                return None
-            values += x**degree * part
-        return values
-
     def generate_single_series(self, length: int) -> np.ndarray:
         """Generate one KernelSynth series.
+
+        Runs the same Rust sampler as the batch path, seeded from ``self.rng``.
 
         Args:
             length (int): The length of the series to generate
@@ -316,20 +196,6 @@ class KernelSynthGenerator(BaseGenerator):
         Returns:
             Array of time series values
         """
-        x = np.linspace(0.0, 1.0, length) if length > 1 else np.zeros(1)
-
-        for _ in range(_MAX_RETRIES):
-            values = self._compose_and_sample(length, x)
-            if values is None or not np.all(np.isfinite(values)):
-                continue
-            if np.abs(values).max() >= _MAX_ABS:
-                continue
-            std = float(values.std()) if length > 1 else 1.0
-            if length > 1 and std <= _MIN_STD:
-                continue
-            if self.standardize and length > 1:
-                values = (values - values.mean()) / std
-            return values
-
-        # Retry budget exhausted (pathological bank): fall back to noise.
-        return self.rng.normal(0.0, 1.0, length)
+        scalars, (kinds, params) = self._get_batch_params()
+        seed = int(self.rng.integers(0, 2**63))
+        return _rs_mv.kernel_synth(length, scalars, kinds, params, seed)

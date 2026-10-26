@@ -1,7 +1,7 @@
 //! KernelSynth generator: GP samples from randomly composed kernels.
 //!
-//! Port of `synforecast/generators/kernel_synth.py`; parity with numpy is
-//! statistical, not bitwise. The linear kernel is `s^2 + x x'` and the others
+//! The sampler behind `KernelSynthGenerator` (`synforecast/generators/kernel_synth.py`),
+//! used by both the batch path and `generate_single_series`. The linear kernel is `s^2 + x x'` and the others
 //! are stationary, so every composition is `K = sum_d (x x')^d T_d(x - x')`
 //! with PSD `T_d`, and `y = sum_d x^d * f_d` with independent
 //! `f_d ~ GP(0, T_d)` (Durbin-Levinson, O(n^2)) has covariance exactly `K`.
@@ -25,11 +25,16 @@ const KIND_LINEAR: i32 = 3;
 const KIND_WHITE: i32 = 4;
 const KIND_CONSTANT: i32 = 5;
 
-// Guards and retry budgets — mirror kernel_synth.py
+// Divergence guards and retry budget, as in the other pretraining generators (TSI/TCM).
 const MAX_ABS: f64 = 1e8;
 const MIN_STD: f64 = 1e-8;
 const MAX_RETRIES: usize = 8;
+/// Levinson attempts per term: the user's jitter, then three tenfold escalations.
 const MAX_REGULARIZATIONS: usize = 4;
+/// Relative jitter every escalation reaches at least, so `jitter = 0` still regularizes.
+const MIN_ESCALATION: f64 = 1e-6;
+/// Upper bound on `max_kernels`; mirrors the `le` bound of the Python field.
+pub(crate) const MAX_KERNELS: f64 = 64.0;
 
 /// Coefficients `T_d` of the composition, indexed by the degree `d`; `None` is a zero term.
 type Terms = Vec<Option<Vec<f64>>>;
@@ -61,7 +66,7 @@ fn lag_kernel(kind: i32, param: f64, lag: &[f64]) -> Vec<f64> {
             values
         }
         KIND_CONSTANT => vec![param; lag.len()],
-        _ => panic!("kernel_synth: unknown kernel kind id {kind}"),
+        _ => unreachable!("kernel kinds are validated by kernel_synth"),
     }
 }
 
@@ -128,6 +133,26 @@ fn kernel_terms(
     terms
 }
 
+fn dot_reversed(a: &[f64], b: &[f64]) -> f64 {
+    debug_assert_eq!(a.len(), b.len());
+    let (left, right) = (a.chunks_exact(4), b.rchunks_exact(4));
+    // The unpaired tails: the last `n % 4` of `a` with the first `n % 4` of `b`.
+    let tail: f64 = left
+        .remainder()
+        .iter()
+        .zip(right.remainder().iter().rev())
+        .map(|(x, y)| x * y)
+        .sum();
+    let mut acc = [0.0_f64; 4];
+    for (x, y) in left.zip(right) {
+        acc[0] += x[0] * y[3];
+        acc[1] += x[1] * y[2];
+        acc[2] += x[2] * y[1];
+        acc[3] += x[3] * y[0];
+    }
+    (acc[0] + acc[1]) + (acc[2] + acc[3]) + tail
+}
+
 /// `L z` for the Cholesky factor `L` of `Toeplitz(c) + extra I`, by Durbin-Levinson in O(n^2);
 /// `None` if the matrix is numerically not positive definite.
 pub(crate) fn levinson_sample(c: &[f64], extra: f64, z: &[f64]) -> Option<Vec<f64>> {
@@ -142,11 +167,7 @@ pub(crate) fn levinson_sample(c: &[f64], extra: f64, z: &[f64]) -> Option<Vec<f6
     x[0] = v.sqrt() * z[0];
     for t in 1..n {
         let m = t - 1;
-        let acc: f64 = phi[..m]
-            .iter()
-            .zip(c[1..t].iter().rev())
-            .map(|(p, cv)| p * cv)
-            .sum();
+        let acc = dot_reversed(&phi[..m], &c[1..t]);
         let kappa = (c[t] - acc) / v;
         if kappa.is_nan() || kappa.abs() >= 1.0 {
             return None;
@@ -168,11 +189,7 @@ pub(crate) fn levinson_sample(c: &[f64], extra: f64, z: &[f64]) -> Option<Vec<f6
         if v <= 0.0 {
             return None;
         }
-        let mu: f64 = phi[..t]
-            .iter()
-            .zip(x[..t].iter().rev())
-            .map(|(p, xv)| p * xv)
-            .sum();
+        let mu = dot_reversed(&phi[..t], &x[..t]);
         x[t] = mu + v.sqrt() * z[t];
     }
     x.iter().all(|v| v.is_finite()).then_some(x)
@@ -199,7 +216,7 @@ fn sample_stationary(rng: &mut SfRng, c: &[f64], jitter: f64) -> Option<Vec<f64>
         if let Some(values) = levinson_sample(c, extra, &z) {
             return Some(values);
         }
-        extra = (10.0 * extra).max(1e-10 * scale);
+        extra = (10.0 * extra).max(MIN_ESCALATION * scale);
     }
     None
 }
@@ -244,20 +261,58 @@ fn mean_and_pop_std(x: &[f64]) -> (f64, f64) {
     (mean, var.sqrt())
 }
 
+/// Check the encoded parameters of [`kernel_synth`].
+fn validate(sp: &[f64], kinds: &[f64], params: &[f64]) -> Result<(), String> {
+    if sp.len() < 3 {
+        return Err(format!(
+            "kernel_synth: expected >= 3 scalar params, got {}",
+            sp.len()
+        ));
+    }
+    if !(1.0..=MAX_KERNELS).contains(&sp[0]) {
+        return Err(format!(
+            "kernel_synth: max_kernels must be in [1, {MAX_KERNELS}], got {}",
+            sp[0]
+        ));
+    }
+    if !(sp[1] >= 0.0 && sp[1].is_finite()) {
+        return Err(format!(
+            "kernel_synth: jitter must be finite and >= 0, got {}",
+            sp[1]
+        ));
+    }
+    if kinds.is_empty() {
+        return Err("kernel_synth: kernel bank is empty".to_string());
+    }
+    if kinds.len() != params.len() {
+        return Err(format!(
+            "kernel_synth: {} kind ids but {} parameters",
+            kinds.len(),
+            params.len()
+        ));
+    }
+    let valid_kind =
+        |k: f64| k.fract() == 0.0 && (KIND_RBF as f64..=KIND_CONSTANT as f64).contains(&k);
+    if let Some(bad) = kinds.iter().find(|&&k| !valid_kind(k)) {
+        return Err(format!("kernel_synth: unknown kernel kind id {bad}"));
+    }
+    Ok(())
+}
+
 /// Generate one KernelSynth series into `out`; rejected draws are retried, then fall back to noise.
-pub fn kernel_synth(out: &mut [f64], sp: &[f64], kinds: &[f64], params: &[f64], seed: u64) {
+pub fn kernel_synth(
+    out: &mut [f64],
+    sp: &[f64],
+    kinds: &[f64],
+    params: &[f64],
+    seed: u64,
+) -> Result<(), String> {
+    validate(sp, kinds, params)?;
     let length = out.len();
     if length == 0 {
-        return;
+        return Ok(());
     }
-    assert!(sp.len() >= 3, "kernel_synth: expected >= 3 scalar params");
-    assert!(!kinds.is_empty(), "kernel_synth: kernel bank is empty");
-    assert_eq!(
-        kinds.len(),
-        params.len(),
-        "kernel_synth: kind ids and parameters differ in length"
-    );
-    let max_kernels = (sp[0] as i32).max(1);
+    let max_kernels = sp[0] as i32;
     let jitter = sp[1];
     let standardize = sp[2] != 0.0;
 
@@ -290,9 +345,10 @@ pub fn kernel_synth(out: &mut [f64], sp: &[f64], kinds: &[f64], params: &[f64], 
             }
         }
         out.copy_from_slice(&values);
-        return;
+        return Ok(());
     }
     out.iter_mut().for_each(|v| *v = rng.standard_normal());
+    Ok(())
 }
 
 #[cfg(test)]
@@ -452,8 +508,8 @@ mod tests {
         for seed in 0..40 {
             let mut a = vec![0.0; 300];
             let mut b = vec![0.0; 300];
-            kernel_synth(&mut a, &default_sp(), &DEFAULT_KINDS, &DEFAULT_PARAMS, seed);
-            kernel_synth(&mut b, &default_sp(), &DEFAULT_KINDS, &DEFAULT_PARAMS, seed);
+            kernel_synth(&mut a, &default_sp(), &DEFAULT_KINDS, &DEFAULT_PARAMS, seed).unwrap();
+            kernel_synth(&mut b, &default_sp(), &DEFAULT_KINDS, &DEFAULT_PARAMS, seed).unwrap();
             assert_eq!(a, b);
             let (mean, std) = mean_and_pop_std(&a);
             assert!(
@@ -467,7 +523,7 @@ mod tests {
     fn test_kernel_synth_short_lengths() {
         for length in [1, 2, 3] {
             let mut out = vec![f64::NAN; length];
-            kernel_synth(&mut out, &default_sp(), &DEFAULT_KINDS, &DEFAULT_PARAMS, 3);
+            kernel_synth(&mut out, &default_sp(), &DEFAULT_KINDS, &DEFAULT_PARAMS, 3).unwrap();
             assert!(out.iter().all(|v| v.is_finite()));
         }
     }
@@ -476,25 +532,93 @@ mod tests {
     fn test_constant_bank_without_jitter_falls_back_to_noise() {
         // Constant draws are rejected on every retry.
         let mut out = vec![0.0; 200];
-        kernel_synth(&mut out, &[1.0, 0.0, 1.0], &[5.0], &[1.0], 9);
+        kernel_synth(&mut out, &[1.0, 0.0, 1.0], &[5.0], &[1.0], 9).unwrap();
         let (_, std) = mean_and_pop_std(&out);
         assert!(out.iter().all(|v| v.is_finite()));
         assert!((std - 1.0).abs() < 0.2, "fallback std {std}");
     }
 
+    /// Lag-1 autocorrelation; near 1 for a smooth path, near 0 for the white-noise fallback.
+    fn lag1_autocorrelation(x: &[f64]) -> f64 {
+        let (mean, std) = mean_and_pop_std(x);
+        let cov = x
+            .windows(2)
+            .map(|w| (w[0] - mean) * (w[1] - mean))
+            .sum::<f64>()
+            / (x.len() - 1) as f64;
+        cov / (std * std)
+    }
+
     #[test]
     fn test_smooth_bank_samples_without_breakdown() {
-        // Near-singular smooth kernels (rbf l=10, linear) with the default jitter.
+        // Near-singular smooth kernels (rbf l=10, linear s=10). A breakdown would end in the noise
+        // fallback (autocorrelation ~0); escalated jitter only roughens a nearly flat path slightly.
         let mut out = vec![0.0; 1000];
-        for seed in 0..10 {
-            kernel_synth(
-                &mut out,
-                &[3.0, 1e-6, 0.0],
-                &[0.0, 3.0],
-                &[10.0, 10.0],
-                seed,
-            );
-            assert!(out.iter().all(|v| v.is_finite()));
+        for jitter in [1e-6, 0.0] {
+            for seed in 0..10 {
+                kernel_synth(
+                    &mut out,
+                    &[3.0, jitter, 0.0],
+                    &[0.0, 3.0],
+                    &[10.0, 10.0],
+                    seed,
+                )
+                .unwrap();
+                assert!(out.iter().all(|v| v.is_finite()));
+                let rho = lag1_autocorrelation(&out);
+                assert!(
+                    rho > 0.5,
+                    "jitter {jitter} seed {seed}: lag-1 autocorrelation {rho}"
+                );
+            }
         }
+    }
+
+    #[test]
+    fn test_escalation_recovers_without_jitter() {
+        // rbf l=10 is numerically singular at n=1000: the unregularized recursion breaks down,
+        // and the escalation ladder must still produce a draw.
+        let n = 1000;
+        let c = lag_kernel(KIND_RBF, 10.0, &grid(n));
+        let z = vec![1.0; n];
+        assert!(levinson_sample(&c, 0.0, &z).is_none());
+        let mut rng = SfRng::new(4);
+        let path = sample_stationary(&mut rng, &c, 0.0).expect("escalation should recover");
+        assert!(lag1_autocorrelation(&path) > 0.99);
+    }
+
+    #[test]
+    fn test_dot_reversed_matches_naive() {
+        for n in 0..14 {
+            let a: Vec<f64> = (0..n).map(|i| 1.0 + i as f64).collect();
+            let b: Vec<f64> = (0..n).map(|i| 0.5 - 0.25 * i as f64).collect();
+            let naive: f64 = (0..n).map(|k| a[k] * b[n - 1 - k]).sum();
+            assert!((dot_reversed(&a, &b) - naive).abs() < 1e-12, "n {n}");
+        }
+    }
+
+    #[test]
+    fn test_rejects_malformed_params() {
+        let mut out = vec![0.0; 10];
+        let kinds = [0.0, 3.0];
+        let params = [0.1, 1.0];
+        let bad: [(&[f64], &[f64], &[f64]); 9] = [
+            (&[5.0, 1e-6], &kinds, &params),
+            (&[0.0, 1e-6, 1.0], &kinds, &params),
+            (&[65.0, 1e-6, 1.0], &kinds, &params),
+            (&[f64::NAN, 1e-6, 1.0], &kinds, &params),
+            (&[5.0, -1.0, 1.0], &kinds, &params),
+            (&[5.0, 1e-6, 1.0], &[], &[]),
+            (&[5.0, 1e-6, 1.0], &kinds, &[0.1]),
+            (&[5.0, 1e-6, 1.0], &[0.0, 6.0], &params),
+            (&[5.0, 1e-6, 1.0], &[0.0, 1.5], &params),
+        ];
+        for (sp, k, p) in bad {
+            assert!(
+                kernel_synth(&mut out, sp, k, p, 1).is_err(),
+                "{sp:?} {k:?} {p:?}"
+            );
+        }
+        assert!(kernel_synth(&mut out, &[64.0, 0.0, 1.0], &kinds, &params, 1).is_ok());
     }
 }

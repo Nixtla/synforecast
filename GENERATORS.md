@@ -736,12 +736,15 @@ This adapts the KernelSynth recipe used to pretrain the Chronos models (Ansari
 et al. 2024) and the Apache-2.0-licensed
 [reference implementation](https://github.com/amazon-science/chronos-forecasting/blob/main/scripts/kernel-synth.py).
 SynForecast adds a configurable kernel bank, time-step seasonal periods,
-bounded retries, divergence guards, and optional standardization.
+bounded retries, divergence guards, and optional standardization. It also
+replaces the reference's dense Cholesky sampler with an exact decomposition
+into stationary terms sampled by Durbin-Levinson recursions in O(n^2), with
+`jitter` added to each term and escalated on a numerical breakdown.
 **Applications**: pretraining data with controllable temporal structure.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `max_kernels` | `5` | Base kernels composed per series (drawn from `1..max_kernels`) |
+| `max_kernels` | `5` | Base kernels composed per series (drawn from `1..max_kernels`, at most 64) |
 | `seasonal_periods` | broad pool | Periodic-kernel periods in time steps (4–730) |
 | `rbf_length_scales` | `[0.1, 1.0, 10.0]` | RBF length scales on the normalized grid |
 | `rational_quadratic_alphas` | `[0.1, 1.0, 10.0]` | Rational-quadratic shape parameters |
@@ -829,7 +832,8 @@ df = mv.generate(n_series=4)
 ```
 
 TSI, TCM, MAR, and KernelSynth use the Rust batch path for bulk `generate()`
-calls. MAR feature computation and the MBB/DBA numeric kernels are also native. Rust and NumPy RNG streams provide
+calls. MAR feature computation and the MBB/DBA numeric kernels are also
+native. Rust and NumPy RNG streams provide
 seed determinism within their respective paths but are not bit-for-bit
 equivalent. Reproduce performance measurements on your hardware with the
 scripts in `benchmarks/`; benchmark results are not API guarantees.

@@ -183,8 +183,10 @@ def interpretable_pool(
             Defaults to None, which builds all 42. Each selected instance is
             identical to the same entry of the full pool, and the others are
             never constructed.
-            Entry seeds are fixed by ``seed``, so for fresh draws reuse built
-            members or give each rebuild its own 64-bit seed.
+            Entry seeds are ``seed`` plus a fixed offset, so for fresh draws
+            reuse built members or give each rebuild a random 64-bit seed.
+            Consecutive seeds alias: ``seed + 1`` rebuilds entries of ``seed``
+            under other indices, which repeats their series exactly.
         **base_kwargs: Additional keyword arguments passed to all generators
             (e.g., engine, id_col, time_col, target_col).
 
@@ -637,8 +639,10 @@ def pretraining_pool(
             others are never constructed. Order: interpretable entries, then
             ``n_meta_variants`` each of TSI, TCM, KernelSynth and MAR, then
             seasonal entries.
-            Entry seeds are fixed by ``seed``, so for fresh draws reuse built
-            members or give each rebuild its own 64-bit seed.
+            Entry seeds are ``seed`` plus a fixed offset, so for fresh draws
+            reuse built members or give each rebuild a random 64-bit seed.
+            Consecutive seeds alias: ``seed + 1`` rebuilds entries of ``seed``
+            under other indices, which repeats their series exactly.
         **base_kwargs: Additional keyword arguments passed to all generators
             (e.g., engine, id_col, time_col, target_col).
 
@@ -789,8 +793,10 @@ def seasonal_pool(
             Defaults to None, which builds all 8. Each selected instance is
             identical to the same entry of the full pool, and the others are
             never constructed.
-            Entry seeds are fixed by ``seed``, so for fresh draws reuse built
-            members or give each rebuild its own 64-bit seed.
+            Entry seeds are ``seed`` plus a fixed offset, so for fresh draws
+            reuse built members or give each rebuild a random 64-bit seed.
+            Consecutive seeds alias: ``seed + 1`` rebuilds entries of ``seed``
+            under other indices, which repeats their series exactly.
         **base_kwargs: Additional keyword arguments passed to all generators
             (e.g., engine, id_col, time_col, target_col). Keys the pool sets
             per generator, such as ``alias`` or ``level``, raise ValueError.
