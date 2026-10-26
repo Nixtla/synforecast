@@ -3,7 +3,7 @@ name = "synforecast"
 version = "0.2.0"
 description = "Fast synthetic time series for testing, augmentation, and pretraining"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [
@@ -20,11 +20,11 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -46,8 +46,10 @@ Security = "https://github.com/Nixtla/synforecast/security/policy"
 
 [dependency-groups]
 dev = [
-    "arch>=6.0",
-    "datasetsforecast>=1.0.1",
+    # No test imports these. arch and statsforecast publish no CPython 3.15
+    # wheels yet, and datasetsforecast caps pandas below the first 3.15 wheels.
+    "arch>=6.0; python_version < '3.15'",
+    "datasetsforecast>=1.0.1; python_version < '3.15'",
     "ipykernel<7.0",
     "maturin>=1.14.1",
     "matplotlib",
@@ -58,11 +60,10 @@ dev = [
     "pytest-cov>=7.1.0",
     "ruff>=0.16.0",
     "scipy>=1.10.0",
-    "statsforecast",
-    "tomli>=2.0; python_version < '3.11'",
+    "statsforecast; python_version < '3.15'",
 ]
 docs = [
-    "datasetsforecast>=1.0.1",
+    "datasetsforecast>=1.0.1; python_version < '3.15'",
     "ipykernel<7.0",
     "ipython<=8.39.0",
     "matplotlib",
@@ -95,7 +96,17 @@ include = [
 ]
 
 [tool.uv]
-constraint-dependencies = ["pytorch-lightning>=2.6.1"]
+# The 3.15-scoped floors are the first releases with CPython 3.15 wheels, so
+# the 3.15 fork of the lock installs wheels without moving 3.11-3.14.
+constraint-dependencies = [
+    "pytorch-lightning>=2.6.1",
+    "contourpy>=1.4.0; python_version >= '3.15'",
+    "kiwisolver>=1.5.1; python_version >= '3.15'",
+    "matplotlib>=3.11.2; python_version >= '3.15'",
+    "numpy>=2.5.2; python_version >= '3.15'",
+    "pandas>=3.0.6; python_version >= '3.15'",
+    "scipy>=1.18.1; python_version >= '3.15'",
+]
 build-constraint-dependencies = ["scikit-build-core<0.10"]
 
 [tool.uv.sources]
@@ -141,7 +152,7 @@ log_cli_date_format = "%Y-%m-%d %H:%M:%S"
 # Typing is being introduced incrementally (see CONTRIBUTING.md). The modules
 # listed in the lint workflow's mypy step are kept green; follow_imports is
 # silent so their imports don't drag the whole package into the gate yet.
-python_version = "3.10"
+python_version = "3.11"
 follow_imports = "silent"
 ignore_missing_imports = true
 warn_unused_ignores = true
@@ -150,7 +161,7 @@ no_implicit_optional = true
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.format]
 quote-style = "double"
