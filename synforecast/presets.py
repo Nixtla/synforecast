@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import operator
 import warnings
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from functools import partial
 from typing import Any
 
@@ -76,10 +76,11 @@ _CYCLE_STEPS: list[tuple[tuple[type[_offsets.BaseOffset], ...], int]] = [
 
 _DEFAULT_SEASONAL_PERIOD = 12
 
+# An unbuilt pool entry; Callable (not partial) because its return type is covariant.
+_Spec = Callable[[], BaseGenerator]
 
-def _build(
-    specs: list[partial[BaseGenerator]], members: Iterable[int] | None
-) -> list[BaseGenerator]:
+
+def _build(specs: list[_Spec], members: Iterable[int] | None) -> list[BaseGenerator]:
     """Instantiate every spec, or only the selected indices in the given order."""
     if members is None:
         return [make() for make in specs]
@@ -214,7 +215,7 @@ def _interpretable_specs(
     seed: int | None,
     seasonal_period: int | None,
     base_kwargs: dict[str, Any],
-) -> list[partial[BaseGenerator]]:
+) -> list[_Spec]:
     """Unbuilt constructors of :func:`interpretable_pool`, in pool order."""
     base: dict[str, Any] = {
         "min_length": min_length,
@@ -244,7 +245,7 @@ def _interpretable_specs(
     # as many distinct behaviors as possible. generate_series draws from the
     # front when n_series < len(pool), so the interleaving is what makes a
     # small panel diverse. Seed offsets are fixed per variant at declaration.
-    niches: list[list[partial[BaseGenerator]]] = [
+    niches: list[list[_Spec]] = [
         # --- SARIMA: 5 variants covering stationary, integrated, seasonal ---
         [
             # Stationary AR(1)
@@ -549,7 +550,7 @@ def _interpretable_specs(
 
     # Round-robin across niches: first variant of every niche, then second
     # variants, and so on.
-    specs: list[partial[BaseGenerator]] = [
+    specs: list[_Spec] = [
         group[variant]
         for variant in range(max(len(group) for group in niches))
         for group in niches
@@ -687,13 +688,13 @@ def pretraining_pool(
     # Meta-generator seeds are offset well past interpretable_pool's 0..41 range so
     # the two sets never collide when combined.
     meta_classes = (TSIGenerator, TCMGenerator, KernelSynthGenerator, MARGenerator)
-    meta: list[partial[BaseGenerator]] = [
+    meta: list[_Spec] = [
         partial(cls, **base, seed=_seed(1000 + 100 * family + variant))
         for family, cls in enumerate(meta_classes)
         for variant in range(n_meta_variants)
     ]
 
-    seasonal: list[partial[BaseGenerator]] = []
+    seasonal: list[_Spec] = []
     if include_seasonal:
         period = (
             _seasonal_period_from_freq(freq)
@@ -823,7 +824,7 @@ def _seasonal_specs(
     seed: int | None,
     seasonal_period: int | None,
     base_kwargs: dict[str, Any],
-) -> list[partial[BaseGenerator]]:
+) -> list[_Spec]:
     """Unbuilt constructors of :func:`seasonal_pool`, in pool order."""
     base: dict[str, Any] = {
         "min_length": min_length,
