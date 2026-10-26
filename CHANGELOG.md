@@ -17,6 +17,8 @@
   rebuild a random 64-bit seed. Consecutive seeds repeat series of other
   entries exactly (see the `members` docs).
 - Python 3.15 support: CI tests it, and wheels are built for CPython 3.15.
+  On 3.15 synforecast requires polars 2.0 or newer, the first release that
+  works on Python 3.15.
 
 ### Changed
 

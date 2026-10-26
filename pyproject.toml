@@ -33,6 +33,7 @@ dependencies = [
     "numpy>=1.23.5",
     "pandas>=2.0",
     "polars[numpy]>=1.35.2",
+    "polars[numpy]>=2.0.0; python_version >= '3.15'",
     "pydantic>=2.0",
 ]
 
@@ -54,6 +55,7 @@ dev = [
     "mypy>=1.0.0",
     "pandas",
     "pre-commit>=4.6.1",
+    "pyarrow>=15.0.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.16.0",
@@ -105,6 +107,7 @@ constraint-dependencies = [
     "matplotlib>=3.11.2; python_version >= '3.15'",
     "numpy>=2.5.2; python_version >= '3.15'",
     "pandas>=3.0.6; python_version >= '3.15'",
+    "pyarrow>=26.0.0; python_version >= '3.15'",
     "scikit-learn>=1.9.1; python_version >= '3.15'",
     "scipy>=1.18.1; python_version >= '3.15'",
     "statsmodels>=0.15.0; python_version >= '3.15'",
