@@ -26,6 +26,7 @@ from synforecast.multivariatize import Multivariatizer
 from synforecast.presets import (
     balanced_pool,
     interpretable_pool,
+    pretraining_overlays,
     pretraining_pool,
     seasonal_pool,
 )
@@ -44,6 +45,7 @@ __all__ = [
     "feature_coverage",
     "generate_series",
     "interpretable_pool",
+    "pretraining_overlays",
     "pretraining_pool",
     "seasonal_pool",
 ]

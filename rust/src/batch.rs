@@ -95,6 +95,7 @@ pub struct PatternInjectionConfig {
     pub missing_rate: f64,
     pub missing_block_size: i32,
     pub missing_seasonal_period: i32,
+    pub overlay_relative: bool,
 }
 
 /// Specification for one generator in a multi-batch call.
@@ -610,6 +611,8 @@ fn apply_pattern_injection(
     anom_seed: u64,
     miss_seed: u64,
 ) -> (Vec<i64>, Vec<i64>, Vec<i64>) {
+    // Relative magnitudes are sized on the base series, before any overlay.
+    let scale = if pi_config.overlay_relative { pi::overlay_scale(values) } else { 1.0 };
     let cp_indices = if pi_config.changepoints {
         let r = pi::add_changepoints(
             values,
@@ -620,6 +623,8 @@ fn apply_pattern_injection(
             &pi_config.changepoint_level_changes,
             &pi_config.changepoint_trend_changes,
             &pi_config.changepoint_variance_changes,
+            pi_config.overlay_relative,
+            scale,
         );
         r.changepoint_indices
     } else {
@@ -636,6 +641,7 @@ fn apply_pattern_injection(
             pi_config.dip_magnitude,
             pi_config.level_shift_magnitude,
             pi_config.level_shift_duration,
+            scale,
         );
         r.anomaly_indices
     } else {
@@ -842,6 +848,7 @@ mod tests {
             missing_rate: 0.0,
             missing_block_size: 1,
             missing_seasonal_period: 1,
+            overlay_relative: false,
         }
     }
 

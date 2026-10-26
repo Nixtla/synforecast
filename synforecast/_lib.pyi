@@ -99,6 +99,8 @@ class pattern_injection:
         level_changes: npt.NDArray[np.float64],
         trend_changes: npt.NDArray[np.float64],
         variance_changes: npt.NDArray[np.float64],
+        relative: bool = False,
+        scale: float = 1.0,
     ) -> tuple[npt.NDArray[np.float64], dict[str, npt.NDArray[np.int64]]]: ...
     @staticmethod
     def add_missingness(
@@ -119,7 +121,10 @@ class pattern_injection:
         dip_magnitude: float,
         level_shift_magnitude: float,
         level_shift_duration: int,
+        scale: float = 1.0,
     ) -> tuple[npt.NDArray[np.float64], dict[str, npt.NDArray[np.int64]]]: ...
+    @staticmethod
+    def overlay_scale(values: npt.NDArray[np.float64]) -> float: ...
 
 class statistical:
     @staticmethod

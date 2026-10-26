@@ -19,7 +19,7 @@ from pydantic import (
     model_validator,
 )
 
-from ._core import _add_anomalies, _add_changepoints, _add_missingness
+from ._core import _add_anomalies, _add_changepoints, _add_missingness, _overlay_scale
 from ._lib import batch as _rs_batch
 from .exogenous import (
     ExogenousConfig,
@@ -295,6 +295,17 @@ class BaseGenerator(BaseModel, ABC):
     changepoint_locations: list[float] | None = Field(
         default=None, description="Relative positions 0-1"
     )
+    overlay_scale: Literal["absolute", "relative"] = Field(
+        default="absolute",
+        description=(
+            "Units of anomaly and changepoint magnitudes. 'absolute' adds them as "
+            "given. 'relative' measures them in standard deviations of the series "
+            "before any overlay: spike, dip and level-shift magnitudes and level "
+            "changes are multiplied by it, trend changes are the total drift over "
+            "the rest of the series, and random level and trend changes are drawn "
+            "from U(-3, 3)."
+        ),
+    )
 
     # Runtime state is private: it is not configuration and must not appear in
     # the constructor or serialized model.
@@ -556,6 +567,7 @@ class BaseGenerator(BaseModel, ABC):
             "missing_rate": self.missing_rate,
             "missing_block_size": self.missing_block_size,
             "missing_seasonal_period": self.missing_seasonal_period,
+            "overlay_scale": self.overlay_scale,
         }
         if self.changepoint_locations is not None:
             cfg["changepoint_locations"] = self.changepoint_locations
@@ -596,7 +608,10 @@ class BaseGenerator(BaseModel, ABC):
         return values, None
 
     def _add_anomalies(
-        self, values: np.ndarray, rng: np.random.Generator | None = None
+        self,
+        values: np.ndarray,
+        rng: np.random.Generator | None = None,
+        scale: float = 1.0,
     ) -> tuple[np.ndarray, np.ndarray | None]:
         """Add anomalies to a time series.
 
@@ -619,6 +634,7 @@ class BaseGenerator(BaseModel, ABC):
             dip_magnitude=self.dip_magnitude,
             level_shift_magnitude=self.level_shift_magnitude,
             level_shift_duration=self.level_shift_duration,
+            scale=scale,
         )
 
         if self.exogenous and self.exogenous.anomaly_flags:
@@ -626,7 +642,10 @@ class BaseGenerator(BaseModel, ABC):
         return values, None
 
     def _add_changepoints(
-        self, values: np.ndarray, rng: np.random.Generator | None = None
+        self,
+        values: np.ndarray,
+        rng: np.random.Generator | None = None,
+        scale: float = 1.0,
     ) -> tuple[np.ndarray, np.ndarray | None]:
         """Add changepoints (structural breaks) to a time series.
 
@@ -670,6 +689,8 @@ class BaseGenerator(BaseModel, ABC):
             changepoint_level_changes=changepoint_level_changes,
             changepoint_trend_changes=changepoint_trend_changes,
             changepoint_variance_changes=changepoint_variance_changes,
+            relative=self.overlay_scale == "relative",
+            scale=scale,
         )
 
         if self.exogenous and self.exogenous.changepoint_flags:
@@ -695,11 +716,13 @@ class BaseGenerator(BaseModel, ABC):
             Tuple of (values, changepoint_indices, anomaly_indices, missing_indices). Index arrays are None when the corresponding flag is not requested.
         """
         cp_seed, anom_seed, miss_seed = (int(s) for s in pi_seeds)
+        # Relative magnitudes are sized on the base series, before any overlay, as in the Rust batch path.
+        scale = _overlay_scale(values) if self.overlay_scale == "relative" else 1.0
         values, cp_indices = self._add_changepoints(
-            values, np.random.default_rng(cp_seed)
+            values, np.random.default_rng(cp_seed), scale
         )
         values, anom_indices = self._add_anomalies(
-            values, np.random.default_rng(anom_seed)
+            values, np.random.default_rng(anom_seed), scale
         )
         values, miss_indices = self._add_missingness(
             values, np.random.default_rng(miss_seed)

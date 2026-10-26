@@ -9,13 +9,16 @@ from collections.abc import Callable, Iterable
 from functools import partial
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from pandas.tseries import offsets as _offsets
 
 from synforecast.base import BaseGenerator
 from synforecast.generators.bounded_process import BoundedProcessGenerator
 from synforecast.generators.chaotic_system import ChaoticSystemGenerator
+from synforecast.generators.clickstream import ClickstreamGenerator
 from synforecast.generators.cyclic import CyclicGenerator
+from synforecast.generators.daily_active_users import DailyActiveUsersGenerator
 from synforecast.generators.energy_load import EnergyLoadGenerator
 from synforecast.generators.ets import ETSGenerator
 from synforecast.generators.fractional_brownian_motion import (
@@ -23,15 +26,25 @@ from synforecast.generators.fractional_brownian_motion import (
 )
 from synforecast.generators.garch import GARCHGenerator
 from synforecast.generators.gaussian_process import GaussianProcessGenerator
+from synforecast.generators.geometric_brownian_motion import (
+    GeometricBrownianMotionGenerator,
+)
+from synforecast.generators.hawkes_process import HawkesProcessGenerator
 from synforecast.generators.inar import INARGenerator
 from synforecast.generators.intermittent_demand import IntermittentDemandGenerator
 from synforecast.generators.iot_sensor import IoTSensorGenerator
+from synforecast.generators.jump_diffusion import JumpDiffusionGenerator
 from synforecast.generators.kernel_synth import KernelSynthGenerator
 from synforecast.generators.levy_process import LevyProcessGenerator
 from synforecast.generators.mar import MARGenerator
+from synforecast.generators.ornstein_uhlenbeck import OrnsteinUhlenbeckGenerator
+from synforecast.generators.poisson_process import PoissonProcessGenerator
+from synforecast.generators.random_walk import RandomWalkGenerator
 from synforecast.generators.regime_switching import RegimeSwitchingGenerator
 from synforecast.generators.sarima import SARIMAGenerator
 from synforecast.generators.seasonal import SeasonalGenerator
+from synforecast.generators.state_space import StateSpaceGenerator
+from synforecast.generators.stochastic_volatility import StochasticVolatilityGenerator
 from synforecast.generators.tcm import TCMGenerator
 from synforecast.generators.tsi import TSIGenerator
 from synforecast.generators.vital_signs import VitalSignsGenerator
@@ -80,15 +93,134 @@ _DEFAULT_SEASONAL_PERIOD = 12
 _Spec = Callable[[], BaseGenerator]
 
 
-def _build(specs: list[_Spec], members: Iterable[int] | None) -> list[BaseGenerator]:
-    """Instantiate every spec, or only the selected indices in the given order."""
-    if members is None:
-        return [make() for make in specs]
-    chosen = [operator.index(i) for i in members]
+# Univariate generators outside the interpretable and meta pools, appended by pretraining_pool(include_extended=True).
+# The price processes use a daily step (dt = 1/252): their annual-rate defaults with dt = 1 compound past float range over long series.
+_EXTENDED: tuple[tuple[type[BaseGenerator], dict[str, Any]], ...] = (
+    (ClickstreamGenerator, {}),
+    (DailyActiveUsersGenerator, {}),
+    (GeometricBrownianMotionGenerator, {"dt": 1 / 252}),
+    (HawkesProcessGenerator, {}),
+    (JumpDiffusionGenerator, {"dt": 1 / 252, "lambda_jump": 25.0, "jump_std": 0.05}),
+    (OrnsteinUhlenbeckGenerator, {}),
+    (PoissonProcessGenerator, {}),
+    (RandomWalkGenerator, {}),
+    (SeasonalGenerator, {}),
+    (StateSpaceGenerator, {}),
+    (StochasticVolatilityGenerator, {}),
+)
+
+# Overlay keys that are not scale-free; entries that set their own changepoints or anomalies keep their spec's values.
+_SCALED_OVERLAY_KEYS = frozenset(
+    {
+        "changepoints",
+        "num_changepoints",
+        "changepoint_type",
+        "anomalies",
+        "anomaly_types",
+        "anomaly_fraction",
+        "spike_magnitude",
+        "dip_magnitude",
+        "level_shift_magnitude",
+        "level_shift_duration",
+        "overlay_scale",
+    }
+)
+
+
+def pretraining_overlays(rng: np.random.Generator) -> dict[str, Any]:
+    """Draw one random overlay configuration for a pretraining series.
+
+    Each overlay is switched on independently, so a series can combine a base
+    mechanism with heavy-tailed noise, structural breaks, anomalies and gaps:
+
+    - heavy-tailed innovations (probability 0.3): Student's t with
+      ``df ~ U(2.5, 8)``, Laplace, or skew-normal with ``alpha ~ U(-6, 6)``;
+    - changepoints (0.3): 1-3 breaks of type level, trend, variance or mixed,
+      with relative magnitudes;
+    - anomalies (0.25): a non-empty subset of spike, dip and level shift at a
+      log-uniform fraction in [0.002, 0.03]; spikes and dips of 3-10 standard
+      deviations, level shifts of 1-4 standard deviations lasting 5-50 steps;
+    - missing data (0.1): a random or block pattern at a rate in [0.02, 0.2]
+      with blocks of 2-20 steps.
+
+    Changepoint and anomaly magnitudes use ``overlay_scale="relative"`` so
+    they are sized on each series. Innovation settings only affect generators
+    that draw innovations; the others ignore them.
+
+    Args:
+        rng: Random stream that determines the configuration.
+
+    Returns:
+        Generator keyword arguments; empty when no overlay is drawn.
+    """
+    kwargs: dict[str, Any] = {}
+    if rng.random() < 0.3:
+        dist = ("t", "laplace", "skew_normal")[int(rng.integers(3))]
+        kwargs["innovation_distribution"] = dist
+        if dist == "t":
+            kwargs["innovation_params"] = {"df": float(rng.uniform(2.5, 8.0))}
+        elif dist == "skew_normal":
+            kwargs["innovation_params"] = {"alpha": float(rng.uniform(-6.0, 6.0))}
+    if rng.random() < 0.3:
+        kwargs.update(
+            changepoints=True,
+            num_changepoints=int(rng.integers(1, 4)),
+            changepoint_type=("level", "trend", "variance", "mixed")[
+                int(rng.integers(4))
+            ],
+            overlay_scale="relative",
+        )
+    if rng.random() < 0.25:
+        types = [t for t in ("spike", "dip", "level_shift") if rng.random() < 0.6]
+        kwargs.update(
+            anomalies=True,
+            anomaly_types=types or ["spike"],
+            anomaly_fraction=float(np.exp(rng.uniform(np.log(0.002), np.log(0.03)))),
+            spike_magnitude=float(rng.uniform(3.0, 10.0)),
+            dip_magnitude=-float(rng.uniform(3.0, 10.0)),
+            level_shift_magnitude=float(
+                rng.choice((-1.0, 1.0)) * rng.uniform(1.0, 4.0)
+            ),
+            level_shift_duration=int(rng.integers(5, 51)),
+            overlay_scale="relative",
+        )
+    if rng.random() < 0.1:
+        kwargs.update(
+            missing_data=True,
+            missing_rate=float(rng.uniform(0.02, 0.2)),
+            missing_pattern=("random", "block")[int(rng.integers(2))],
+            missing_block_size=int(rng.integers(2, 21)),
+        )
+    return kwargs
+
+
+def _build(
+    specs: list[_Spec],
+    members: Iterable[int] | None,
+    overlay_seed: int | None = None,
+) -> list[BaseGenerator]:
+    """Instantiate every spec, or only the selected indices in the given order, optionally with drawn overlays."""
+    chosen = (
+        list(range(len(specs)))
+        if members is None
+        else [operator.index(i) for i in members]
+    )
     bad = [i for i in chosen if not 0 <= i < len(specs)]
     if bad:
         raise IndexError(f"members {bad} out of range for a pool of {len(specs)}")
-    return [specs[i]() for i in chosen]
+    if overlay_seed is None:
+        return [specs[i]() for i in chosen]
+    built = []
+    for i in chosen:
+        # Overlays depend only on (overlay_seed, index), so a member built alone matches the full pool's entry.
+        overlays = pretraining_overlays(np.random.default_rng([overlay_seed, i]))
+        own = getattr(specs[i], "keywords", {})
+        if own.get("changepoints") or own.get("anomalies"):
+            overlays = {
+                k: v for k, v in overlays.items() if k not in _SCALED_OVERLAY_KEYS
+            }
+        built.append(specs[i](**overlays))
+    return built
 
 
 def _seasonal_period_from_freq(
@@ -588,6 +720,8 @@ def pretraining_pool(
     seasonal_period: int | None = None,
     include_seasonal: bool = False,
     members: Iterable[int] | None = None,
+    include_extended: bool = False,
+    overlay_seed: int | None = None,
     **base_kwargs: Any,
 ) -> list[BaseGenerator]:
     """Create a breadth-maximizing pool for foundation-model pretraining.
@@ -639,11 +773,26 @@ def pretraining_pool(
             instance is identical to the same entry of the full pool and the
             others are never constructed. Order: interpretable entries, then
             ``n_meta_variants`` each of TSI, TCM, KernelSynth and MAR, then
-            seasonal entries.
+            seasonal entries, then extended entries.
             Entry seeds are ``seed`` plus a fixed offset, so for fresh draws
             reuse built members or give each rebuild a random 64-bit seed.
             Consecutive seeds alias: ``seed + 1`` rebuilds entries of ``seed``
             under other indices, which repeats their series exactly.
+        include_extended: When True, append one instance of each univariate
+            generator outside the interpretable and meta pools (Clickstream,
+            DailyActiveUsers, GeometricBrownianMotion, HawkesProcess,
+            JumpDiffusion, OrnsteinUhlenbeck, PoissonProcess, RandomWalk,
+            Seasonal, StateSpace, StochasticVolatility), after all other
+            entries so existing indices are unchanged. All use defaults except
+            the two price processes, which step daily (``dt = 1/252``, and 25
+            jumps a year of log-size std 0.05 for JumpDiffusion) so long series
+            stay bounded. Default False.
+        overlay_seed: When set, each built entry gets the overlays that
+            :func:`pretraining_overlays` draws from ``(overlay_seed, index)``,
+            so a member built alone matches the full pool's entry. Entries
+            that define their own changepoints or anomalies only receive the
+            scale-free overlays (innovations, missing data). Default None,
+            which adds no overlays.
         **base_kwargs: Additional keyword arguments passed to all generators
             (e.g., engine, id_col, time_col, target_col).
 
@@ -731,7 +880,16 @@ def pretraining_pool(
         if include_interpretable
         else []
     )
-    return _build(interpretable + meta + seasonal, members)
+    # Seed offsets 3000.. sit past the interpretable, meta and seasonal ranges.
+    extended: list[_Spec] = (
+        [
+            partial(cls, **base, seed=_seed(3000 + k), **settings)
+            for k, (cls, settings) in enumerate(_EXTENDED)
+        ]
+        if include_extended
+        else []
+    )
+    return _build(interpretable + meta + seasonal + extended, members, overlay_seed)
 
 
 def _seasonal_factors(period: int, sharpness: float) -> list[float]:

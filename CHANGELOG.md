@@ -4,6 +4,18 @@
 
 ### Added
 
+- `overlay_scale="relative"` on every generator: anomaly and changepoint
+  magnitudes in standard deviations of the series before any overlay, so the
+  same settings fit series of any scale. The native batch path and the Python
+  path share one native scale computation. The default `"absolute"` is
+  bit-identical to before.
+- `pretraining_overlays(rng)`: a documented random overlay prior
+  (heavy-tailed innovations, relative changepoints and anomalies, missing
+  data), and `pretraining_pool(overlay_seed=...)` applying one draw per built
+  entry, keyed by `(overlay_seed, index)` so `members=` stays consistent.
+- `pretraining_pool(include_extended=True)`: appends one default instance of
+  each of the 11 univariate generators outside the interpretable and meta
+  pools, after all existing entries.
 - `BaseGenerator.generate_values(n_series, n_jobs)`: the series `generate`
   would draw, as value arrays without building a DataFrame (native Rust batch
   path where available). Both methods go through a new `_generate_metadata`

@@ -210,6 +210,14 @@ Defined on `BaseGenerator` (`synforecast/base.py`) and accepted by every generat
 | `changepoint_variance_changes` | `None` | Size of variance changes (random when `None`) |
 | `changepoint_locations` | `None` | Relative positions 0-1 (random when `None`) |
 
+### Overlay scale
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `overlay_scale` | `"absolute"` | `"absolute"` adds anomaly and changepoint magnitudes as given. `"relative"` measures them in standard deviations of the series before any overlay: spike, dip and level-shift magnitudes and level changes are multiplied by it, a trend change is the total drift over the rest of the series, and random level and trend changes are drawn from U(-3, 3) |
+
+`pretraining_overlays(rng)` draws a random overlay configuration (heavy-tailed innovations, relative changepoints and anomalies, missing data), and `pretraining_pool(overlay_seed=...)` applies one per built entry.
+
 Per-generator sections below list only generator-specific parameters.
 
 ---

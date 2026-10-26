@@ -72,6 +72,7 @@ fn parse_pi_config(d: &Bound<'_, PyDict>) -> PyResult<batch::PatternInjectionCon
         missing_rate: dict_get(d, "missing_rate", 0.0f64)?,
         missing_block_size: dict_get(d, "missing_block_size", 1i32)?,
         missing_seasonal_period: dict_get(d, "missing_seasonal_period", 1i32)?,
+        overlay_relative: dict_get_string(d, "overlay_scale", "absolute")? == "relative",
     })
 }
 
