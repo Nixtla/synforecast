@@ -10,7 +10,11 @@ pub fn overlay_scale(values: &[f64]) -> f64 {
     let mean = finite.iter().sum::<f64>() / finite.len() as f64;
     let var = finite.iter().map(|v| (v - mean) * (v - mean)).sum::<f64>() / finite.len() as f64;
     let std = var.sqrt();
-    if std.is_finite() && std > 0.0 { std } else { 1.0 }
+    if std.is_finite() && std > 0.0 {
+        std
+    } else {
+        1.0
+    }
 }
 
 pub struct ChangePointResult {
@@ -106,7 +110,10 @@ pub fn add_changepoints(
         // Relative mode: level changes are in units of `scale`; trend changes are the total drift, in units of `scale`, over the rest of the series.
         let (level, slope) = if relative {
             let remaining = (values.len() - pos).max(1) as f64;
-            (level_changes[cp] * scale, trend_changes[cp] * scale / remaining)
+            (
+                level_changes[cp] * scale,
+                trend_changes[cp] * scale / remaining,
+            )
         } else {
             (level_changes[cp], trend_changes[cp])
         };
@@ -129,9 +136,16 @@ pub fn add_changepoints(
         if variance_changes[cp] != 1.0 {
             const WINDOW: usize = 10;
             for t in pos..values.len() {
+                // Missing points stay missing and are left out of the window mean, so gaps cannot spread NaN downstream.
+                if !values[t].is_finite() {
+                    continue;
+                }
                 let win_start = t.saturating_sub(WINDOW);
-                let window = &values[win_start..=t];
-                let mean_val = window.iter().sum::<f64>() / window.len() as f64;
+                let (sum, count) = values[win_start..=t]
+                    .iter()
+                    .filter(|v| v.is_finite())
+                    .fold((0.0_f64, 0_usize), |(s, n), v| (s + v, n + 1));
+                let mean_val = sum / count as f64;
                 let deviation = values[t] - mean_val;
                 values[t] = mean_val + deviation * variance_changes[cp];
             }
@@ -301,6 +315,33 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_variance_changepoint_keeps_gaps_local() {
+        let mut values: Vec<f64> = (0..120)
+            .map(|i| (i as f64 * 0.3).sin() * 5.0 + 20.0)
+            .collect();
+        for i in [0usize, 1, 2, 40, 41, 70, 119] {
+            values[i] = f64::NAN;
+        }
+        let before = values.clone();
+        add_changepoints(
+            &mut values,
+            3,
+            2,
+            &[0.1, 0.5],
+            "variance",
+            &[],
+            &[],
+            &[1.8, 0.6],
+            false,
+            1.0,
+        );
+        for (i, (a, b)) in before.iter().zip(values.iter()).enumerate() {
+            assert_eq!(a.is_nan(), b.is_nan(), "index {i}: missingness changed");
+        }
+        assert_eq!(values.iter().filter(|v| v.is_finite()).count(), 113);
+    }
+
+    #[test]
     fn test_add_changepoints_level() {
         let mut values = vec![0.0; 100];
         let locs = [0.5]; // changepoint at index 50
@@ -315,7 +356,10 @@ mod tests {
             "level",
             &level,
             &trend,
-            &variance, false, 1.0);
+            &variance,
+            false,
+            1.0,
+        );
         assert_eq!(result.changepoint_indices.len(), 1);
         // Before changepoint: values should be 0
         assert!((values[0]).abs() < 1e-10);
@@ -340,7 +384,10 @@ mod tests {
             "trend",
             &level,
             &trend,
-            &variance, false, 1.0);
+            &variance,
+            false,
+            1.0,
+        );
         // Before changepoint: all zeros
         assert!((values[0]).abs() < 1e-10);
         // After changepoint: linear increase
@@ -366,7 +413,18 @@ mod tests {
         let mut values: Vec<f64> = (0..1000).map(|i| (i as f64 * 0.1).sin()).collect();
         let locs = [0.2];
         let variance = [2.0];
-        add_changepoints(&mut values, 42, 1, &locs, "variance", &[], &[], &variance, false, 1.0);
+        add_changepoints(
+            &mut values,
+            42,
+            1,
+            &locs,
+            "variance",
+            &[],
+            &[],
+            &variance,
+            false,
+            1.0,
+        );
         for (i, v) in values.iter().enumerate() {
             assert!(v.abs() < 100.0, "variance changepoint diverged at {i}: {v}");
         }
@@ -377,7 +435,18 @@ mod tests {
         let mut values = vec![0.0; 100];
         let locs = [1.0];
         let level = [10.0];
-        let result = add_changepoints(&mut values, 42, 1, &locs, "level", &level, &[], &[], false, 1.0);
+        let result = add_changepoints(
+            &mut values,
+            42,
+            1,
+            &locs,
+            "level",
+            &level,
+            &[],
+            &[],
+            false,
+            1.0,
+        );
         assert_eq!(result.changepoint_indices[0], 99);
         assert!((values[99] - 10.0).abs() < 1e-10);
         assert!(values[98].abs() < 1e-10);

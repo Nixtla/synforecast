@@ -612,7 +612,11 @@ fn apply_pattern_injection(
     miss_seed: u64,
 ) -> (Vec<i64>, Vec<i64>, Vec<i64>) {
     // Relative magnitudes are sized on the base series, before any overlay.
-    let scale = if pi_config.overlay_relative { pi::overlay_scale(values) } else { 1.0 };
+    let scale = if pi_config.overlay_relative {
+        pi::overlay_scale(values)
+    } else {
+        1.0
+    };
     let cp_indices = if pi_config.changepoints {
         let r = pi::add_changepoints(
             values,

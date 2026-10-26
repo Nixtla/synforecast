@@ -59,6 +59,12 @@
   `GaussianProcessGenerator` entries produce different output. Every other
   generator is bit-identical to 0.2.0.
 
+### Fixed
+
+- Variance changepoints skip missing values in their rolling mean and leave
+  them missing, instead of spreading NaN through the rest of the series
+  (seen on IoTSensor series, whose failures leave gaps).
+
 ## 0.2.0 - 2026-10-12
 
 ### Added

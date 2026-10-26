@@ -235,3 +235,31 @@ def test_extended_entries_stay_bounded_on_long_series(freq: str) -> None:
             )
             (values,) = gen.generate_values(1, n_jobs=1)
             assert np.nanmax(np.abs(values)) < 1e8, (member, type(gen).__name__)
+
+
+@pytest.mark.parametrize("scale", ["absolute", "relative"])
+def test_variance_changepoints_keep_sensor_gaps_local(scale: str) -> None:
+    # IoTSensor series have failure gaps; variance changepoints must not turn the rest of the series into NaN.
+    member = next(
+        i
+        for i, g in enumerate(pretraining_pool(min_length=8, max_length=8, freq="D"))
+        if type(g).__name__ == "IoTSensorGenerator"
+    )
+    rng = np.random.default_rng(2)
+    for _ in range(60):
+        kwargs = {
+            "min_length": 128,
+            "max_length": 128,
+            "freq": "D",
+            "seed": int(rng.integers(1 << 40)),
+            "members": [member],
+        }
+        (base,) = pretraining_pool(**kwargs)[0].generate_values(1, n_jobs=1)
+        (both,) = pretraining_pool(
+            **kwargs,
+            changepoints=True,
+            num_changepoints=3,
+            changepoint_type="variance",
+            overlay_scale=scale,
+        )[0].generate_values(1, n_jobs=1)
+        np.testing.assert_array_equal(np.isnan(both), np.isnan(base))
