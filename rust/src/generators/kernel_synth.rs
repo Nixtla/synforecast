@@ -135,16 +135,16 @@ fn kernel_terms(
 
 fn dot_reversed(a: &[f64], b: &[f64]) -> f64 {
     debug_assert_eq!(a.len(), b.len());
-    let (left, right) = (a.chunks_exact(4), b.rchunks_exact(4));
+    let (left, left_tail) = a.as_chunks::<4>();
+    let (right_head, right) = b.as_rchunks::<4>();
     // The unpaired tails: the last `n % 4` of `a` with the first `n % 4` of `b`.
-    let tail: f64 = left
-        .remainder()
+    let tail: f64 = left_tail
         .iter()
-        .zip(right.remainder().iter().rev())
+        .zip(right_head.iter().rev())
         .map(|(x, y)| x * y)
         .sum();
     let mut acc = [0.0_f64; 4];
-    for (x, y) in left.zip(right) {
+    for (x, y) in left.iter().zip(right.iter().rev()) {
         acc[0] += x[0] * y[3];
         acc[1] += x[1] * y[2];
         acc[2] += x[2] * y[1];
