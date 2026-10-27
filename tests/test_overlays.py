@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from synforecast import pretraining_overlays, pretraining_pool
+from synforecast import calendar_overlays, pretraining_overlays, pretraining_pool
 from synforecast._core import _overlay_scale
 from synforecast._lib import pattern_injection as rs_pi
 
@@ -263,3 +263,144 @@ def test_variance_changepoints_keep_sensor_gaps_local(scale: str) -> None:
             overlay_scale=scale,
         )[0].generate_values(1, n_jobs=1)
         np.testing.assert_array_equal(np.isnan(both), np.isnan(base))
+
+
+def _calendar_values(**kwargs):
+    from synforecast.generators import RandomWalkGenerator
+
+    settings = {"min_length": 24 * 21, "max_length": 24 * 21, "freq": "h", "seed": 3}
+    settings.update(kwargs)
+    (values,) = RandomWalkGenerator(**settings).generate_values(1, n_jobs=1)
+    return values
+
+
+def test_calendar_off_draws_exactly_as_before() -> None:
+    base = _calendar_values()
+    np.testing.assert_array_equal(base, _calendar_values(calendar_amplitude=3.0))
+    kwargs = {"min_length": 64, "max_length": 64, "freq": "h", "seed": 4}
+    kwargs.update(include_extended=True, overlay_seed=9)
+    plain = pretraining_pool(**kwargs)
+    zero = pretraining_pool(**kwargs, calendar_rate=0.0)
+    assert [g.model_dump() for g in plain] == [g.model_dump() for g in zero]
+
+
+def test_additive_daily_cycle_is_periodic_with_the_given_peak() -> None:
+    base = _calendar_values()
+    cycled = _calendar_values(calendar_cycles=True, calendar_amplitude=2.0)
+    added = cycled - base
+    np.testing.assert_allclose(added[24:], added[:-24], atol=1e-9)
+    assert np.abs(added).max() == pytest.approx(2.0 * _overlay_scale(base), rel=0.01)
+    assert abs(added[:24].mean()) < 1e-9
+
+
+def test_calendar_cycle_follows_the_timestamps() -> None:
+    kwargs = {"calendar_cycles": True, "calendar_weekly": 0.7}
+    midnight = _calendar_values(**kwargs) - _calendar_values()
+    shifted = _calendar_values(start_datetime="2000-01-01 05:00", **kwargs)
+    shifted -= _calendar_values(start_datetime="2000-01-01 05:00")
+    scale = _overlay_scale(_calendar_values())
+    np.testing.assert_allclose(shifted[:-5] / scale, midnight[5:] / scale, atol=1e-9)
+
+
+def test_weekly_cycle_on_daily_data_and_none_on_monthly() -> None:
+    daily = {"min_length": 70, "max_length": 70, "freq": "D"}
+    added = _calendar_values(**daily, calendar_cycles=True, calendar_weekly=1.0)
+    added -= _calendar_values(**daily)
+    np.testing.assert_allclose(added[7:], added[:-7], atol=1e-9)
+    assert np.abs(added).max() > 0
+    np.testing.assert_array_equal(
+        _calendar_values(**daily, calendar_cycles=True), _calendar_values(**daily)
+    )
+    monthly = {"min_length": 48, "max_length": 48, "freq": "MS"}
+    np.testing.assert_array_equal(
+        _calendar_values(**monthly, calendar_cycles=True, calendar_weekly=1.0),
+        _calendar_values(**monthly),
+    )
+
+
+def test_multiplicative_cycle_scales_positive_series_only() -> None:
+    from synforecast.generators import PoissonProcessGenerator
+
+    kwargs = {"min_length": 24 * 14, "max_length": 24 * 14, "freq": "h", "seed": 5}
+    (counts,) = PoissonProcessGenerator(**kwargs).generate_values(1, n_jobs=1)
+    counts = counts + 1.0
+    from synforecast.base import BaseGenerator
+
+    class Positive(BaseGenerator):
+        def generate_single_series(self, length: int) -> np.ndarray:
+            return counts[:length].copy()
+
+    mult = {"calendar_cycles": True, "calendar_mode": "multiplicative"}
+    (scaled,) = Positive(**kwargs, **mult, calendar_swing=0.6).generate_values(
+        1, n_jobs=1
+    )
+    ratio = scaled / counts
+    np.testing.assert_allclose(ratio[24:], ratio[:-24], rtol=1e-9)
+    assert ratio.min() >= 0.4 - 1e-9 and ratio.max() <= 1.6 + 1e-9
+    base = _calendar_values()
+    fallback = _calendar_values(**mult, calendar_amplitude=2.5, calendar_swing=0.6)
+    additive = _calendar_values(calendar_cycles=True, calendar_amplitude=2.5)
+    assert base.min() <= 0
+    np.testing.assert_array_equal(fallback, additive)
+    with pytest.raises(ValueError, match="calendar_swing"):
+        _calendar_values(**mult, calendar_swing=1.0)
+
+
+def test_calendar_cycle_keeps_missing_values_and_matches_generate() -> None:
+    from synforecast.generators import RandomWalkGenerator
+
+    kwargs = {"min_length": 200, "max_length": 200, "freq": "30min", "seed": 8}
+    kwargs.update(missing_data=True, missing_rate=0.1)
+    plain = _calendar_values(**kwargs)
+    cycled = _calendar_values(**kwargs, calendar_cycles=True, calendar_weekly=0.5)
+    np.testing.assert_array_equal(np.isnan(cycled), np.isnan(plain))
+    df = RandomWalkGenerator(
+        **kwargs, calendar_cycles=True, calendar_weekly=0.5
+    ).generate(1, n_jobs=1)
+    np.testing.assert_array_equal(df["y"].to_numpy(), cycled)
+
+
+def test_calendar_prior_is_deterministic_with_the_given_rate() -> None:
+    kwargs = {"min_length": 16, "max_length": 16, "freq": "h", "seed": 1}
+    kwargs.update(include_extended=True, calendar_rate=0.8)
+    rates = []
+    for overlay_seed in range(40):
+        pool = pretraining_pool(**kwargs, overlay_seed=overlay_seed)
+        again = pretraining_pool(**kwargs, overlay_seed=overlay_seed)
+        assert [g.model_dump() for g in pool] == [g.model_dump() for g in again]
+        rates += [g.calendar_cycles for g in pool]
+    assert np.mean(rates) == pytest.approx(0.8, abs=0.03)
+    draws = [calendar_overlays(np.random.default_rng([2, i])) for i in range(5000)]
+    assert np.mean([d["calendar_mode"] == "multiplicative" for d in draws]) == (
+        pytest.approx(0.5, abs=0.03)
+    )
+    assert np.mean([d["calendar_weekly"] == 0 for d in draws]) == pytest.approx(
+        0.3, abs=0.03
+    )
+    with pytest.raises(ValueError, match="overlay_seed"):
+        pretraining_pool(min_length=16, max_length=16, calendar_rate=0.5)
+    with pytest.raises(ValueError, match="calendar_rate"):
+        pretraining_pool(min_length=16, max_length=16, overlay_seed=1, calendar_rate=2)
+
+
+@pytest.mark.parametrize("freq", ["h", "10min", "D"])
+def test_every_member_draws_valid_series_with_calendar_cycles(freq: str) -> None:
+    n = len(
+        pretraining_pool(min_length=8, max_length=8, freq=freq, include_extended=True)
+    )
+    rng = np.random.default_rng(4)
+    for draw in range(2 * n):
+        (gen,) = pretraining_pool(
+            min_length=1024,
+            max_length=1024,
+            freq=freq,
+            seed=int(rng.integers(1 << 40)),
+            include_extended=True,
+            overlay_seed=int(rng.integers(1 << 40)),
+            calendar_rate=1.0,
+            members=[draw % n],
+        )
+        assert gen.calendar_cycles
+        (values,) = gen.generate_values(1, n_jobs=1)
+        assert values.shape == (1024,) and not np.isinf(values).any()
+        assert np.isfinite(values).sum() >= 2, (draw % n, type(gen).__name__)

@@ -4,6 +4,16 @@
 
 ### Added
 
+- `calendar_cycles` on every generator: a time-of-day profile (Fourier
+  harmonics) plus a day-of-week profile aligned to the timestamps, additive
+  in standard deviations of the series (`calendar_amplitude`) or
+  multiplicative on strictly positive series (`calendar_swing`). It applies
+  to fixed sub-weekly frequencies on both generation paths and is a no-op
+  elsewhere; with the default `False` every draw is bit-identical to before.
+- `calendar_overlays(rng)`: a documented random calendar-cycle prior, and
+  `pretraining_pool(calendar_rate=...)` applying it to that share of entries
+  from its own `(overlay_seed, index)` stream, so pools at rate 0 are
+  unchanged.
 - `overlay_scale="relative"` on every generator: anomaly and changepoint
   magnitudes in standard deviations of the series before any overlay, so the
   same settings fit series of any scale. The native batch path and the Python
