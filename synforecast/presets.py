@@ -194,10 +194,47 @@ def pretraining_overlays(rng: np.random.Generator) -> dict[str, Any]:
     return kwargs
 
 
+def calendar_overlays(rng: np.random.Generator) -> dict[str, Any]:
+    """Draw one random calendar-cycle configuration for a pretraining series.
+
+    - mode: additive or multiplicative with equal probability; additive peaks
+      (also used by multiplicative draws on series that are not strictly
+      positive) are log-uniform in [1, 8] standard deviations, multiplicative
+      peaks uniform in [0.2, 0.9] of the level;
+    - time-of-day shape: 1-5 Fourier harmonics;
+    - day-of-week strength: none with probability 0.3, otherwise log-uniform
+      in [0.2, 2] relative to the time-of-day profile.
+
+    The cycle is aligned to the timestamps and only shows on sub-weekly
+    frequencies (see ``BaseGenerator.calendar_cycles``).
+
+    Args:
+        rng: Random stream that determines the configuration.
+
+    Returns:
+        Generator keyword arguments that switch the calendar cycle on.
+    """
+    multiplicative = rng.random() < 0.5
+    amplitude = np.exp(rng.uniform(np.log(1.0), np.log(8.0)))
+    swing = rng.uniform(0.2, 0.9)
+    weekly = (
+        0.0 if rng.random() < 0.3 else np.exp(rng.uniform(np.log(0.2), np.log(2.0)))
+    )
+    return {
+        "calendar_cycles": True,
+        "calendar_mode": "multiplicative" if multiplicative else "additive",
+        "calendar_amplitude": float(amplitude),
+        "calendar_swing": float(swing),
+        "calendar_harmonics": int(rng.integers(1, 6)),
+        "calendar_weekly": float(weekly),
+    }
+
+
 def _build(
     specs: list[_Spec],
     members: Iterable[int] | None,
     overlay_seed: int | None = None,
+    calendar_rate: float = 0.0,
 ) -> list[BaseGenerator]:
     """Instantiate every spec, or only the selected indices in the given order, optionally with drawn overlays."""
     chosen = (
@@ -219,6 +256,10 @@ def _build(
             overlays = {
                 k: v for k, v in overlays.items() if k not in _SCALED_OVERLAY_KEYS
             }
+        # The calendar prior has its own stream, so pools without it draw exactly as before.
+        calendar_rng = np.random.default_rng([overlay_seed, i, 1])
+        if calendar_rng.random() < calendar_rate:
+            overlays.update(calendar_overlays(calendar_rng))
         built.append(specs[i](**overlays))
     return built
 
@@ -722,6 +763,7 @@ def pretraining_pool(
     members: Iterable[int] | None = None,
     include_extended: bool = False,
     overlay_seed: int | None = None,
+    calendar_rate: float = 0.0,
     **base_kwargs: Any,
 ) -> list[BaseGenerator]:
     """Create a breadth-maximizing pool for foundation-model pretraining.
@@ -793,6 +835,10 @@ def pretraining_pool(
             that define their own changepoints or anomalies only receive the
             scale-free overlays (innovations, missing data). Default None,
             which adds no overlays.
+        calendar_rate: Probability that an entry also gets a calendar cycle
+            drawn by :func:`calendar_overlays` from its own stream of
+            ``(overlay_seed, index)``, so pools at rate 0 are unchanged.
+            Requires ``overlay_seed``. Default 0.0.
         **base_kwargs: Additional keyword arguments passed to all generators
             (e.g., engine, id_col, time_col, target_col).
 
@@ -819,6 +865,10 @@ def pretraining_pool(
             stacklevel=2,
         )
         include_interpretable = base_kwargs.pop("include_balanced")
+    if not 0.0 <= calendar_rate <= 1.0:
+        raise ValueError(f"calendar_rate must be in [0, 1], got {calendar_rate}")
+    if calendar_rate > 0 and overlay_seed is None:
+        raise ValueError("calendar_rate needs an overlay_seed")
     if n_meta_variants < 1:
         raise ValueError("n_meta_variants must be >= 1")
     if seasonal_period is not None and seasonal_period < 1:
@@ -889,7 +939,9 @@ def pretraining_pool(
         if include_extended
         else []
     )
-    return _build(interpretable + meta + seasonal + extended, members, overlay_seed)
+    return _build(
+        interpretable + meta + seasonal + extended, members, overlay_seed, calendar_rate
+    )
 
 
 def _seasonal_factors(period: int, sharpness: float) -> list[float]:

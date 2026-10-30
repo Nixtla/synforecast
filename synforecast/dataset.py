@@ -222,8 +222,8 @@ class SynSet:
             lengths_arr = batch_meta[bi]["lengths"]
             start_id = gi * n
 
-            all_metadata = _batch_results_to_metadata(
-                gen, gen_results, lengths_arr, start_id
+            all_metadata = gen._apply_calendar_cycles(
+                _batch_results_to_metadata(gen, gen_results, lengths_arr, start_id)
             )
             df = gen._build_dataframe(all_metadata)
             results_by_gi[gi] = nw.from_native(df)

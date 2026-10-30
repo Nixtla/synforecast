@@ -25,6 +25,7 @@ from synforecast.evaluation import (
 from synforecast.multivariatize import Multivariatizer
 from synforecast.presets import (
     balanced_pool,
+    calendar_overlays,
     interpretable_pool,
     pretraining_overlays,
     pretraining_pool,
@@ -40,6 +41,7 @@ __all__ = [
     "SynAugment",
     "SynSet",
     "balanced_pool",
+    "calendar_overlays",
     "compare_feature_coverage",
     "compute_features",
     "feature_coverage",

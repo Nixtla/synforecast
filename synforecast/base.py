@@ -186,6 +186,18 @@ class BaseGenerator(BaseModel, ABC):
         changepoint_variance_changes (list[float] | None): Size of variance changes
             (default: random)
         changepoint_locations (list[float] | None): Relative positions 0-1 (default: random)
+
+        Calendar-cycle parameters:
+        calendar_cycles (bool): Add a time-of-day and day-of-week cycle aligned to
+            the timestamps, on fixed sub-weekly frequencies (default: False)
+        calendar_mode (str): 'additive' or 'multiplicative' (default: 'additive')
+        calendar_amplitude (float): Additive profile peak, in standard deviations
+            of the series (default: 1.0)
+        calendar_swing (float): Multiplicative profile peak, as a fraction of
+            the level, below 1 (default: 0.3)
+        calendar_harmonics (int): Harmonics of the time-of-day profile (default: 3)
+        calendar_weekly (float): Day-of-week strength relative to time-of-day
+            (default: 0.0)
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
@@ -304,6 +316,46 @@ class BaseGenerator(BaseModel, ABC):
             "changes are multiplied by it, trend changes are the total drift over "
             "the rest of the series, and random level and trend changes are drawn "
             "from U(-3, 3)."
+        ),
+    )
+
+    # Calendar-cycle parameters
+    calendar_cycles: bool = Field(
+        default=False,
+        description=(
+            "Add a time-of-day and day-of-week cycle aligned to the timestamps. "
+            "Only applies to fixed sub-weekly frequencies: the daily cycle needs a "
+            "step under one day, the weekly cycle a step of at most one day."
+        ),
+    )
+    calendar_mode: Literal["additive", "multiplicative"] = Field(
+        default="additive",
+        description=(
+            "'additive' adds calendar_amplitude * std * profile. 'multiplicative' "
+            "scales a strictly positive series by (1 + calendar_swing * profile); "
+            "series with non-positive values get the additive cycle instead."
+        ),
+    )
+    calendar_amplitude: float = Field(
+        default=1.0,
+        ge=0,
+        description="Additive profile peak, in standard deviations of the series",
+    )
+    calendar_swing: float = Field(
+        default=0.3,
+        ge=0,
+        lt=1,
+        description="Multiplicative profile peak, as a fraction of the level",
+    )
+    calendar_harmonics: int = Field(
+        default=3, ge=1, description="Fourier harmonics of the time-of-day profile"
+    )
+    calendar_weekly: float = Field(
+        default=0.0,
+        ge=0,
+        description=(
+            "Strength of the day-of-week profile relative to the time-of-day one; "
+            "on daily data it is the only cycle, so 0 adds nothing there."
         ),
     )
 
@@ -873,7 +925,7 @@ class BaseGenerator(BaseModel, ABC):
         if n_series < 1:
             raise ValueError(f"n_series must be a positive integer, got {n_series}.")
         return self._build_dataframe(
-            self._generate_metadata(n_series, start_id, n_jobs)
+            self._metadata_with_calendar(n_series, start_id, n_jobs)
         )
 
     def generate_values(self, n_series: int, n_jobs: int = -1) -> list[np.ndarray]:
@@ -897,13 +949,92 @@ class BaseGenerator(BaseModel, ABC):
         """
         if n_series < 1:
             raise ValueError(f"n_series must be a positive integer, got {n_series}.")
-        metadata = self._generate_metadata(n_series, 0, n_jobs)
+        metadata = self._metadata_with_calendar(n_series, 0, n_jobs)
         # Correlated exogenous draws still advance self.rng, as in generate().
         if self.exogenous is not None and self.exogenous.correlated:
             flat_values = np.concatenate([m.values for m in metadata])
             for exog_config in self.exogenous.correlated:
                 generate_correlated_exog(metadata, flat_values, exog_config, self.rng)
         return [np.asarray(m.values, dtype=np.float64) for m in metadata]
+
+    def _metadata_with_calendar(
+        self,
+        n_series: int,
+        start_id: int,
+        n_jobs: int,
+    ) -> list[SeriesMetadata]:
+        """:meth:`_generate_metadata` plus the calendar cycle, which draws its seeds only when enabled."""
+        return self._apply_calendar_cycles(
+            self._generate_metadata(n_series, start_id, n_jobs)
+        )
+
+    def _apply_calendar_cycles(
+        self, metadata: list[SeriesMetadata]
+    ) -> list[SeriesMetadata]:
+        """Add the calendar cycle to drawn series in place, drawing its seeds only when enabled.
+
+        Every path that draws series for a DataFrame must call this after its
+        metadata, including ``SynSet``'s multi-generator batch.
+        """
+        if not self.calendar_cycles:
+            return metadata
+        seeds = self.rng.integers(0, 2**63, size=len(metadata), dtype=np.uint64)
+        for m, seed in zip(metadata, seeds, strict=True):
+            m.values = self._add_calendar_cycles(
+                np.asarray(m.values, dtype=np.float64), np.random.default_rng(seed)
+            )
+        return metadata
+
+    def _calendar_profile(
+        self, length: int, rng: np.random.Generator
+    ) -> np.ndarray | None:
+        """Time-of-day plus day-of-week profile with peak 1, or None when the frequency has no calendar cycle."""
+        step = self._freq_timedelta()
+        if step is None or step <= pd.Timedelta(0):
+            return None
+        step_hours = step / pd.Timedelta(hours=1)
+        has_daily = step_hours < 24
+        has_weekly = step_hours <= 24 and self.calendar_weekly > 0
+        if not (has_daily or has_weekly):
+            return None
+        start = self.start_datetime
+        hours = (start - start.normalize()) / pd.Timedelta(hours=1)
+        hours = hours + step_hours * np.arange(length, dtype=np.float64)
+        dow = (start.dayofweek + np.floor_divide(hours, 24.0).astype(np.int64)) % 7
+        profile = np.zeros(length)
+        if has_daily:
+            k = np.arange(1, self.calendar_harmonics + 1)
+            coef = rng.normal(size=(2, k.size)) / k
+            grid = np.linspace(0.0, 1.0, 1440, endpoint=False)
+
+            def daily(theta: np.ndarray) -> np.ndarray:
+                angle = 2 * np.pi * np.outer(theta, k)
+                return np.cos(angle) @ coef[0] + np.sin(angle) @ coef[1]
+
+            peak = np.abs(daily(grid)).max()
+            if peak > 0:
+                profile += daily(np.mod(hours, 24.0) / 24.0) / peak
+        if has_weekly:
+            # Weekend contrast of random sign plus small day-to-day variation.
+            days = 0.25 * rng.normal(size=7)
+            days[5:] += rng.choice((-1.0, 1.0)) * rng.uniform(0.5, 1.5)
+            days -= days.mean()
+            days /= np.abs(days).max()
+            weight = self.calendar_weekly if has_daily else 1.0
+            profile = (profile + weight * days[dow]) / (1.0 + weight * has_daily)
+        return profile
+
+    def _add_calendar_cycles(
+        self, values: np.ndarray, rng: np.random.Generator
+    ) -> np.ndarray:
+        """Apply the calendar profile to one series; missing values stay missing."""
+        profile = self._calendar_profile(values.size, rng)
+        if profile is None:
+            return values
+        finite = values[np.isfinite(values)]
+        if self.calendar_mode == "multiplicative" and finite.size and finite.min() > 0:
+            return values * (1.0 + self.calendar_swing * profile)
+        return values + self.calendar_amplitude * _overlay_scale(values) * profile
 
     def _generate_metadata(
         self,
