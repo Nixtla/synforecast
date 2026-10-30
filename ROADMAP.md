@@ -8,7 +8,7 @@
 - **Strategy selection** — ~~unified API~~ — done: fit-and-simulate, mixup, MBB
   and DBA ship as frozen specs with `apply()`. Still open: the jitter/scale/warp
   baselines.
-- **Wider fitter coverage** — 9 fitters against 32 generators, so only a third of
+- **Wider fitter coverage** — 9 fitters against 33 generators, so only a third of
   the library is reachable; add ETS, StateSpace, INAR, multi-period seasonal.
 - **Panel-aware augmentation** — augment jointly to preserve cross-series
   correlation instead of series-by-series.
@@ -62,7 +62,7 @@
 - **Hierarchical panels** — panels that aggregate coherently, for testing
   reconciliation.
 - **Generator selection guide** — a decision path to a generator or pool, instead
-  of reading all 32 pages.
+  of reading all 33 pages.
 
 ## Under consideration
 
