@@ -964,7 +964,18 @@ class BaseGenerator(BaseModel, ABC):
         n_jobs: int,
     ) -> list[SeriesMetadata]:
         """:meth:`_generate_metadata` plus the calendar cycle, which draws its seeds only when enabled."""
-        metadata = self._generate_metadata(n_series, start_id, n_jobs)
+        return self._apply_calendar_cycles(
+            self._generate_metadata(n_series, start_id, n_jobs)
+        )
+
+    def _apply_calendar_cycles(
+        self, metadata: list[SeriesMetadata]
+    ) -> list[SeriesMetadata]:
+        """Add the calendar cycle to drawn series in place, drawing its seeds only when enabled.
+
+        Every path that draws series for a DataFrame must call this after its
+        metadata, including ``SynSet``'s multi-generator batch.
+        """
         if not self.calendar_cycles:
             return metadata
         seeds = self.rng.integers(0, 2**63, size=len(metadata), dtype=np.uint64)

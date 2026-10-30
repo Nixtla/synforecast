@@ -360,6 +360,31 @@ def test_calendar_cycle_keeps_missing_values_and_matches_generate() -> None:
     np.testing.assert_array_equal(df["y"].to_numpy(), cycled)
 
 
+def test_synset_applies_calendar_cycles_like_generate() -> None:
+    from synforecast import SynSet
+
+    kwargs = {"min_length": 24 * 7, "max_length": 24 * 8, "freq": "h", "seed": 6}
+    kwargs.update(overlay_seed=11, engine="pandas")
+    n = 3
+
+    def per_generator(rate: float) -> list[np.ndarray]:
+        pool = pretraining_pool(**kwargs, calendar_rate=rate)
+        return [
+            g.generate(n, start_id=i * n, n_jobs=1)["y"].to_numpy()
+            for i, g in enumerate(pool)
+        ]
+
+    pool = pretraining_pool(**kwargs, calendar_rate=1.0)
+    df = SynSet(pool).generate(n_series_per_generator=n, n_jobs=2)
+    ids = df["unique_id"].astype(int).to_numpy()
+    expected = per_generator(1.0)
+    for i, values in enumerate(expected):
+        block = df["y"].to_numpy()[(ids >= i * n) & (ids < (i + 1) * n)]
+        np.testing.assert_array_equal(block, values, err_msg=type(pool[i]).__name__)
+    for i, (on, off) in enumerate(zip(expected, per_generator(0.0), strict=True)):
+        assert not np.array_equal(on, off, equal_nan=True), type(pool[i]).__name__
+
+
 def test_calendar_prior_is_deterministic_with_the_given_rate() -> None:
     kwargs = {"min_length": 16, "max_length": 16, "freq": "h", "seed": 1}
     kwargs.update(include_extended=True, calendar_rate=0.8)
