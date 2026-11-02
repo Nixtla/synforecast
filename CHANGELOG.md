@@ -64,6 +64,11 @@
 - Variance changepoints skip missing values in their rolling mean and leave
   them missing, instead of spreading NaN through the rest of the series
   (seen on IoTSensor series, whose failures leave gaps).
+- `SynSet.generate` keeps a column that only some generators add (such as
+  the `event` indicator of `DailyActiveUsersGenerator`, or exogenous
+  columns), null for the other generators' series, instead of failing to
+  concatenate. This made `SynSet(pretraining_pool(include_extended=True))`
+  fail.
 
 ## 0.2.0 - 2026-10-12
 

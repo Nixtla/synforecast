@@ -141,6 +141,17 @@ def test_extended_entries_are_appended() -> None:
     ]
 
 
+def test_extended_pool_generates_through_synset() -> None:
+    from synforecast import SynSet
+
+    pool = pretraining_pool(
+        min_length=48, max_length=48, freq="h", seed=1, include_extended=True
+    )
+    df = SynSet(pool).generate(n_series_per_generator=2, n_jobs=1)
+    assert df["unique_id"].nunique() == 2 * len(pool)
+    assert {"unique_id", "ds", "y"} <= set(df.columns)
+
+
 def test_entries_with_own_changepoints_keep_them() -> None:
     kwargs = {
         "min_length": 96,

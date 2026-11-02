@@ -132,7 +132,8 @@ class SynSet:
                 Results are seed-deterministic and do not depend on n_jobs.
 
         Returns:
-            DataFrame containing all generated time series from all generators, in long format with columns [id_col, time_col, target_col].
+            DataFrame containing all generated time series from all generators, in long format with columns [id_col, time_col, target_col],
+            plus any extra column a generator adds (exogenous, flag or event columns), null for series from generators without it.
 
         Notes:
             Series IDs are unique across all generators. With 2 generators and
@@ -146,7 +147,13 @@ class SynSet:
             df.with_columns(nw.col(self.id_col).cast(nw.String()).cast(nw.Int64()))
             for df in all_series
         ]
-        result = _categorize_ids(nw.concat(as_int), self.id_col)
+        # Generators may add their own columns (exogenous, flags, the event
+        # indicator of DailyActiveUsers); a diagonal concat keeps them, null
+        # for the other generators' series. Matching frames stay vertical.
+        how = (
+            "vertical" if len({tuple(df.columns) for df in as_int}) == 1 else "diagonal"
+        )
+        result = _categorize_ids(nw.concat(as_int, how=how), self.id_col)
 
         return result.to_native()
 
