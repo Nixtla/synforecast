@@ -4,6 +4,10 @@
 
 ### Added
 
+- `VARXGenerator`: a VAR panel driven by shared, future-known and
+  history-only regressors with known effects, dense, sparse or group-total
+  cross-series lags, and a `group` column. `truth` returns the coefficients of
+  the last draw and `truth.forecast()` its conditional-mean (oracle) forecast.
 - `FitAndSimulate`, `Mixup`, `MovingBlockBootstrap` and `DBA`: frozen
   augmentation specs run with `apply()`, plus `analyze` in
   `synforecast.augment`. `source_col` records provenance (`Mixup`: anchor,

@@ -204,7 +204,7 @@ pretraining choices can be evaluated against observed-only baselines.
 
 ## Features
 
-- 32 generators across statistical, stochastic, multivariate, domain-specific,
+- 33 generators across statistical, stochastic, multivariate, domain-specific,
   and pretraining categories
 - Long-format output following Nixtla conventions
 - pandas, Polars, cuDF, Modin, and PyArrow output through Narwhals

@@ -35,6 +35,7 @@ from synforecast.generators.stochastic_volatility import StochasticVolatilityGen
 from synforecast.generators.tcm import TCMGenerator
 from synforecast.generators.tsi import TSIGenerator
 from synforecast.generators.var import VARGenerator
+from synforecast.generators.varx import VARXGenerator
 from synforecast.generators.vital_signs import VitalSignsGenerator
 
 __all__ = [
@@ -61,6 +62,7 @@ __all__ = [
     # Multivariate
     "CopulaGenerator",
     "VARGenerator",
+    "VARXGenerator",
     "GaussianProcessGenerator",
     # Domain-Specific
     "IntermittentDemandGenerator",

@@ -1,6 +1,6 @@
 ---
 title: Multivariate Generators
-description: Copula, VAR, and Gaussian Process generators for correlated time series
+description: Copula, VAR, VARX, and Gaussian Process generators for correlated time series
 ---
 
 ::: synforecast.generators.copula.CopulaGenerator
@@ -14,6 +14,18 @@ description: Copula, VAR, and Gaussian Process generators for correlated time se
       members:
         - generate_single_series
         - generate
+
+::: synforecast.generators.varx.VARXGenerator
+    options:
+      members:
+        - generate_single_series
+        - generate
+        - truth
+
+::: synforecast.generators.varx.VARXTruth
+    options:
+      members:
+        - forecast
 
 ::: synforecast.generators.gaussian_process.GaussianProcessGenerator
     options:

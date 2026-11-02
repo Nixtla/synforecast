@@ -4,10 +4,10 @@ Reference for all synthetic time series generators in SynForecast, organized by 
 
 ## Overview
 
-SynForecast provides **32 generators** organized into five categories:
+SynForecast provides **33 generators** organized into five categories:
 - **Statistical** (5): Classical time series models
 - **Stochastic** (13): Stochastic process-based generators
-- **Multivariate** (3): Multi-dimensional time series
+- **Multivariate** (4): Multi-dimensional time series
 - **Domain-Specific** (7): Industry/application-focused generators
 - **Pretraining** (4): Diversity-targeted generators for foundation-model corpora
 
@@ -47,7 +47,7 @@ below states how far that verification reaches:
 
 | Status | Generators |
 |--------|------------|
-| Theory-tested (23) | RandomWalk, Seasonal, SARIMA, ETS, INAR, GARCH, OrnsteinUhlenbeck, GeometricBrownianMotion, JumpDiffusion, PoissonProcess, Cyclic, FractionalBrownianMotion, HawkesProcess, StochasticVolatility, RegimeSwitching, ChaoticSystem, BoundedProcess, LevyProcess, Copula, VAR, GaussianProcess, StateSpace, IntermittentDemand |
+| Theory-tested (24) | RandomWalk, Seasonal, SARIMA, ETS, INAR, GARCH, OrnsteinUhlenbeck, GeometricBrownianMotion, JumpDiffusion, PoissonProcess, Cyclic, FractionalBrownianMotion, HawkesProcess, StochasticVolatility, RegimeSwitching, ChaoticSystem, BoundedProcess, LevyProcess, Copula, VAR, VARX, GaussianProcess, StateSpace, IntermittentDemand |
 | Simulator (5) | IoTSensor, EnergyLoad, DailyActiveUsers, VitalSigns, Clickstream |
 | Procedural (4) | TSI, TCM, KernelSynth (published Chronos recipe), MAR (GRATIS recipe) |
 
@@ -531,6 +531,35 @@ Vector autoregressive (VAR) series with inter-series dependencies. **Application
 | `intercept` | `None` | Intercept vector |
 | `innovation_covariance` | `None` | Covariance matrix of innovations |
 
+### VARXGenerator
+
+A VAR panel driven by exogenous regressors with known effects, for testing multivariate
+forecasters that use regressors. **Applications**: demand planning (plans, prices, order
+books), benchmarking VARX and global models against a known process.
+
+Every regressor is a unit-variance AR(1). Shared regressors (`exog_shared_k`) take one value
+per period for all series; future-known regressors (`exog_future_k`, known for the forecast
+periods, like a plan) move their own series and optionally the others; history-only
+regressors (`exog_hist_k`, known up to the forecast origin, like an order book) move the series
+one period later. After `generate()`, `truth` holds the coefficients of the draw and
+`truth.forecast(...)` the conditional-mean forecast, an oracle for excess-loss comparisons.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `n_shared_exog` | `0` | Shared regressors |
+| `n_future_exog` | `1` | Future-known regressors per series |
+| `n_hist_exog` | `0` | History-only regressors per series (effect one period later) |
+| `exog_persistence` | `0.5` | AR(1) coefficient of every regressor, in [0, 1) |
+| `exog_scale` | `1.0` | Std of shared effects and of a regressor's effect on its own series |
+| `exog_cross_scale` | `0.0` | Std of the total effect of the other series' regressors on one series |
+| `cross_structure` | `"dense"` | Random lags: `dense`, `sparse` (`sparsity` off-diagonal share), `groups` (own lag plus lagged group totals) |
+| `sparsity` | `0.1` | Nonzero share of off-diagonal lag coefficients under `sparse` |
+| `n_groups` | `None` | Contiguous series groups, written to `group_col`; required for `groups` |
+| `group_col` | `"group"` | Column holding each series' group |
+
+The `VARGenerator` parameters (`lag_order`, `coef_matrices`, `intercept`,
+`innovation_covariance`) apply too; `coef_matrices` overrides `cross_structure`.
+
 ### GaussianProcessGenerator
 
 Smooth, correlated series from Gaussian Process priors with configurable kernels. **Applications**: geostatistics, Bayesian optimization, robotics, environmental science.
@@ -891,6 +920,7 @@ scripts in `benchmarks/`; benchmark results are not API guarantees.
 | LevyProcess | Stochastic | Finance/Insurance | Alpha-stable, heavy tails |
 | Copula | Multivariate | Risk | Dependency structure |
 | VAR | Multivariate | Macro | Vector autoregression |
+| VARX | Multivariate | Demand planning | VAR with known regressor effects and an oracle forecast |
 | GaussianProcess | Multivariate | Geostatistics | RBF, Matern, periodic kernels |
 | IntermittentDemand | Domain | Supply Chain | Sporadic demand |
 | IoTSensor | Domain | Manufacturing | Sensor data, failures |
