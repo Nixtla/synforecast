@@ -538,7 +538,7 @@ def test_calendar_prior_rates_and_determinism() -> None:
     )
     assert np.mean([len(d.cycles) == 1 for d in draws]) == pytest.approx(0.3, abs=0.03)
     assert {d.cycles[0].harmonics for d in draws} == {1, 2, 3, 4, 5}
-    assert all(1.0 <= d.amplitude <= 8.0 and 0.2 <= d.swing <= 0.9 for d in draws)
+    assert all(1.25 <= d.amplitude <= 10.0 and 0.2 <= d.swing <= 0.9 for d in draws)
     assert all(d.on_unsupported == "skip" for d in draws)
 
 

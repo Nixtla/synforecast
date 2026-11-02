@@ -211,8 +211,11 @@ def calendar_overlays(rng: np.random.Generator) -> Calendar:
 
     - mode: additive or multiplicative with equal probability; additive peaks
       (also used by multiplicative draws on series with negative values) are
-      log-uniform in [1, 8] standard deviations, multiplicative peaks uniform
-      in [0.2, 0.9] of the level;
+      log-uniform in [1.25, 10] standard deviations of the base series,
+      multiplicative peaks uniform in [0.2, 0.9] of the level. The additive
+      range is chosen so that, with changepoints and anomalies drawn after
+      the calendar, sub-daily draws keep the daily seasonal strength of the
+      first version of this prior, which added the calendar last;
     - time of day: a Fourier profile of 1-5 harmonics, drawn per series;
     - day of week: none with probability 0.3, otherwise weekday levels with a
       weekend contrast of random sign and size uniform in [0.5, 1.5] (drawn
@@ -230,7 +233,7 @@ def calendar_overlays(rng: np.random.Generator) -> Calendar:
         The calendar, for ``OverlayConfig(calendar=...)``.
     """
     multiplicative = rng.random() < 0.5
-    amplitude = _log_uniform(rng, 1.0, 8.0)
+    amplitude = _log_uniform(rng, 1.25, 10.0)
     swing = float(rng.uniform(0.2, 0.9))
     weekly = 0.0 if rng.random() < 0.3 else _log_uniform(rng, 0.2, 2.0)
     cycles = [CalendarCycle(phase="day", harmonics=int(rng.integers(1, 6)))]
