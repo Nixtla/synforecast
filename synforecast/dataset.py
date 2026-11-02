@@ -20,6 +20,7 @@ from synforecast.augment import (
     analyze,
 )
 from synforecast.base import (
+    _NO_OVERLAYS,
     BaseGenerator,
     _batch_results_to_metadata,
     _categorize_ids,
@@ -212,7 +213,7 @@ class SynSet:
                     "lengths": lengths,
                     "gen_seeds": gen_seeds,
                     "pi_seeds": pi_seeds,
-                    "pi_config": gen._build_pi_config_dict(),
+                    "plan": gen._overlay_plan(int(lengths.max())) or _NO_OVERLAYS,
                 }
             )
             batch_gen_indices.append(gi)

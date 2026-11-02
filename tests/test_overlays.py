@@ -6,6 +6,7 @@ import pytest
 from synforecast import pretraining_overlays, pretraining_pool
 from synforecast._core import _overlay_scale
 from synforecast._lib import pattern_injection as rs_pi
+from synforecast.overlays import Anomalies, Changepoints, OverlayConfig
 
 EMPTY = np.array([], dtype=np.float64)
 
@@ -101,15 +102,19 @@ def test_overlay_prior_is_deterministic_and_documented_rates() -> None:
     again = [pretraining_overlays(np.random.default_rng([5, i])) for i in range(50)]
     assert first == again
     draws = [pretraining_overlays(np.random.default_rng([9, i])) for i in range(20000)]
-    rates = {
-        "innovation_distribution": 0.3,
-        "changepoints": 0.3,
-        "anomalies": 0.25,
-        "missing_data": 0.1,
-    }
-    for key, rate in rates.items():
-        assert np.mean([key in d for d in draws]) == pytest.approx(rate, abs=0.015)
-    assert all(d.get("overlay_scale", "relative") == "relative" for d in draws)
+    assert np.mean(["innovation_distribution" in d for d in draws]) == pytest.approx(
+        0.3, abs=0.015
+    )
+    stages = [d.get("overlays", OverlayConfig()) for d in draws]
+    for stage, rate in {"changepoints": 0.3, "anomalies": 0.25, "missing": 0.1}.items():
+        drawn = [getattr(o, stage) for o in stages]
+        assert np.mean([x is not None for x in drawn]) == pytest.approx(rate, abs=0.015)
+    assert all(
+        spec.scale == "relative"
+        for o in stages
+        for spec in (o.changepoints, o.anomalies)
+        if spec is not None
+    )
     assert any(not d for d in draws)
 
 
@@ -161,14 +166,17 @@ def test_entries_with_own_changepoints_keep_them() -> None:
         "include_seasonal": True,
     }
     plain = pretraining_pool(**kwargs)
-    own = [i for i, g in enumerate(plain) if g.changepoints or g.anomalies]
+    own = [
+        i
+        for i, g in enumerate(plain)
+        if g.overlays.changepoints is not None or g.overlays.anomalies is not None
+    ]
     assert own
     for overlay_seed in range(40):
         drawn = pretraining_pool(**kwargs, overlay_seed=overlay_seed, members=own)
         for g, ref in zip(drawn, (plain[i] for i in own), strict=True):
-            assert g.overlay_scale == "absolute"
-            assert g.changepoint_trend_changes == ref.changepoint_trend_changes
-            assert g.anomalies == ref.anomalies
+            assert g.overlays.changepoints == ref.overlays.changepoints
+            assert g.overlays.anomalies == ref.overlays.anomalies
 
 
 @pytest.mark.parametrize(
@@ -196,19 +204,18 @@ def test_every_member_draws_valid_series_with_overlays(freq: str, length: int) -
 
 @pytest.mark.parametrize("kind", ["level", "trend", "variance", "mixed"])
 def test_relative_overlays_stay_on_the_series_scale(kind: str) -> None:
-    overlays = {
-        "changepoints": True,
-        "num_changepoints": 3,
-        "changepoint_type": kind,
-        "anomalies": True,
-        "anomaly_types": ["spike", "dip", "level_shift"],
-        "anomaly_fraction": 0.03,
-        "spike_magnitude": 10.0,
-        "dip_magnitude": -10.0,
-        "level_shift_magnitude": 4.0,
-        "level_shift_duration": 50,
-        "overlay_scale": "relative",
-    }
+    overlays = OverlayConfig(
+        changepoints=Changepoints(count=3, kind=kind, scale="relative"),
+        anomalies=Anomalies(
+            types=["spike", "dip", "level_shift"],
+            fraction=0.03,
+            spike_magnitude=10.0,
+            dip_magnitude=-10.0,
+            level_shift_magnitude=4.0,
+            level_shift_duration=50,
+            scale="relative",
+        ),
+    )
     n = len(
         pretraining_pool(min_length=8, max_length=8, freq="D", include_extended=True)
     )
@@ -222,7 +229,9 @@ def test_relative_overlays_stay_on_the_series_scale(kind: str) -> None:
             "members": [member],
         }
         (base,) = pretraining_pool(**kwargs)[0].generate_values(1, n_jobs=1)
-        (both,) = pretraining_pool(**kwargs, **overlays)[0].generate_values(1, n_jobs=1)
+        (both,) = pretraining_pool(**kwargs, overlays=overlays)[0].generate_values(
+            1, n_jobs=1
+        )
         sigma = _overlay_scale(base)
         if np.nanmax(np.abs(base)) >= 1e11:
             continue
@@ -268,9 +277,8 @@ def test_variance_changepoints_keep_sensor_gaps_local(scale: str) -> None:
         (base,) = pretraining_pool(**kwargs)[0].generate_values(1, n_jobs=1)
         (both,) = pretraining_pool(
             **kwargs,
-            changepoints=True,
-            num_changepoints=3,
-            changepoint_type="variance",
-            overlay_scale=scale,
+            overlays=OverlayConfig(
+                changepoints=Changepoints(count=3, kind="variance", scale=scale)
+            ),
         )[0].generate_values(1, n_jobs=1)
         np.testing.assert_array_equal(np.isnan(both), np.isnan(base))
