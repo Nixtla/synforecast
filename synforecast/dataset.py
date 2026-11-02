@@ -202,7 +202,7 @@ class SynSet:
                 }
             )
             batch_gen_indices.append(gi)
-            batch_meta.append({"lengths": lengths, "gen": gen})
+            batch_meta.append({"lengths": lengths, "gen": gen, "pi_seeds": pi_seeds})
 
         # Run batch-eligible generators via Rust rayon
         batch_results: list[list[dict]] = []
@@ -223,7 +223,9 @@ class SynSet:
             start_id = gi * n
 
             all_metadata = gen._apply_calendar_cycles(
-                _batch_results_to_metadata(gen, gen_results, lengths_arr, start_id)
+                _batch_results_to_metadata(
+                    gen, gen_results, lengths_arr, start_id, batch_meta[bi]["pi_seeds"]
+                )
             )
             df = gen._build_dataframe(all_metadata)
             results_by_gi[gi] = nw.from_native(df)

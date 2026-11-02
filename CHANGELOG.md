@@ -4,6 +4,24 @@
 
 ### Added
 
+- `waveform` on every generator: a sharp-edged template (pulse, spike,
+  sawtooth, trapezoid, random level switching or staircase) with its period
+  in steps, timed strictly periodically, with per-cycle jitter, or as a
+  renewal process with gamma or lognormal durations; additive in standard
+  deviations or multiplicative, as peaks or dips, over a base that
+  `waveform_base` can shrink to nothing.
+- `observation` on every generator: saturation at a floor or cap,
+  quantization to a value grid, sample-and-hold and frozen windows, applied
+  after anomalies and before missingness without spreading missing values.
+  With `waveform` or `observation` on, overlays run as calendar, waveform,
+  changepoints, anomalies, observation, missingness on both generation
+  paths; with both off (the default) every draw is bit-identical to before.
+- `observability_overlays(rng)`: a documented prior of clean, mild and
+  layered waveform and observation configurations, and
+  `pretraining_pool(observability_rate=...)` applying it to that share of
+  entries from its own `(overlay_seed, index)` stream, with periods up to a
+  third of `min_length`, so pools at rate 0 are unchanged. Golden hashes in
+  `tests/test_golden_draws.py` pin the existing draws.
 - `calendar_cycles` on every generator: a time-of-day profile (Fourier
   harmonics) plus a day-of-week profile aligned to the timestamps, additive
   in standard deviations of the series (`calendar_amplitude`) or

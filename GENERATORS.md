@@ -218,6 +218,35 @@ Defined on `BaseGenerator` (`synforecast/base.py`) and accepted by every generat
 
 `pretraining_overlays(rng)` draws a random overlay configuration (heavy-tailed innovations, relative changepoints and anomalies, missing data), and `pretraining_pool(overlay_seed=...)` applies one per built entry.
 
+### Waveform
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `waveform` | `False` | Add a sharp-edged repeating template whose period is in time steps, independent of `freq` |
+| `waveform_shape` | `"pulse"` | `pulse` (rectangle of duty `waveform_duty`), `spike` (`waveform_width` steps), `sawtooth` (ramp-and-reset), `trapezoid` (pulse with linear ramps), `levels` (jump to a random other level each cycle), `staircase` (one-level step in a persistent direction each cycle) |
+| `waveform_period` | `96` | Cycle length in steps; mean dwell for `levels` and `staircase` |
+| `waveform_duty` | `0.1` | On-fraction of a cycle for `pulse` and `trapezoid` |
+| `waveform_width` | `1` | Spike width in steps |
+| `waveform_ramp` | `0.25` | Trapezoid ramp per side, as a fraction of the on-time |
+| `waveform_levels` | `4` | Number of levels for `levels` and `staircase` |
+| `waveform_timing` | `"periodic"` | `periodic` (random phase), `jitter` (normal start offsets of std `waveform_jitter` periods), `renewal` (on and off durations, or whole cycles, from `waveform_renewal` with coefficient of variation `waveform_cv`) |
+| `waveform_direction` | `"peak"` | `peak` or `dip` |
+| `waveform_mode` | `"additive"` | `additive` adds `waveform_amplitude` standard deviations; `multiplicative` scales strictly positive series by up to `waveform_swing` |
+| `waveform_base` | `1.0` | Weight of the base series around its mean; `0` leaves the exact template |
+
+### Observation
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `observation` | `False` | Pass the series through an observation process, after anomalies and before missingness |
+| `observation_floor` / `observation_cap` | `None` | Saturation bounds, as fractions of the way from the series' minimum to its maximum |
+| `observation_quantum` | `0.0` | Value-grid step in standard deviations; readings are rounded to its multiples |
+| `observation_hold` | `1` | Sample-and-hold block in steps |
+| `observation_stuck_fraction` | `0.0` | Share of steps inside windows where the reading freezes |
+| `observation_stuck_length` | `20` | Mean length of a frozen window in steps |
+
+Missing values stay missing and never spread. With `waveform` or `observation` on, overlays run in the order calendar cycle, waveform, changepoints, anomalies, observation, missingness; otherwise the order and every draw are unchanged. `observability_overlays(rng)` draws a clean, mild or layered configuration, and `pretraining_pool(observability_rate=...)` applies it to that share of entries from its own `(overlay_seed, index)` stream.
+
 Per-generator sections below list only generator-specific parameters.
 
 ---

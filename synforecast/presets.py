@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from pandas.tseries import offsets as _offsets
 
-from synforecast.base import BaseGenerator
+from synforecast.base import BaseGenerator, _waveform_on_steps
 from synforecast.generators.bounded_process import BoundedProcessGenerator
 from synforecast.generators.chaotic_system import ChaoticSystemGenerator
 from synforecast.generators.clickstream import ClickstreamGenerator
@@ -162,35 +162,11 @@ def pretraining_overlays(rng: np.random.Generator) -> dict[str, Any]:
         elif dist == "skew_normal":
             kwargs["innovation_params"] = {"alpha": float(rng.uniform(-6.0, 6.0))}
     if rng.random() < 0.3:
-        kwargs.update(
-            changepoints=True,
-            num_changepoints=int(rng.integers(1, 4)),
-            changepoint_type=("level", "trend", "variance", "mixed")[
-                int(rng.integers(4))
-            ],
-            overlay_scale="relative",
-        )
+        kwargs.update(_relative_changepoints(rng))
     if rng.random() < 0.25:
-        types = [t for t in ("spike", "dip", "level_shift") if rng.random() < 0.6]
-        kwargs.update(
-            anomalies=True,
-            anomaly_types=types or ["spike"],
-            anomaly_fraction=float(np.exp(rng.uniform(np.log(0.002), np.log(0.03)))),
-            spike_magnitude=float(rng.uniform(3.0, 10.0)),
-            dip_magnitude=-float(rng.uniform(3.0, 10.0)),
-            level_shift_magnitude=float(
-                rng.choice((-1.0, 1.0)) * rng.uniform(1.0, 4.0)
-            ),
-            level_shift_duration=int(rng.integers(5, 51)),
-            overlay_scale="relative",
-        )
+        kwargs.update(_relative_anomalies(rng))
     if rng.random() < 0.1:
-        kwargs.update(
-            missing_data=True,
-            missing_rate=float(rng.uniform(0.02, 0.2)),
-            missing_pattern=("random", "block")[int(rng.integers(2))],
-            missing_block_size=int(rng.integers(2, 21)),
-        )
+        kwargs.update(_missing_data(rng))
     return kwargs
 
 
@@ -230,11 +206,193 @@ def calendar_overlays(rng: np.random.Generator) -> dict[str, Any]:
     }
 
 
+_WAVEFORM_SHAPES = ("pulse", "spike", "sawtooth", "trapezoid", "levels", "staircase")
+_WAVEFORM_SHAPE_WEIGHTS = (0.25, 0.2, 0.15, 0.15, 0.15, 0.1)
+_OBSERVABILITY_COMPONENTS = ("clean", "mild", "layered")
+_OBSERVABILITY_WEIGHTS = (0.4, 0.35, 0.25)
+
+
+def _log_uniform(rng: np.random.Generator, low: float, high: float) -> float:
+    return float(np.exp(rng.uniform(np.log(low), np.log(high))))
+
+
+def observability_overlays(
+    rng: np.random.Generator, max_period: int = 720
+) -> dict[str, Any]:
+    """Draw one random waveform and observation configuration for a pretraining series.
+
+    Targets observability-style data: sharp-edged periodic templates (square
+    pulses, spikes, ramp-and-reset, trapezoids) and piecewise-constant,
+    quantized dynamics (level switching, staircases, floors with bursts,
+    saturation, held readings). Each draw is one of three components:
+
+    - clean (probability 0.4): the waveform over a base shrunk to a weight
+      of 0 (a quarter of clean draws) or log-uniform in [0.01, 0.1], so the
+      template dominates; quantized with probability 0.5; no changepoints,
+      anomalies or missing data;
+    - mild (0.35): the clean setup plus one or two perturbations drawn from
+      a full-weight base (uniform in [0.3, 1]), quantization, saturation,
+      sample-and-hold, frozen windows, anomalies and missing data;
+    - layered (0.25): a base of weight uniform in [0.5, 1], changepoints,
+      anomalies, at least one observation effect (each of saturation,
+      quantization, sample-and-hold and frozen windows with probability 0.5)
+      and missing data with probability 0.5.
+
+    The waveform: shape pulse 0.25, spike 0.2, sawtooth 0.15, trapezoid 0.15,
+    levels 0.15, staircase 0.1; period log-uniform in [12, ``max_period``]
+    steps; timing periodic 0.5, jittered 0.25 (std 1-10% of the period),
+    renewal 0.25 (gamma or lognormal durations, coefficient of variation
+    uniform in [0.2, 1]); duty log-uniform in [0.01, 0.5]; spikes 1-3 steps
+    wide; 2-6 levels; peaks 0.7, dips 0.3; additive 0.75 with peaks
+    log-uniform in [1, 8] standard deviations, otherwise multiplicative with
+    swing uniform in [0.3, 0.9]. Observation effects: saturation below a
+    floor in [0.02, 0.3] and/or above a cap in [0.7, 0.98] of the way from
+    the series' minimum to its maximum, a grid step log-uniform in
+    [0.02, 0.5] standard deviations, holds of 2-10 steps (at most the on-time
+    of a pulse, so no pulse is skipped entirely), and frozen windows covering
+    2-20% of the series, 5-100 steps long.
+
+    Changepoint and anomaly magnitudes are relative, as in
+    :func:`pretraining_overlays`. The clean and mild components switch
+    changepoints, anomalies and missing data off unless drawn, so a draw
+    replaces those keys of :func:`pretraining_overlays`.
+
+    Args:
+        rng: Random stream that determines the configuration.
+        max_period: Longest waveform period in steps, at least 12. Pass about
+            a third of the shortest series so most draws show three cycles.
+
+    Returns:
+        Generator keyword arguments that switch the waveform on.
+    """
+    if max_period < 12:
+        raise ValueError(f"max_period must be >= 12, got {max_period}")
+    component = _OBSERVABILITY_COMPONENTS[int(rng.choice(3, p=_OBSERVABILITY_WEIGHTS))]
+    shape = _WAVEFORM_SHAPES[int(rng.choice(6, p=_WAVEFORM_SHAPE_WEIGHTS))]
+    timing = ("periodic", "jitter", "renewal")[int(rng.choice(3, p=(0.5, 0.25, 0.25)))]
+    multiplicative = rng.random() < 0.25
+    kwargs: dict[str, Any] = {
+        "waveform": True,
+        "waveform_shape": shape,
+        "waveform_period": int(round(_log_uniform(rng, 12, max_period))),
+        "waveform_duty": _log_uniform(rng, 0.01, 0.5),
+        "waveform_width": int(rng.integers(1, 4)),
+        "waveform_ramp": float(rng.uniform(0.05, 0.3)),
+        "waveform_levels": int(rng.integers(2, 7)),
+        "waveform_timing": timing,
+        "waveform_jitter": float(rng.uniform(0.01, 0.1)),
+        "waveform_renewal": ("gamma", "lognormal")[int(rng.integers(2))],
+        "waveform_cv": float(rng.uniform(0.2, 1.0)),
+        "waveform_direction": "peak" if rng.random() < 0.7 else "dip",
+        "waveform_mode": "multiplicative" if multiplicative else "additive",
+        "waveform_amplitude": _log_uniform(rng, 1.0, 8.0),
+        "waveform_swing": float(rng.uniform(0.3, 0.9)),
+        "waveform_base": 0.0 if rng.random() < 0.25 else _log_uniform(rng, 0.01, 0.1),
+        "changepoints": False,
+        "anomalies": False,
+        "missing_data": False,
+    }
+
+    def floor_and_cap() -> dict[str, Any]:
+        sides = int(rng.integers(3))
+        return {
+            "observation_floor": float(rng.uniform(0.02, 0.3)) if sides != 1 else None,
+            "observation_cap": float(rng.uniform(0.7, 0.98)) if sides != 0 else None,
+        }
+
+    def hold() -> dict[str, Any]:
+        # A hold longer than the on-time can skip every pulse and flatten the series, so it is capped there.
+        on = _waveform_on_steps(
+            shape,
+            kwargs["waveform_period"],
+            kwargs["waveform_duty"],
+            kwargs["waveform_width"],
+        )
+        steps = int(rng.integers(2, 11))
+        return {"observation_hold": max(1, min(steps, on))}
+
+    effects: dict[str, Callable[[], dict[str, Any]]] = {
+        "saturate": floor_and_cap,
+        "quantize": lambda: {"observation_quantum": _log_uniform(rng, 0.02, 0.5)},
+        "hold": hold,
+        "freeze": lambda: {
+            "observation_stuck_fraction": float(rng.uniform(0.02, 0.2)),
+            "observation_stuck_length": int(rng.integers(5, 101)),
+        },
+    }
+    perturbations: dict[str, Callable[[], dict[str, Any]]] = {
+        "base": lambda: {"waveform_base": float(rng.uniform(0.3, 1.0))},
+        **effects,
+        "anomalies": lambda: _relative_anomalies(rng),
+        "missing": lambda: _missing_data(rng),
+    }
+    chosen: list[str] = []
+    if component == "clean":
+        if rng.random() < 0.5:
+            chosen = ["quantize"]
+    elif component == "mild":
+        names = list(perturbations)
+        picks = rng.choice(len(names), size=int(rng.integers(1, 3)), replace=False)
+        chosen = [names[int(i)] for i in picks]
+    else:
+        kwargs["waveform_base"] = float(rng.uniform(0.5, 1.0))
+        kwargs.update(_relative_changepoints(rng))
+        kwargs.update(_relative_anomalies(rng))
+        chosen = [name for name in effects if rng.random() < 0.5]
+        if not chosen:
+            chosen = [list(effects)[int(rng.integers(len(effects)))]]
+        if rng.random() < 0.5:
+            chosen.append("missing")
+    for name in chosen:
+        kwargs.update(perturbations[name]())
+    kwargs["observation"] = any(name in effects for name in chosen)
+    return kwargs
+
+
+def _relative_changepoints(rng: np.random.Generator) -> dict[str, Any]:
+    """Changepoint keyword arguments of :func:`pretraining_overlays`, switched on."""
+    return {
+        "changepoints": True,
+        "num_changepoints": int(rng.integers(1, 4)),
+        "changepoint_type": ("level", "trend", "variance", "mixed")[
+            int(rng.integers(4))
+        ],
+        "overlay_scale": "relative",
+    }
+
+
+def _relative_anomalies(rng: np.random.Generator) -> dict[str, Any]:
+    """Anomaly keyword arguments of :func:`pretraining_overlays`, switched on."""
+    types = [t for t in ("spike", "dip", "level_shift") if rng.random() < 0.6]
+    return {
+        "anomalies": True,
+        "anomaly_types": types or ["spike"],
+        "anomaly_fraction": _log_uniform(rng, 0.002, 0.03),
+        "spike_magnitude": float(rng.uniform(3.0, 10.0)),
+        "dip_magnitude": -float(rng.uniform(3.0, 10.0)),
+        "level_shift_magnitude": float(rng.choice((-1.0, 1.0)) * rng.uniform(1.0, 4.0)),
+        "level_shift_duration": int(rng.integers(5, 51)),
+        "overlay_scale": "relative",
+    }
+
+
+def _missing_data(rng: np.random.Generator) -> dict[str, Any]:
+    """Missing-data keyword arguments of :func:`pretraining_overlays`, switched on."""
+    return {
+        "missing_data": True,
+        "missing_rate": float(rng.uniform(0.02, 0.2)),
+        "missing_pattern": ("random", "block")[int(rng.integers(2))],
+        "missing_block_size": int(rng.integers(2, 21)),
+    }
+
+
 def _build(
     specs: list[_Spec],
     members: Iterable[int] | None,
     overlay_seed: int | None = None,
     calendar_rate: float = 0.0,
+    observability_rate: float = 0.0,
+    max_period: int = 720,
 ) -> list[BaseGenerator]:
     """Instantiate every spec, or only the selected indices in the given order, optionally with drawn overlays."""
     chosen = (
@@ -251,6 +409,10 @@ def _build(
     for i in chosen:
         # Overlays depend only on (overlay_seed, index), so a member built alone matches the full pool's entry.
         overlays = pretraining_overlays(np.random.default_rng([overlay_seed, i]))
+        # The observability prior has its own stream too and replaces the changepoint, anomaly and missing-data keys.
+        observability_rng = np.random.default_rng([overlay_seed, i, 2])
+        if observability_rate > 0 and observability_rng.random() < observability_rate:
+            overlays.update(observability_overlays(observability_rng, max_period))
         own = getattr(specs[i], "keywords", {})
         if own.get("changepoints") or own.get("anomalies"):
             overlays = {
@@ -764,6 +926,7 @@ def pretraining_pool(
     include_extended: bool = False,
     overlay_seed: int | None = None,
     calendar_rate: float = 0.0,
+    observability_rate: float = 0.0,
     **base_kwargs: Any,
 ) -> list[BaseGenerator]:
     """Create a breadth-maximizing pool for foundation-model pretraining.
@@ -839,6 +1002,15 @@ def pretraining_pool(
             drawn by :func:`calendar_overlays` from its own stream of
             ``(overlay_seed, index)``, so pools at rate 0 are unchanged.
             Requires ``overlay_seed``. Default 0.0.
+        observability_rate: Probability that an entry also gets a waveform
+            and observation configuration drawn by
+            :func:`observability_overlays` from its own stream of
+            ``(overlay_seed, index)``, with periods up to a third of
+            ``min_length`` (between 12 and 720 steps). The draw replaces the
+            entry's changepoint, anomaly and missing-data overlays, and its
+            overlays then run in the order calendar, waveform, changepoints,
+            anomalies, observation, missingness. Pools at rate 0 are
+            unchanged. Requires ``overlay_seed``. Default 0.0.
         **base_kwargs: Additional keyword arguments passed to all generators
             (e.g., engine, id_col, time_col, target_col).
 
@@ -869,6 +1041,12 @@ def pretraining_pool(
         raise ValueError(f"calendar_rate must be in [0, 1], got {calendar_rate}")
     if calendar_rate > 0 and overlay_seed is None:
         raise ValueError("calendar_rate needs an overlay_seed")
+    if not 0.0 <= observability_rate <= 1.0:
+        raise ValueError(
+            f"observability_rate must be in [0, 1], got {observability_rate}"
+        )
+    if observability_rate > 0 and overlay_seed is None:
+        raise ValueError("observability_rate needs an overlay_seed")
     if n_meta_variants < 1:
         raise ValueError("n_meta_variants must be >= 1")
     if seasonal_period is not None and seasonal_period < 1:
@@ -940,7 +1118,12 @@ def pretraining_pool(
         else []
     )
     return _build(
-        interpretable + meta + seasonal + extended, members, overlay_seed, calendar_rate
+        interpretable + meta + seasonal + extended,
+        members,
+        overlay_seed,
+        calendar_rate,
+        observability_rate,
+        min(720, max(12, min_length // 3)),
     )
 
 

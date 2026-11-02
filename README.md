@@ -202,6 +202,9 @@ pretraining choices can be evaluated against observed-only baselines.
 - Long-format output following Nixtla conventions
 - pandas, Polars, cuDF, Modin, and PyArrow output through Narwhals
 - Changepoint, anomaly, missingness, and exogenous-variable injection
+- Calendar-cycle, sharp-edged waveform (pulses, spikes, ramp-and-reset, level
+  switching), and observation (saturation, quantization, sample-and-hold)
+  overlays
 - Dataset composition with `SynSet` and augmentation with `SynAugment`
 - Fit-and-simulate, TSMixup, moving-block-bootstrap, and DTW-barycenter
   augmentation strategies
