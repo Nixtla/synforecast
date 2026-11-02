@@ -80,12 +80,18 @@ class _ThreadedWalk(BaseGenerator):
 _COMMON = {"min_length": 60, "max_length": 90, "freq": "h", "seed": 7}
 
 
-def _hash_frame(df: pd.DataFrame, gen: BaseGenerator | None = None) -> str:
+def _hash_frame(
+    df: pd.DataFrame, gen: BaseGenerator | None = None, *, values_too: bool = True
+) -> str:
+    """Hash every column; without ``values_too``, only the target's missing mask."""
     digest = hashlib.sha256()
     for col in sorted(df.columns):
         values = df[col].to_numpy()
+        if col == "y" and not values_too:
+            values = np.isnan(values)
         if values.dtype.kind == "M":
-            values = values.astype("int64")
+            # Nanoseconds whatever the frame's datetime resolution (pandas 3 defaults to microseconds).
+            values = values.astype("datetime64[ns]").astype("int64")
         digest.update(col.encode())
         digest.update(np.ascontiguousarray(values.astype(np.float64)).tobytes())
     if gen is not None:
@@ -131,7 +137,7 @@ def _draw(path: str, config: dict[str, Any]) -> str:
             return _hash_frame(gen.generate(3), gen)
         if path == "copula":
             gen = CopulaGenerator(**_COMMON, **config)
-            return _hash_frame(gen.generate(3), gen)
+            return _hash_frame(gen.generate(3), gen, values_too=False)
         if path == "dau":
             gen = DailyActiveUsersGenerator(**{**_COMMON, "freq": "D"}, **config)
             return _hash_frame(gen.generate(3), gen)
@@ -140,7 +146,7 @@ def _draw(path: str, config: dict[str, Any]) -> str:
             return _hash_frame(gen.generate(2), gen)
         if path == "tcm":
             gen = TCMGenerator(**_COMMON, multivariate=True, **config)
-            return _hash_frame(gen.generate(3), gen)
+            return _hash_frame(gen.generate(3), gen, values_too=False)
         if path == "ets_states":
             gen = ETSGenerator(**_COMMON, **config)
             obs, states = gen.generate_with_states(3)
@@ -187,18 +193,20 @@ EXPECTED: dict[tuple[str, str], str] = {
     ("var", "all"): "5cc641405982821a",
     ("var", "off"): "a20f6f75e6df29e6",
     ("var", "relative"): "f87c6061b7777fae",
-    ("copula", "all"): "206121f562bfe172",
-    ("copula", "off"): "c041cb495071b091",
-    ("copula", "relative"): "7af59f25e2e27f4a",
+    # Copula and TCM go through BLAS, whose last bits vary across CPUs; only the
+    # overlay placement (missing mask, flags) and the generator state are pinned.
+    ("copula", "all"): "5933b419a00f3d98",
+    ("copula", "off"): "17dff25786f71b41",
+    ("copula", "relative"): "42d2f1be0dcd1c59",
     ("dau", "all"): "d7260fee882f037e",
     ("dau", "off"): "18e72408e5052b55",
     ("dau", "relative"): "f73a7dfd7caf7b5d",
     ("iot", "all"): "378ee97ab869797c",
     ("iot", "off"): "0f0ab72f30b10f48",
     ("iot", "relative"): "a0b520ed2427608e",
-    ("tcm", "all"): "259bb999f02dcdee",
-    ("tcm", "off"): "e38f79e671803102",
-    ("tcm", "relative"): "a8a551de370de841",
+    ("tcm", "all"): "74242a3460ba36ab",
+    ("tcm", "off"): "a3bb3be5a39b857a",
+    ("tcm", "relative"): "3e1f34004390f8b6",
     ("ets_states", "all"): "bd8b260c64080258fce33096",
     ("ets_states", "off"): "630f0c91c922f109fce33096",
     ("ets_states", "relative"): "01b135a1d3115bb0fce33096",
