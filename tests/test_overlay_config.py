@@ -12,6 +12,7 @@ from synforecast import (
     Multivariatizer,
     SynSet,
     calendar_overlays,
+    halt_overlays,
     observability_overlays,
     pretraining_pool,
 )
@@ -28,6 +29,7 @@ from synforecast.overlays import (
     Calendar,
     CalendarCycle,
     Changepoints,
+    Halt,
     Missing,
     Observation,
     OverlayConfig,
@@ -465,6 +467,63 @@ def test_observation_keeps_missing_values_local() -> None:
         np.testing.assert_array_equal(np.isnan(b), np.isnan(m))
 
 
+@pytest.mark.parametrize("cls", [RandomWalkGenerator, _ThreadedWalk])
+def test_halt_freeze_and_level_persist_to_the_end(cls: type) -> None:
+    for state in ("freeze", "level"):
+        halt = Halt(state=state, start=(0.5, 0.5), level=0.1)
+        plain, halted = _pair(
+            cls, OverlayConfig(halt=halt), min_length=400, max_length=400
+        )
+        for a, b in zip(plain, halted, strict=True):
+            np.testing.assert_array_equal(a[:200], b[:200])
+            held = a[199] if state == "freeze" else a.min() + 0.1 * (a.max() - a.min())
+            np.testing.assert_allclose(b[200:], held, rtol=0, atol=1e-12)
+
+
+def test_halt_calm_and_duration() -> None:
+    halt = Halt(state="calm", start=(0.5, 0.5), duration=50, noise=0.01, window=20)
+    plain, halted = _pair(
+        RandomWalkGenerator, OverlayConfig(halt=halt), min_length=400, max_length=400
+    )
+    for a, b in zip(plain, halted, strict=True):
+        tail = b[200:250]
+        assert np.abs(tail - a[180:200].mean()).max() < 0.1 * np.std(a)
+        assert np.std(tail) > 0
+        # The signal resumes after the steady state.
+        np.testing.assert_array_equal(a[250:], b[250:])
+
+
+def test_halt_does_not_move_earlier_observation_draws() -> None:
+    observation = Observation(stuck_fraction=0.1, stuck_length=10)
+    halt = Halt(state="level", start=(0.9, 0.9))
+    _, without = _pair(
+        RandomWalkGenerator,
+        OverlayConfig(observation=observation),
+        min_length=400,
+        max_length=400,
+    )
+    _, with_halt = _pair(
+        RandomWalkGenerator,
+        OverlayConfig(observation=observation, halt=halt),
+        min_length=400,
+        max_length=400,
+    )
+    for a, b in zip(without, with_halt, strict=True):
+        np.testing.assert_array_equal(a[:360], b[:360])
+
+
+def test_halt_prior_components() -> None:
+    draws = [halt_overlays(np.random.default_rng([6, i])) for i in range(3000)]
+    states = pd.Series([d.state for d in draws]).value_counts(normalize=True)
+    assert states["freeze"] == pytest.approx(0.4, abs=0.03)
+    assert states["calm"] == pytest.approx(0.3, abs=0.03)
+    permanent = np.mean([d.duration is None for d in draws])
+    assert permanent == pytest.approx(0.6, abs=0.03)
+    assert all(16 <= d.duration <= 512 for d in draws if d.duration is not None)
+    assert all(d.start == (0.2, 0.97) for d in draws)
+    assert all(0.002 <= d.noise <= 0.1 and 8 <= d.window <= 64 for d in draws)
+
+
 # ---------------------------------------------------------------------------
 # Every path gets the overlays once
 # ---------------------------------------------------------------------------
@@ -564,7 +623,7 @@ def test_observability_prior_components() -> None:
     )
 
 
-@pytest.mark.parametrize("rate", ["calendar_rate", "observability_rate"])
+@pytest.mark.parametrize("rate", ["calendar_rate", "observability_rate", "halt_rate"])
 def test_pool_rates_validate_and_keep_members_consistent(rate: str) -> None:
     with pytest.raises(ValueError, match="needs an overlay_seed"):
         pretraining_pool(**{rate: 0.5})
@@ -582,11 +641,12 @@ def test_pool_rates_validate_and_keep_members_consistent(rate: str) -> None:
     for i in (0, 9, 33, len(full) - 1):
         (alone,) = pretraining_pool(**kwargs, include_extended=True, members=[i])
         assert alone.model_dump() == full[i].model_dump()
-    assert any(
-        getattr(g.overlays, "calendar" if rate == "calendar_rate" else "waveform")
-        is not None
-        for g in full
-    )
+    stage = {
+        "calendar_rate": "calendar",
+        "observability_rate": "waveform",
+        "halt_rate": "halt",
+    }[rate]
+    assert any(getattr(g.overlays, stage) is not None for g in full)
 
 
 @pytest.mark.parametrize(
@@ -621,6 +681,9 @@ def test_pool_rates_validate_and_keep_members_consistent(rate: str) -> None:
         (Observation, {"floor": 0.5, "cap": 0.5}, "below cap"),
         (Observation, {"hold": 0}, "greater than or equal"),
         (Changepoints, {"locations": [1.2]}, r"\[0, 1\]"),
+        (Halt, {"start": (0.9, 0.5)}, "low <= high"),
+        (Halt, {"start": (0.5, 1.0)}, "low <= high"),
+        (Halt, {"duration": 0}, "greater than or equal"),
         (Anomalies, {"types": []}, "at least 1"),
         (OverlayConfig, {"base_weight": 1.5}, "less than or equal"),
         (OverlayConfig, {"unknown": 1}, "Extra inputs"),

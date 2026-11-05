@@ -38,6 +38,17 @@
   `pretraining_pool` entries by `calendar_rate` and `observability_rate`,
   each from its own `(overlay_seed, index)` stream so pools at rate 0 are
   unchanged.
+- `Halt` overlay stage, between anomalies and observation: the signal stops
+  at a random position (`start` range) and a steady state replaces it, either
+  to the end of the series or for `duration` steps. States: `freeze` (the last
+  reading repeats), `level` (a constant at a fraction of the series' range)
+  and `calm` (the recent mean plus small noise). Missing values stay missing.
+  Observation effects after it are sized on the whole series, so they can
+  change before the stop as well.
+- `halt_overlays(rng)`: a documented halt prior, applied to a share of
+  `pretraining_pool` entries by `halt_rate` from its own `(overlay_seed,
+  index)` stream, on top of any other drawn stages; pools at rate 0 are
+  unchanged.
 - `Multivariatizer(apply_overlays=True)`: draws the wrapped generator's
   overlays on each coupled channel; off by default, as before.
 - `pretraining_pool(include_extended=True)`: appends one default instance of
