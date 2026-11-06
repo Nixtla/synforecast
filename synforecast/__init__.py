@@ -50,9 +50,11 @@ from synforecast.presets import (
     halt_overlays,
     interpretable_pool,
     observability_overlays,
+    peak_calendar_overlays,
     pretraining_overlays,
     pretraining_pool,
     seasonal_pool,
+    step_cycle_overlays,
 )
 from synforecast.utils import generate_series
 
@@ -84,6 +86,8 @@ __all__ = [
     "feature_coverage",
     "generate_series",
     "halt_overlays",
+    "peak_calendar_overlays",
+    "step_cycle_overlays",
     "interpretable_pool",
     "observability_overlays",
     "pretraining_overlays",

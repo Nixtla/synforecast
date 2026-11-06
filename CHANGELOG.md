@@ -49,6 +49,17 @@
   `pretraining_pool` entries by `halt_rate` from its own `(overlay_seed,
   index)` stream, on top of any other drawn stages; pools at rate 0 are
   unchanged.
+- `peak_calendar_overlays(rng, calendar, steps_per_day)`: replaces the
+  time-of-day profile of a drawn calendar with a peaked one (one to three
+  narrow bumps, averaged over each step so narrow peaks are never missed),
+  optionally with weekends that change the shape of the day; applied to
+  sub-daily `pretraining_pool` entries with a calendar by
+  `peak_calendar_rate` from its own `(overlay_seed, index)` stream.
+- `step_cycle_overlays(rng, calendar, length)`: a smooth cycle with its
+  period in steps (96 to 400, at least four repeats before a 1,024-step
+  horizon), weighted at two thirds of the calendar; applied to sub-daily
+  `pretraining_pool` entries by `step_cycle_rate` from its own
+  `(overlay_seed, index)` stream. Pools at rate 0 are unchanged for both.
 - `Multivariatizer(apply_overlays=True)`: draws the wrapped generator's
   overlays on each coupled channel; off by default, as before.
 - `pretraining_pool(include_extended=True)`: appends one default instance of

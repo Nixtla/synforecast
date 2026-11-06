@@ -19,6 +19,10 @@ description: Convenience APIs, generator pools, and multivariate composition
 
 ::: synforecast.presets.halt_overlays
 
+::: synforecast.presets.peak_calendar_overlays
+
+::: synforecast.presets.step_cycle_overlays
+
 ::: synforecast.presets.seasonal_pool
 
 ::: synforecast.multivariatize.Multivariatizer
