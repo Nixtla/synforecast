@@ -5,7 +5,7 @@ each series in a fixed order, inside the native kernel on every generation
 path:
 
     base weight -> calendar -> waveform -> changepoints -> anomalies
-    -> observation -> missing
+    -> halt -> observation -> missing
 
 Relative magnitudes are in standard deviations of the untouched base series.
 Each stage draws from its own stream of the series' seeds, so switching one
@@ -24,6 +24,7 @@ Scale = Literal["absolute", "relative"]
 AnomalyType = Literal["spike", "dip", "level_shift"]
 WaveShape = Literal["pulse", "spike", "sawtooth", "trapezoid", "levels", "staircase"]
 WaveTiming = Literal["periodic", "jitter", "renewal"]
+HaltState = Literal["freeze", "level", "calm"]
 
 _PHASE_PERIODS = {
     "day": pd.Timedelta(days=1),
@@ -99,6 +100,43 @@ class Anomalies(_Spec):
     level_shift_magnitude: float = 20.0
     level_shift_duration: int = Field(default=10, ge=1)
     scale: Scale = "absolute"
+
+
+class Halt(_Spec):
+    """The signal stops at a random step and a steady state replaces it.
+
+    Args:
+        state: 'freeze' repeats the last reading before the stop; 'level'
+            holds a constant ``level`` of the way from the series' minimum (0)
+            to its maximum (1); 'calm' holds the mean of the ``window`` steps
+            before the stop, plus normal noise of ``noise`` standard
+            deviations.
+        start: Range of the relative stop position, drawn uniformly per series.
+        duration: Steps the steady state lasts before the signal resumes;
+            None lasts to the end of the series.
+        level: Held level for 'level', as a fraction of the series' range.
+        noise: Noise for 'calm', in standard deviations of the series
+            entering this stage.
+        window: Steps before the stop whose mean 'calm' holds.
+
+    Missing values stay missing. The halt draws from its own seed stream, but
+    the observation stage that follows sizes its floor, cap and grid on the
+    whole series, so a halt can change observation effects before it too.
+    """
+
+    state: HaltState = "freeze"
+    start: tuple[float, float] = (0.5, 0.9)
+    duration: int | None = Field(default=None, ge=1)
+    level: float = Field(default=0.0, ge=0, le=1)
+    noise: float = Field(default=0.0, ge=0)
+    window: int = Field(default=32, ge=1)
+
+    @model_validator(mode="after")
+    def _check_start(self) -> "Halt":
+        low, high = self.start
+        if not 0.0 <= low <= high < 1.0:
+            raise ValueError("halt start must satisfy 0 <= low <= high < 1")
+        return self
 
 
 class Missing(_Spec):
@@ -321,6 +359,7 @@ class OverlayConfig(_Spec):
         waveform: A sharp-edged template with its period in steps.
         changepoints: Structural breaks.
         anomalies: Spikes, dips and level shifts.
+        halt: The signal stopping and a steady state replacing it.
         observation: Saturation, quantization, sample-and-hold, frozen readings.
         missing: Missing values.
     """
@@ -330,6 +369,7 @@ class OverlayConfig(_Spec):
     waveform: Waveform | None = None
     changepoints: Changepoints | None = None
     anomalies: Anomalies | None = None
+    halt: Halt | None = None
     observation: Observation | None = None
     missing: Missing | None = None
 
@@ -357,6 +397,7 @@ _STAGES = (
     "waveform",
     "changepoints",
     "anomalies",
+    "halt",
     "observation",
     "missing",
 )

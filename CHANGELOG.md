@@ -38,6 +38,28 @@
   `pretraining_pool` entries by `calendar_rate` and `observability_rate`,
   each from its own `(overlay_seed, index)` stream so pools at rate 0 are
   unchanged.
+- `Halt` overlay stage, between anomalies and observation: the signal stops
+  at a random position (`start` range) and a steady state replaces it, either
+  to the end of the series or for `duration` steps. States: `freeze` (the last
+  reading repeats), `level` (a constant at a fraction of the series' range)
+  and `calm` (the recent mean plus small noise). Missing values stay missing.
+  Observation effects after it are sized on the whole series, so they can
+  change before the stop as well.
+- `halt_overlays(rng)`: a documented halt prior, applied to a share of
+  `pretraining_pool` entries by `halt_rate` from its own `(overlay_seed,
+  index)` stream, on top of any other drawn stages; pools at rate 0 are
+  unchanged.
+- `peak_calendar_overlays(rng, calendar, steps_per_day)`: replaces the
+  time-of-day profile of a drawn calendar with a peaked one (one to three
+  narrow bumps, averaged over each step so narrow peaks are never missed),
+  optionally with weekends that change the shape of the day; applied to
+  sub-daily `pretraining_pool` entries with a calendar by
+  `peak_calendar_rate` from its own `(overlay_seed, index)` stream.
+- `step_cycle_overlays(rng, calendar, length)`: a smooth cycle with its
+  period in steps (96 to 400, at least four repeats before a 1,024-step
+  horizon), weighted at two thirds of the calendar; applied to sub-daily
+  `pretraining_pool` entries by `step_cycle_rate` from its own
+  `(overlay_seed, index)` stream. Pools at rate 0 are unchanged for both.
 - `Multivariatizer(apply_overlays=True)`: draws the wrapped generator's
   overlays on each coupled channel; off by default, as before.
 - `pretraining_pool(include_extended=True)`: appends one default instance of

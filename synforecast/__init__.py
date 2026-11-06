@@ -38,6 +38,7 @@ from synforecast.overlays import (
     Calendar,
     CalendarCycle,
     Changepoints,
+    Halt,
     Missing,
     Observation,
     OverlayConfig,
@@ -46,11 +47,14 @@ from synforecast.overlays import (
 from synforecast.presets import (
     balanced_pool,
     calendar_overlays,
+    halt_overlays,
     interpretable_pool,
     observability_overlays,
+    peak_calendar_overlays,
     pretraining_overlays,
     pretraining_pool,
     seasonal_pool,
+    step_cycle_overlays,
 )
 from synforecast.utils import generate_series
 
@@ -65,6 +69,7 @@ __all__ = [
     "CoverageDiagnostics",
     "CoverageResult",
     "FitAndSimulate",
+    "Halt",
     "Missing",
     "Mixup",
     "MovingBlockBootstrap",
@@ -80,6 +85,9 @@ __all__ = [
     "compute_features",
     "feature_coverage",
     "generate_series",
+    "halt_overlays",
+    "peak_calendar_overlays",
+    "step_cycle_overlays",
     "interpretable_pool",
     "observability_overlays",
     "pretraining_overlays",
