@@ -395,7 +395,7 @@ def test_constructor_randomized_generators_draw_fresh_parameters():
         mechanism=RegressionSpec(target_pool=[spec], driver_pool=[spec]),
         length=(64, 64),
     )
-    assert prior._source(spec).mode == "per_draw"
+    assert prior._source(spec).mode == "randomized"
     a = prior.draw_channel(spec, 200, 1)
     np.testing.assert_array_equal(a, prior.draw_channel(spec, 200, 1))
     assert not np.allclose(a, prior.draw_channel(spec, 200, 2))
@@ -1011,3 +1011,89 @@ def test_to_padded_validates_arguments():
         batch.to_padded(max_length=0)
     with pytest.raises(ValueError, match="align"):
         batch.to_padded(align="middle")
+
+
+@pytest.mark.parametrize(
+    ("generator", "params"),
+    [
+        ("SARIMAGenerator", {}),
+        ("SARIMAGenerator", {"p": 3, "P": 0, "Q": 0}),
+        ("SARIMAGenerator", {"p": 2, "ar_params": [0.3, 0.2]}),
+        ("ETSGenerator", {"seasonal_type": "add"}),
+        ("ETSGenerator", {"seasonal_type": "mul", "error_type": "mul"}),
+        ("GARCHGenerator", {}),
+        ("INARGenerator", {"p": 2}),
+        ("StateSpaceGenerator", {"state_dim": 3}),
+    ],
+)
+def test_native_parameter_sampling_matches_constructors(generator, params):
+    """Natively re-sampled parameters follow the Python constructors'
+    distributions, and every other parameter stays the template's."""
+    from synforecast import generators
+    from synforecast.groups import _resolve
+
+    spec = GeneratorSpec(generator=getattr(generators, generator), params=params)
+    source = _resolve(spec, "h")
+    assert source.mode == "randomized"
+    n = 1000
+    python = [spec.build(64, "h", s)._get_batch_params() for s in range(n)]
+    native = [
+        rs.sample_params(
+            source.gen_type, source.scalar, list(source.arrays), source.randomizer, s
+        )
+        for s in range(n)
+    ]
+    for scalar, arrays in native:
+        assert len(arrays) == len(python[0][1])
+        assert np.isfinite(scalar).all() and all(np.isfinite(a).all() for a in arrays)
+    for k in range(len(python[0][1])):
+        size = len(python[0][1][k])
+        if size == 0:
+            continue
+        for i in {0, size - 1}:
+            a = np.array([np.asarray(p[1][k])[i] for p in python])
+            b = np.array([np.asarray(q[1][k])[i] for q in native])
+            if a.std() == 0:
+                np.testing.assert_allclose(b, a)
+                continue
+            se = np.sqrt((a.var() + b.var()) / n)
+            assert abs(a.mean() - b.mean()) < 5 * se
+            assert b.std() == pytest.approx(a.std(), rel=0.12)
+    scalars_py = np.array([np.asarray(p[0]) for p in python])
+    scalars_nat = np.array([np.asarray(q[0]) for q in native])
+    np.testing.assert_allclose(
+        scalars_nat.mean(axis=0), scalars_py.mean(axis=0), rtol=0.05
+    )
+
+
+def test_seed_dependent_generators_without_a_sampler_are_rebuilt(monkeypatch):
+    import synforecast.groups as groups_mod
+
+    monkeypatch.setattr(groups_mod, "_randomizer", lambda _gen: None)
+    spec = GeneratorSpec(generator=SARIMAGenerator)
+    prior = GroupPrior(
+        mechanism=RegressionSpec(target_pool=[spec], driver_pool=[spec]),
+        length=(48, 48),
+    )
+    assert prior._source(spec).mode == "per_draw"
+    batch = prior.sample(3, seed=0)
+    for g in batch:
+        np.testing.assert_array_equal(prior.replay(g.recipe).values, g.values)
+
+
+def test_randomized_draws_vary_and_replay():
+    spec = GeneratorSpec(generator=SARIMAGenerator)
+    prior = GroupPrior(
+        mechanism=RegressionSpec(target_pool=[spec], driver_pool=[spec]),
+        length=(64, 64),
+    )
+    source = prior._source(spec)
+    params = [
+        rs.sample_params(
+            source.gen_type, source.scalar, list(source.arrays), source.randomizer, s
+        )[1][0]
+        for s in (1, 2)
+    ]
+    assert not np.allclose(params[0], params[1])
+    for g in prior.sample(4, seed=3):
+        np.testing.assert_array_equal(prior.replay(g.recipe).values, g.values)

@@ -583,7 +583,20 @@ class groups:
         lengths: npt.NDArray[np.int64],
         seeds: npt.NDArray[np.uint64],
         n_workers: int = 0,
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.uint8]]: ...
+        randomizers: list[
+            tuple[int, npt.NDArray[np.float64], list[npt.NDArray[np.float64]]] | None
+        ]
+        | None = None,
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.uint8], list[str]]: ...
+    @staticmethod
+    def sample_params(
+        gen_type: int,
+        scalar_params: npt.NDArray[np.float64],
+        array_params: list[npt.NDArray[np.float64]],
+        randomizer: tuple[int, npt.NDArray[np.float64], list[npt.NDArray[np.float64]]]
+        | None,
+        seed: int,
+    ) -> tuple[npt.NDArray[np.float64], list[npt.NDArray[np.float64]]]: ...
     @staticmethod
     def compose_batch(
         base: npt.NDArray[np.float64],

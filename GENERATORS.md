@@ -953,7 +953,8 @@ a versioned recipe. A discarded burn-in window absorbs lags and filters and
 fixes every scale, so the covariate effect at a time step uses no later value;
 the wrapped generators still draw whole latent paths. Generators enter through
 `GeneratorSpec`; those whose native parameters do not depend on the seed are
-drawn from one cached template, the rest are rebuilt per draw.
+drawn from one cached template, and SARIMA, ETS, GARCH, INAR and StateSpace
+re-sample their constructor-randomized parameters natively per draw.
 
 | Mechanism | Channels |
 |-----------|----------|

@@ -9,6 +9,8 @@ use rayon::prelude::*;
 
 use crate::batch::{dispatch_generator, get_or_create_pool, GEN_KERNEL_SYNTH};
 use crate::generators::kernel_synth::kernel_synth_with_status;
+use crate::group_params::{param_seed, randomize, Randomizer};
+use crate::rng::SfRng;
 
 /// Emitted values must stay finite and below this magnitude.
 pub const MAX_ABS: f64 = 1e8;
@@ -53,11 +55,14 @@ fn chunks_mut<'a>(mut flat: &'a mut [f64], lengths: &[usize]) -> Vec<&'a mut [f6
     out
 }
 
-/// One generator configuration: a batch type id with its parameters.
+/// One generator configuration: a batch type id with its parameters, and an
+/// optional [`Randomizer`] that re-samples constructor-randomized parameters
+/// per draw.
 pub struct SeriesSpec {
     pub gen_type: i32,
     pub scalar_params: Vec<f64>,
     pub array_params: Vec<Vec<f64>>,
+    pub randomizer: Option<Randomizer>,
 }
 
 /// Outcome of one draw request.
@@ -70,28 +75,33 @@ pub enum DrawStatus {
     Error(String),
 }
 
+/// The parameters one draw uses: the template, re-sampled when randomized.
+pub fn draw_params(spec: &SeriesSpec, seed: u64) -> Result<(Vec<f64>, Vec<Vec<f64>>), String> {
+    let mut sp = spec.scalar_params.clone();
+    let mut ap = spec.array_params.clone();
+    if let Some(r) = &spec.randomizer {
+        let mut rng = SfRng::new(param_seed(seed));
+        randomize(r, &mut sp, &mut ap, &mut rng)?;
+    }
+    Ok((sp, ap))
+}
+
 fn draw_one(spec: &SeriesSpec, out: &mut [f64], seed: u64) -> DrawStatus {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let owned;
+        let (sp, ap) = if spec.randomizer.is_some() {
+            owned = draw_params(spec, seed)?;
+            (&owned.0, &owned.1)
+        } else {
+            (&spec.scalar_params, &spec.array_params)
+        };
         if spec.gen_type == GEN_KERNEL_SYNTH {
-            if spec.array_params.len() < 2 {
+            if ap.len() < 2 {
                 return Err("kernel_synth: expected >= 2 array params".to_string());
             }
-            kernel_synth_with_status(
-                out,
-                &spec.scalar_params,
-                &spec.array_params[0],
-                &spec.array_params[1],
-                seed,
-            )
+            kernel_synth_with_status(out, sp, &ap[0], &ap[1], seed)
         } else {
-            dispatch_generator(
-                spec.gen_type,
-                out,
-                &spec.scalar_params,
-                &spec.array_params,
-                seed,
-            )
-            .map(|()| false)
+            dispatch_generator(spec.gen_type, out, sp, ap, seed).map(|()| false)
         }
     }));
     match result {
@@ -493,11 +503,13 @@ mod tests {
                 gen_type: -42,
                 scalar_params: vec![],
                 array_params: vec![],
+                randomizer: None,
             },
             SeriesSpec {
                 gen_type: crate::batch::GEN_RANDOM_WALK,
                 scalar_params: vec![0.0, 1.0, 0.0, 0.0, 0.0],
                 array_params: vec![],
+                randomizer: None,
             },
         ];
         let (values, statuses) = draw_series(&specs, &[0, 1], &[3, 4], &[1, 2], 1).unwrap();
@@ -512,6 +524,7 @@ mod tests {
             gen_type: crate::batch::GEN_RANDOM_WALK,
             scalar_params: vec![0.0, 1.0, 0.0, 0.0, 0.0],
             array_params: vec![],
+            randomizer: None,
         }];
         assert!(draw_series(&specs, &[0, 0], &[usize::MAX, 2], &[1, 2], 1).is_err());
         assert!(draw_series(&specs, &[0], &[usize::MAX / 4], &[1], 1).is_err());

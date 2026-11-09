@@ -36,6 +36,12 @@
     only its group. Spec parameters are snapshotted at construction and
     pools are tuples, so cached templates, recipes and fingerprints cannot go
     stale; pickled or copied priors reuse their cached templates.
+  - Native per-draw parameter sampling (`rust/src/group_params.rs`) for the
+    generators that randomize parameters in their constructor (SARIMA, ETS,
+    GARCH, INAR, StateSpace): their cached templates re-sample those
+    parameters in Rust from the constructors' distributions instead of
+    rebuilding a Python generator per draw (about 3x faster for SARIMA-heavy
+    pools).
     `benchmarks/benchmark_groups.py` measures throughput and runs in CI.
   - `CoupledSpec`: related channels from one base generator, coupled by
     mixing and a causal lead-lag that reads the burn-in instead of wrapping

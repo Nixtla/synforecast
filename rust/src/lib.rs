@@ -14,6 +14,7 @@ pub mod bindings;
 pub mod distributions;
 pub mod fft;
 pub mod generators;
+pub mod group_params;
 pub mod groups;
 pub mod linalg;
 pub mod overlays;

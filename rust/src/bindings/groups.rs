@@ -5,6 +5,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyTuple};
 
+use crate::group_params::Randomizer;
 use crate::groups;
 
 fn offsets_ok(offsets: &[i64], n: usize, total: usize, name: &str) -> PyResult<()> {
@@ -19,6 +20,20 @@ fn offsets_ok(offsets: &[i64], n: usize, total: usize, name: &str) -> PyResult<(
         )));
     }
     Ok(())
+}
+
+/// ``None`` or ``(kind, config, fixed)`` into a [`Randomizer`].
+fn extract_randomizer(item: &Bound<'_, PyAny>) -> PyResult<Option<Randomizer>> {
+    if item.is_none() {
+        return Ok(None);
+    }
+    let (kind, config, fixed): (u8, PyReadonlyArray1<'_, f64>, Bound<'_, PyList>) =
+        item.extract()?;
+    Ok(Some(Randomizer {
+        kind,
+        config: config.as_slice()?.to_vec(),
+        fixed: vec_f64(&fixed)?,
+    }))
 }
 
 fn vec_f64(list: &Bound<'_, PyList>) -> PyResult<Vec<Vec<f64>>> {
@@ -36,7 +51,7 @@ fn vec_f64(list: &Bound<'_, PyList>) -> PyResult<Vec<Vec<f64>>> {
 /// order, a ``uint8`` status per request (0 ok, 1 generator noise fallback,
 /// 2 error) and the error message per request (empty unless status is 2).
 #[pyfunction]
-#[pyo3(signature = (gen_types, scalar_params, array_params, spec_index, lengths, seeds, n_workers=0))]
+#[pyo3(signature = (gen_types, scalar_params, array_params, spec_index, lengths, seeds, n_workers=0, randomizers=None))]
 pub fn draw_series<'py>(
     py: Python<'py>,
     gen_types: PyReadonlyArray1<'py, i32>,
@@ -46,8 +61,22 @@ pub fn draw_series<'py>(
     lengths: PyReadonlyArray1<'py, i64>,
     seeds: PyReadonlyArray1<'py, u64>,
     n_workers: usize,
+    randomizers: Option<&Bound<'py, PyList>>,
 ) -> PyResult<Bound<'py, PyTuple>> {
     let types = gen_types.as_slice()?;
+    let randomizers = match randomizers {
+        Some(list) => {
+            if list.len() != types.len() {
+                return Err(PyValueError::new_err(
+                    "randomizers must have one entry per generator configuration",
+                ));
+            }
+            list.iter()
+                .map(|item| extract_randomizer(&item))
+                .collect::<PyResult<Vec<_>>>()?
+        }
+        None => vec![None; types.len()],
+    };
     if scalar_params.len() != types.len() || array_params.len() != types.len() {
         return Err(PyValueError::new_err(
             "gen_types, scalar_params and array_params must have equal lengths",
@@ -55,12 +84,18 @@ pub fn draw_series<'py>(
     }
     let scalars = vec_f64(scalar_params)?;
     let mut specs = Vec::with_capacity(types.len());
-    for ((gen_type, sp), ap) in types.iter().zip(scalars).zip(array_params.iter()) {
+    for (((gen_type, sp), ap), randomizer) in types
+        .iter()
+        .zip(scalars)
+        .zip(array_params.iter())
+        .zip(randomizers)
+    {
         let ap_list: Bound<'_, PyList> = ap.cast_into()?;
         specs.push(groups::SeriesSpec {
             gen_type: *gen_type,
             scalar_params: sp,
             array_params: vec_f64(&ap_list)?,
+            randomizer,
         });
     }
     let lens: Vec<usize> = lengths
@@ -344,6 +379,36 @@ pub fn var_filter<'py>(
     Ok(PyArray1::from_vec(py, y))
 }
 
+/// The parameters one draw of a randomized template uses (for inspection).
+///
+/// Returns ``(scalar_params, array_params)`` after re-sampling the slots the
+/// randomizer ``(kind, config, fixed)`` describes with the draw's ``seed``.
+#[pyfunction]
+pub fn sample_params<'py>(
+    py: Python<'py>,
+    gen_type: i32,
+    scalar_params: PyReadonlyArray1<'py, f64>,
+    array_params: &Bound<'py, PyList>,
+    randomizer: &Bound<'py, PyAny>,
+    seed: u64,
+) -> PyResult<Bound<'py, PyTuple>> {
+    let spec = groups::SeriesSpec {
+        gen_type,
+        scalar_params: scalar_params.as_slice()?.to_vec(),
+        array_params: vec_f64(array_params)?,
+        randomizer: extract_randomizer(randomizer)?,
+    };
+    let (sp, ap) = groups::draw_params(&spec, seed).map_err(PyValueError::new_err)?;
+    let arrays = PyList::empty(py);
+    for a in ap {
+        arrays.append(PyArray1::from_vec(py, a))?;
+    }
+    PyTuple::new(
+        py,
+        [PyArray1::from_vec(py, sp).into_any(), arrays.into_any()],
+    )
+}
+
 /// Register the `groups` submodule under `synforecast._lib`.
 pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "groups")?;
@@ -351,6 +416,7 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(compose_batch, &m)?)?;
     m.add_function(wrap_pyfunction!(ar_columns, &m)?)?;
     m.add_function(wrap_pyfunction!(var_filter, &m)?)?;
+    m.add_function(wrap_pyfunction!(sample_params, &m)?)?;
     parent.add_submodule(&m)?;
     parent
         .py()

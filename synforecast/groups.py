@@ -126,9 +126,12 @@ class GeneratorSpec(BaseModel):
 
     The prior draws every series with its own seed. Generators whose native
     parameters do not depend on the seed are resolved once into a template and
-    drawn in parallel batches; generators that randomize parameters in their
-    constructor (for example ``SARIMAGenerator`` without ``ar_params``) are
-    rebuilt per draw, so each draw gets fresh parameters. The wrapped
+    drawn in parallel batches. Generators that randomize parameters in their
+    constructor (SARIMA, ETS, GARCH, INAR and StateSpace without explicit
+    parameters) are resolved into a template whose randomized parameters are
+    re-sampled natively per draw, from the same distributions as their
+    constructors; any other seed-dependent generator is rebuilt per draw.
+    Either way each draw gets fresh parameters. The wrapped
     generator's own seed never affects the result. NumPy arrays and scalars
     in ``params`` are converted to lists and Python scalars, and ``params``
     are snapshotted at construction: later changes to the dict affect no draw,
@@ -1175,13 +1178,15 @@ class VARXTruth:
 @dataclass(frozen=True)
 class _Source:
     """How one GeneratorSpec draws: a shared native template ('batch'), a
-    native kernel with per-draw parameters ('per_draw'), or Python
-    ('python')."""
+    native template whose constructor-randomized slots are re-sampled natively
+    per draw ('randomized'), a native kernel with parameters from a per-draw
+    Python constructor ('per_draw'), or Python ('python')."""
 
-    mode: Literal["batch", "per_draw", "python"]
+    mode: Literal["batch", "randomized", "per_draw", "python"]
     gen_type: int = -1
     scalar: np.ndarray | None = None
     arrays: tuple[np.ndarray, ...] = ()
+    randomizer: tuple | None = None
 
 
 def _native_params(gen: BaseGenerator) -> tuple[np.ndarray, tuple[np.ndarray, ...]]:
@@ -1201,6 +1206,75 @@ def _same_params(a: tuple, b: tuple) -> bool:
     )
 
 
+def _f64(values: Any) -> np.ndarray:
+    return np.ascontiguousarray([] if values is None else values, dtype=np.float64)
+
+
+def _randomizer(gen: BaseGenerator) -> tuple[tuple, set[int], set[int]] | None:
+    """Native re-sampling of the parameters ``gen``'s constructor randomizes.
+
+    Returns ``((kind, config, fixed), scalar_slots, array_slots)`` naming the
+    template slots that are re-sampled per draw, or None when the generator
+    has no native sampler (see ``rust/src/group_params.rs``).
+    """
+    name = type(gen).__name__
+    g: Any = gen
+    if name == "SARIMAGenerator":
+        config = [
+            g.p,
+            g.q,
+            g.P,
+            g.Q,
+            g.seasonal_period,
+            g.ar_params is None,
+            g.ma_params is None,
+            g.seasonal_ar_params is None,
+            g.seasonal_ma_params is None,
+            np.nan if g.burn_in is None else g.burn_in,
+        ]
+        fixed = [
+            _f64(g._ar_params_array),
+            _f64(g._ma_params_array),
+            _f64(g._seasonal_ar_params_array),
+            _f64(g._seasonal_ma_params_array),
+        ]
+        return (1, _f64(config), fixed), {6}, {0, 1}
+    if name == "ETSGenerator" and g.seasonal is None and g.seasonal_type is not None:
+        kind = 1 if g.seasonal_type == "add" else 2
+        return (2, _f64([kind, g.seasonal_period]), []), set(), {0}
+    if name == "GARCHGenerator":
+        config = [g.p, g.q, g.alpha is None, g.beta is None]
+        fixed = [_f64(g._alpha_array), _f64(g._beta_array)]
+        return (3, _f64(config), fixed), set(), {0, 1}
+    if name == "INARGenerator" and g.alpha is None:
+        return (4, _f64([g.p]), []), set(), {0}
+    if (
+        name == "StateSpaceGenerator"
+        and g.transition_matrix is None
+        and g.transition_fn is None
+    ):
+        return (5, _f64([g.state_dim]), []), set(), {0}
+    return None
+
+
+def _same_outside(
+    a: tuple, b: tuple, scalar_slots: set[int], array_slots: set[int]
+) -> bool:
+    """Whether two parameter sets agree outside the given slots."""
+    (sa, aa), (sb, ab) = a, b
+    keep = [i for i in range(len(sa)) if i not in scalar_slots]
+    return (
+        len(sa) == len(sb)
+        and np.array_equal(sa[keep], sb[keep])
+        and len(aa) == len(ab)
+        and all(
+            np.array_equal(x, y)
+            for i, (x, y) in enumerate(zip(aa, ab, strict=True))
+            if i not in array_slots
+        )
+    )
+
+
 def _resolve(spec: GeneratorSpec, freq: str | int) -> _Source:
     """Decide how ``spec`` draws; raises on parameters the generator or its
     native kernel rejects."""
@@ -1214,20 +1288,30 @@ def _resolve(spec: GeneratorSpec, freq: str | int) -> _Source:
     if gen_type is None or not library or first._get_batch_params() is None:
         return _Source("python")
     params = _native_params(first)
+    if _same_params(params, _native_params(second)):
+        source = _Source("batch", gen_type, params[0], params[1])
+    else:
+        found = _randomizer(first)
+        if found is not None and _same_outside(
+            params, _native_params(second), found[1], found[2]
+        ):
+            source = _Source("randomized", gen_type, params[0], params[1], found[0])
+        else:
+            return _Source("per_draw", gen_type)
+    # A tiny native draw validates the parameters (and the sampler) up front.
     _, status, messages = _rs_groups.draw_series(
         np.asarray([gen_type], dtype=np.int32),
-        [params[0]],
-        [list(params[1])],
+        [source.scalar],
+        [list(source.arrays)],
         np.zeros(1, dtype=np.uint32),
         np.asarray([_TEMPLATE_LENGTH], dtype=np.int64),
         np.zeros(1, dtype=np.uint64),
         1,
+        [source.randomizer],
     )
     if status[0] == 2:
         raise ValueError(f"{spec.name} rejects params {spec.params}: {messages[0]}")
-    if _same_params(params, _native_params(second)):
-        return _Source("batch", gen_type, params[0], params[1])
-    return _Source("per_draw", gen_type)
+    return source
 
 
 @dataclass
@@ -1608,6 +1692,7 @@ class GroupPrior(BaseModel):
         gen_types: list[int] = []
         scalars: list[np.ndarray] = []
         arrays: list[list[np.ndarray]] = []
+        randomizers: list[tuple | None] = []
         table: dict[str, int] = {}
         native_idx: list[int] = []
         native_len: list[int] = []
@@ -1624,13 +1709,14 @@ class GroupPrior(BaseModel):
                     if source.mode == "python":
                         series[pi][ri] = spec.draw(plan.total, self.freq, rseed)
                         continue
-                    if source.mode == "batch":
+                    if source.mode in ("batch", "randomized"):
                         k = table.get(spec._key)
                         if k is None:
                             k = table[spec._key] = len(gen_types)
                             gen_types.append(source.gen_type)
                             scalars.append(source.scalar)
                             arrays.append(list(source.arrays))
+                            randomizers.append(source.randomizer)
                     else:
                         gen = spec.build(plan.total, self.freq, rseed)
                         scalar, arr = _native_params(gen)
@@ -1638,6 +1724,7 @@ class GroupPrior(BaseModel):
                         gen_types.append(source.gen_type)
                         scalars.append(scalar)
                         arrays.append(list(arr))
+                        randomizers.append(None)
                 except _DRAW_ERRORS as exc:
                     errors[pi] = f"{spec.name}: {exc}"
                     break
@@ -1655,6 +1742,7 @@ class GroupPrior(BaseModel):
                 np.asarray(native_len, dtype=np.int64),
                 np.asarray(native_seed, dtype=np.uint64),
                 workers,
+                randomizers,
             )
             offsets = np.concatenate([[0], np.cumsum(native_len)])
             with np.errstate(invalid="ignore"):
