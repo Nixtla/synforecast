@@ -1,8 +1,8 @@
 ---
-title: Exogenous Variables
-description: Exogenous variable configuration and generation
+title: Calendar Features and Labels
+description: Calendar columns and diagnostic label columns on generator output
 ---
 
-::: synforecast.exogenous.ExogenousConfig
+::: synforecast.exogenous.CalendarFeatures
 
-::: synforecast.exogenous.CorrelatedExogConfig
+::: synforecast.exogenous.DiagnosticsConfig

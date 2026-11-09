@@ -10,7 +10,7 @@ must change the sample in exactly one respect:
 * the other overlays are untouched: where an overlay lands does not depend
   on which other overlays are enabled.
 
-Touched positions come from the exogenous flag columns rather than from the
+Touched positions come from the diagnostic label columns rather than from the
 values, so the test does not assume its conclusion. Changepoints are
 structural (a break alters everything after it), so for them only the prefix
 before the first changepoint must survive. A level shift moves
@@ -24,7 +24,7 @@ import numpy as np
 import pytest
 
 import synforecast.generators as generators
-from synforecast.exogenous import ExogenousConfig
+from synforecast.exogenous import DiagnosticsConfig
 
 from .helpers import to_pandas
 
@@ -47,7 +47,7 @@ OVERLAYS = {
         "changepoint_type": "level",
     },
 }
-FLAGS = ExogenousConfig(missing_flags=True, anomaly_flags=True, changepoint_flags=True)
+FLAGS = DiagnosticsConfig(missing=True, anomalies=True, changepoints=True)
 
 GENERATORS = pytest.mark.parametrize(
     "cls",
@@ -58,7 +58,7 @@ GENERATORS = pytest.mark.parametrize(
 
 def _generate(cls, overlays: tuple[str, ...]) -> dict[str, dict[str, np.ndarray]]:
     """{column: {series_id: values in time order}} for y and the three flags."""
-    kwargs = {**BASE, "exogenous": FLAGS}
+    kwargs = {**BASE, "diagnostics": FLAGS}
     for name in overlays:
         kwargs.update(OVERLAYS[name])
     pdf = to_pandas(cls(**kwargs).generate(n_series=N_SERIES, n_jobs=2))

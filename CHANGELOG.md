@@ -4,6 +4,39 @@
 
 ### Added
 
+- `GroupPrior` (`synforecast.groups`): grouped forecasting tasks of one
+  target plus covariates that drive it. `RegressionSpec` samples a random
+  structural regression per group: informative covariates and distractors
+  from one generator pool, edges (linear, saturating, quadratic, signed and
+  absolute square root, threshold, hinge) at sampled lags, product and gate
+  interactions, geometric distributed lags, effect persistence, target AR
+  feedback, additive or multiplicative composition, null groups, and an
+  effect strength calibrated on a discarded burn-in window so no future
+  value shapes the past. Every covariate is known in the future or
+  past-only (`RoleSpec`), independently of whether it is informative.
+  `FixedRegressionSpec` gives explicit terms for controlled tasks.
+  `GroupBatch` returns aligned channel arrays with versioned recipes,
+  `to_long()` and a `shuffle_covariates()` control; `GroupPrior.replay()`
+  rebuilds one group from its recipe. `GeneratorSpec` builds wrapped
+  generators fresh per draw, so constructor-randomized generators draw
+  fresh parameters. `probe_suite()` returns fixed identity, sum, nonlinear
+  and quadratic covariate-extraction probes with target AR, known-future
+  and past-only covariates, distractors and IID or smooth drivers.
+  - `CoupledSpec`: related channels from one base generator, coupled by
+    mixing and a causal lead-lag that reads the burn-in instead of wrapping
+    around; all channels targets, or one target plus covariates. Replaces
+    `Multivariatizer`.
+  - `VARXSpec`: a stable VAR panel of targets driven by shared, future-known
+    and past-only AR(1) regressors with known effects, dense, sparse or
+    cluster lag structures. `VARXTruth.from_recipe()` rebuilds the process and
+    `forecast_group()` returns its conditional-mean (oracle) forecast.
+  - Groups may hold several targets: `Group.target_indices`, and
+    `shuffle_covariates()` keeps every target.
+- `CalendarFeatures` and `DiagnosticsConfig` (exported from `synforecast`):
+  calendar columns, known for future periods, and evaluation labels for
+  injected anomalies, changepoints and missing values, set on every
+  generator with `calendar_features=` and `diagnostics=`.
+
 - `overlays=OverlayConfig(...)` on every generator: one optional spec per
   stage (`Calendar`, `Waveform`, `Changepoints`, `Anomalies`, `Observation`,
   `Missing`, plus `base_weight`), all exported from `synforecast`. Stages run
@@ -38,8 +71,6 @@
   `pretraining_pool` entries by `calendar_rate` and `observability_rate`,
   each from its own `(overlay_seed, index)` stream so pools at rate 0 are
   unchanged.
-- `Multivariatizer(apply_overlays=True)`: draws the wrapped generator's
-  overlays on each coupled channel; off by default, as before.
 - `pretraining_pool(include_extended=True)`: appends one default instance of
   each of the 11 univariate generators outside the interpretable and meta
   pools, after all existing entries.
@@ -84,7 +115,7 @@
   draws. No composition forms a dense covariance or an O(n^3) Cholesky any
   more, including those with a linear kernel. Both bulk `generate()` (Rust
   batch path) and `generate_single_series` run the same Rust sampler, so
-  `Multivariatizer` and `SynAugment` get it too. `jitter` is now added to each
+  `GroupPrior` and `SynAugment` get it too. `jitter` is now added to each
   polynomial term and escalated tenfold on a numerical breakdown, to at least
   1e-6 of the term's variance even with `jitter=0`.
 - `KernelSynthGenerator.max_kernels` is now at most 64.
@@ -138,6 +169,19 @@
 
 ### Removed
 
+- **Breaking:** `exogenous=ExogenousConfig(...)` on generators. Calendar
+  columns move to `calendar_features=CalendarFeatures(basic=..., cyclical=...)`
+  and label columns to `diagnostics=DiagnosticsConfig(anomalies=...,
+  changepoints=..., missing=...)`; column names are unchanged and so are the
+  draws. Passing `exogenous=` now raises a validation error.
+- **Breaking:** `CorrelatedExogConfig`, `ExogenousConfig.correlated`,
+  `generate_correlated_exog` and `_generate_single_correlated`. They derived
+  covariates from the whole target path, so a "known-future" covariate leaked
+  the future target. There is no automatic translation: build covariate
+  tasks with `GroupPrior(mechanism=RegressionSpec(...))`.
+- **Breaking:** `Multivariatizer`, including `apply_overlays` and
+  `last_recipe`. Use `GroupPrior(mechanism=CoupledSpec(...))`; recipes come
+  back with every group. Overlays are not applied inside groups yet.
 - Python 3.10 support (end of life 2026-10-31). synforecast now requires
   Python 3.11 or newer.
 

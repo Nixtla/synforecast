@@ -201,7 +201,8 @@ Defined on `BaseGenerator` (`synforecast/base.py`) and accepted by every generat
 | `seed` | `None` | Random seed for reproducibility |
 | `innovation_distribution` | `"normal"` | Innovation/noise distribution: `normal`, `t`, `laplace`, `uniform`, `skew_normal` |
 | `innovation_params` | `None` | Distribution parameters, e.g. `{"df": 5}` for `t` (df > 2), `{"alpha": 5}` for `skew_normal` |
-| `exogenous` | `None` | `ExogenousConfig` for exogenous variable generation (pattern flags, datetime features, correlated columns) |
+| `calendar_features` | `None` | `CalendarFeatures` for calendar and cyclical time columns (known for future periods) |
+| `diagnostics` | `None` | `DiagnosticsConfig` for label columns marking injected anomalies, changepoints and missing values (evaluation labels, not model inputs) |
 
 ### Overlays
 
@@ -212,7 +213,7 @@ base weight → calendar → waveform → changepoints → anomalies → observa
 - Relative magnitudes (`scale="relative"`) are in standard deviations of the untouched base series, measured once before any stage.
 - Each stage draws from its own stream of the series' seeds, so switching one stage on never moves another, and no stage advances the generator's own random stream. With every stage off, draws are those of the generator alone.
 - Multiplicative calendar and waveform stages need a non-negative series (zeros stay zero); `fallback` decides what happens on series with negative values.
-- `generate_with_states` applies every stage to the observations and leaves the states clean. `Multivariatizer(apply_overlays=True)` draws the wrapped generator's overlays on each coupled channel.
+- `generate_with_states` applies every stage to the observations and leaves the states clean.
 
 ```python
 from synforecast import Anomalies, Calendar, CalendarCycle, Missing, OverlayConfig
@@ -944,25 +945,37 @@ Simulation options also apply while scoring candidates. Pattern injection and
 search-owned parameter options are not accepted. Native search changes the
 seeded stream used by the former Python search; worker counts do not change it.
 
-### Multivariatizer
+### Covariate groups (`GroupPrior`)
 
-Not a generator: `synforecast.Multivariatizer` wraps any univariate
-generator and produces cross-dependent channels sharing one length.
-Couplings (sampled per call): `mixing` — instantaneous random correlation
-via a well-conditioned mixing matrix; `leadlag` — channels as lagged,
-scaled, noise-perturbed transforms of others. Channel diversity statistics
-of the wrapped generator are preserved.
+Not a generator: `synforecast.GroupPrior` samples groups of aligned channels,
+each a target or a covariate that is known in the future (`future`) or only up
+to the forecast origin (`past`), and returns the ground truth of every group as
+a versioned recipe. A discarded burn-in window absorbs lags and filters and
+fixes every scale, so no future value shapes the past. Generators enter through
+`GeneratorSpec`, which builds them fresh per draw with the prior's seeds.
+
+| Mechanism | Channels |
+|-----------|----------|
+| `RegressionSpec` | One target caused by sampled covariates (linear, saturating, quadratic, square-root, threshold and hinge edges at sampled lags; product and gate interactions; distributed lags; persistence; additive or multiplicative composition) plus distractors from the same pool; 15% null groups by default |
+| `FixedRegressionSpec` | An explicit regression; `probe_suite()` builds covariate-extraction probes from it |
+| `CoupledSpec` | Related channels from one base generator: `mixing` (instantaneous correlation through a well-conditioned mixing matrix) and causal `leadlag` (lagged, noisy copies); all channels targets, or one target plus covariates |
+| `VARXSpec` | A stable VAR panel of targets driven by shared, future-known and past-only AR(1) regressors with known effects; dense, sparse or cluster lag structures; `VARXTruth` gives the oracle forecast |
 
 ```python
-from synforecast import Multivariatizer
+from synforecast import CoupledSpec, GeneratorSpec, GroupPrior, RegressionSpec
 from synforecast.generators import TSIGenerator
 
-mv = Multivariatizer(
-    base=TSIGenerator(min_length=512, max_length=512, freq="D"),
-    couplings=["mixing", "leadlag"],
-    seed=42,
+batch = GroupPrior(mechanism=RegressionSpec(), length=(256, 512), freq="D").sample(
+    n_groups=64, seed=0
 )
-df = mv.generate(n_series=4)
+df = batch.to_long()  # group_id, unique_id, ds, y, role
+recipe = batch[0].recipe  # terms, lags, roles, informative covariates
+
+coupled = GroupPrior(
+    mechanism=CoupledSpec(base_pool=[GeneratorSpec(generator=TSIGenerator)]),
+    length=(512, 512),
+    freq="D",
+).sample(n_groups=4, seed=42)
 ```
 
 TSI, TCM, MAR, and KernelSynth use the Rust batch path for bulk `generate()`
@@ -1090,7 +1103,8 @@ does not establish how its implementation was written.
   and in the corresponding API documentation.
 - Ansari et al. (2025), “Chronos-2: From Univariate to Universal Forecasting,”
   [arXiv:2510.15821](https://arxiv.org/abs/2510.15821) (motivation for the
-  cotemporaneous and sequential couplings in `Multivariatizer`).
+  cotemporaneous and sequential couplings in `CoupledSpec` and the synthetic
+  covariate tasks of `RegressionSpec`).
 - Wong and Li (2000), “On a mixture autoregressive model,” Journal of the
   Royal Statistical Society Series B 62(1),
   [doi:10.1111/1467-9868.00222](https://doi.org/10.1111/1467-9868.00222)

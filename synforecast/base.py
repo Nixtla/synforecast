@@ -23,11 +23,11 @@ from pydantic import (
 from ._lib import batch as _rs_batch
 from ._lib import overlays as _rs_ov
 from .exogenous import (
-    ExogenousConfig,
+    CalendarFeatures,
+    DiagnosticsConfig,
     SeriesMetadata,
     build_flag_column,
     extract_datetime_features,
-    generate_correlated_exog,
 )
 from .overlays import (
     LEGACY_DEFAULTS,
@@ -116,24 +116,24 @@ def _batch_results_to_metadata(
     Shared by BaseGenerator._generate_parallel and SynSet._generate_parallel
     to avoid duplicating this logic.
     """
-    has_exog = gen.exogenous is not None
+    labels = gen.diagnostics
     all_metadata: list[SeriesMetadata] = []
     for i, r in enumerate(results):
         length = int(lengths[i])
 
         cp_idx = (
             np.asarray(r["cp_indices"])
-            if has_exog and gen.exogenous.changepoint_flags
+            if labels is not None and labels.changepoints
             else None
         )
         anom_idx = (
             np.asarray(r["anom_indices"])
-            if has_exog and gen.exogenous.anomaly_flags
+            if labels is not None and labels.anomalies
             else None
         )
         miss_idx = (
             np.asarray(r["miss_indices"])
-            if has_exog and gen.exogenous.missing_flags
+            if labels is not None and labels.missing
             else None
         )
 
@@ -171,9 +171,13 @@ class BaseGenerator(BaseModel, ABC):
             when freq is an integer
         seed (int | None): Random seed for reproducibility (default: None)
 
-        Exogenous parameters:
-        exogenous (ExogenousConfig | None): Configuration for exogenous variable
-            generation. None = no exogenous columns (default: None)
+        Extra columns:
+        calendar_features (CalendarFeatures | None): Calendar columns derived
+            from the timestamps, known for every future period. None = no
+            calendar columns (default: None)
+        diagnostics (DiagnosticsConfig | None): Label columns marking injected
+            anomalies, changepoints and missing values, for evaluation; not
+            model inputs. None = no label columns (default: None)
 
         Overlay parameters:
         overlays (OverlayConfig): Calendar cycles, waveforms, changepoints,
@@ -230,10 +234,14 @@ class BaseGenerator(BaseModel, ABC):
         ),
     )
 
-    # Exogenous configuration
-    exogenous: ExogenousConfig | None = Field(
+    # Extra output columns
+    calendar_features: CalendarFeatures | None = Field(
         default=None,
-        description="Configuration for exogenous variable generation",
+        description="Calendar columns derived from the timestamps",
+    )
+    diagnostics: DiagnosticsConfig | None = Field(
+        default=None,
+        description="Label columns marking injected anomalies, breaks and gaps",
     )
 
     # Overlays drawn on every series
@@ -316,22 +324,11 @@ class BaseGenerator(BaseModel, ABC):
             if not df > 2:
                 raise ValueError("innovation_params['df'] must be > 2")
 
-        if self.exogenous is not None:
-            reserved = set(columns)
-            if self.exogenous.anomaly_flags:
-                reserved.add("anomaly_flag")
-            if self.exogenous.changepoint_flags:
-                reserved.add("changepoint_flag")
-            if self.exogenous.missing_flags:
-                reserved.add("missing_flag")
-            collisions = reserved.intersection(
-                config.name for config in self.exogenous.correlated
-            )
+        if self.diagnostics is not None:
+            collisions = set(columns).intersection(self.diagnostics.columns)
             if collisions:
                 names = ", ".join(sorted(collisions))
-                raise ValueError(
-                    f"correlated exogenous names collide with output columns: {names}"
-                )
+                raise ValueError(f"label columns collide with output columns: {names}")
 
         self._start_datetime = pd.Timestamp(self.start_datetime_str)
         self._rng = np.random.default_rng(self.seed)
@@ -606,12 +603,12 @@ class BaseGenerator(BaseModel, ABC):
         values, cp_idx, anom_idx, miss_idx = _rs_ov.apply_overlays(
             np.asarray(values, dtype=np.float64), plan, raw, legacy
         )
-        flags = self.exogenous
+        labels = self.diagnostics
         return (
             values,
-            cp_idx if flags is not None and flags.changepoint_flags else None,
-            anom_idx if flags is not None and flags.anomaly_flags else None,
-            miss_idx if flags is not None and flags.missing_flags else None,
+            cp_idx if labels is not None and labels.changepoints else None,
+            anom_idx if labels is not None and labels.anomalies else None,
+            miss_idx if labels is not None and labels.missing else None,
         )
 
     def _build_dataframe(
@@ -620,9 +617,8 @@ class BaseGenerator(BaseModel, ABC):
     ) -> IntoDataFrameT:
         """Build the output DataFrame from accumulated series metadata.
 
-        Handles flattening values/timestamps/IDs, adding exogenous columns
-        (pattern flags, datetime features, correlated variables), and merging
-        any generator-specific extra columns.
+        Handles flattening values/timestamps/IDs, adding calendar and label
+        columns, and merging any generator-specific extra columns.
 
         Args:
             series_metadata: List of SeriesMetadata for all generated series;
@@ -662,38 +658,32 @@ class BaseGenerator(BaseModel, ABC):
                 ]
             )
 
-        # Add exogenous columns
-        if self.exogenous is not None:
-            # Pattern injection flag columns
-            if self.exogenous.anomaly_flags:
+        # Label columns
+        if self.diagnostics is not None:
+            if self.diagnostics.anomalies:
                 result["anomaly_flag"] = build_flag_column(series_metadata, "anomaly")
-            if self.exogenous.changepoint_flags:
+            if self.diagnostics.changepoints:
                 result["changepoint_flag"] = build_flag_column(
                     series_metadata, "changepoint"
                 )
-            if self.exogenous.missing_flags:
+            if self.diagnostics.missing:
                 result["missing_flag"] = build_flag_column(series_metadata, "missing")
 
-            # Datetime features
-            if self.exogenous.datetime_features or self.exogenous.datetime_cyclical:
-                if isinstance(self.freq, int):
-                    raise ValueError(
-                        "Datetime features require a datetime frequency; "
-                        "got an integer freq."
-                    )
-                dt_cols = extract_datetime_features(
+        # Calendar columns
+        if self.calendar_features is not None:
+            if isinstance(self.freq, int):
+                raise ValueError(
+                    "Calendar features require a datetime frequency; "
+                    "got an integer freq."
+                )
+            result.update(
+                extract_datetime_features(
                     flat_timestamps,
                     self.freq,
-                    include_basic=self.exogenous.datetime_features,
-                    include_cyclical=self.exogenous.datetime_cyclical,
+                    include_basic=self.calendar_features.basic,
+                    include_cyclical=self.calendar_features.cyclical,
                 )
-                result.update(dt_cols)
-
-            # Correlated exogenous
-            for exog_config in self.exogenous.correlated:
-                result[exog_config.name] = generate_correlated_exog(
-                    series_metadata, flat_values, exog_config, self.rng
-                )
+            )
 
         df_nw = nw.DataFrame.from_dict(result, backend=self.engine)
         df = _categorize_ids(df_nw, self.id_col).to_native()
@@ -755,7 +745,7 @@ class BaseGenerator(BaseModel, ABC):
                 Results are seed-deterministic and do not depend on n_jobs.
 
         Returns:
-            DataFrame in long format with columns [id_col, time_col, target_col] (default ['unique_id', 'ds', 'y']), plus any exogenous or flag columns.
+            DataFrame in long format with columns [id_col, time_col, target_col] (default ['unique_id', 'ds', 'y']), plus any calendar, label or generator-specific columns.
         """
         if n_series < 1:
             raise ValueError(f"n_series must be a positive integer, got {n_series}.")
@@ -768,7 +758,7 @@ class BaseGenerator(BaseModel, ABC):
 
         Draws exactly the series :meth:`generate` would, with the same overlays
         (missing points as NaN), and leaves the generator in the same state.
-        No DataFrame, exogenous column, or calendar is built, so lengths beyond
+        No DataFrame, calendar or label column, or timestamp is built, so lengths beyond
         pandas' datetime range work. Generators with their own generation
         scheme override :meth:`_generate_metadata`, which both methods share.
 
@@ -785,11 +775,6 @@ class BaseGenerator(BaseModel, ABC):
         if n_series < 1:
             raise ValueError(f"n_series must be a positive integer, got {n_series}.")
         metadata = self._generate_metadata(n_series, 0, n_jobs)
-        # Correlated exogenous draws still advance self.rng, as in generate().
-        if self.exogenous is not None and self.exogenous.correlated:
-            flat_values = np.concatenate([m.values for m in metadata])
-            for exog_config in self.exogenous.correlated:
-                generate_correlated_exog(metadata, flat_values, exog_config, self.rng)
         return [np.asarray(m.values, dtype=np.float64) for m in metadata]
 
     def _generate_metadata(

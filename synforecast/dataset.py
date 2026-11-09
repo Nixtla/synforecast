@@ -114,11 +114,14 @@ class SynSet:
                         "Mixing different frequencies may lead to inconsistent time series. "
                         "Consider using the same frequency for all generators."
                     )
-                if gen.exogenous != first_gen.exogenous:
+                if (gen.calendar_features, gen.diagnostics) != (
+                    first_gen.calendar_features,
+                    first_gen.diagnostics,
+                ):
                     logger.warning(
-                        f"Generator at index {i} has a different exogenous config "
-                        f"than generator at index 0. This may cause column mismatches "
-                        "when concatenating results."
+                        f"Generator at index {i} has different calendar_features "
+                        "or diagnostics than generator at index 0. This may cause "
+                        "column mismatches when concatenating results."
                     )
 
         self.id_col = generators[0].id_col
@@ -141,7 +144,7 @@ class SynSet:
 
         Returns:
             DataFrame containing all generated time series from all generators, in long format with columns [id_col, time_col, target_col],
-            plus any extra column a generator adds (exogenous, flag or event columns), null for series from generators without it.
+            plus any extra column a generator adds (calendar, label or event columns), null for series from generators without it.
 
         Notes:
             Series IDs are unique across all generators. With 2 generators and
@@ -155,7 +158,7 @@ class SynSet:
             df.with_columns(nw.col(self.id_col).cast(nw.String()).cast(nw.Int64()))
             for df in all_series
         ]
-        # Generators may add their own columns (exogenous, flags, the event
+        # Generators may add their own columns (calendar, labels, the event
         # indicator of DailyActiveUsers); a diagonal concat keeps them, null
         # for the other generators' series. Matching frames stay vertical.
         how = (

@@ -36,7 +36,7 @@
             "pages": [
               "docs/capabilities/balanced_pool.html",
               "docs/capabilities/dataset.html",
-              "docs/capabilities/multivariatize.html"
+              "docs/capabilities/groups.html"
             ]
           },
           {
@@ -145,6 +145,7 @@
           "composition.html",
           "core.html",
           "exogenous.html",
+          "groups.html",
           "overlays.html",
           "dataset.html",
           "evaluation.html",
