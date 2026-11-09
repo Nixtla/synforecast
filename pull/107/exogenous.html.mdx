@@ -1,0 +1,96 @@
+---
+title: Calendar Features and Labels
+description: Calendar columns and diagnostic label columns on generator output
+---
+
+### `CalendarFeatures`
+
+Bases: <code>[BaseModel](#pydantic.BaseModel)</code>
+
+Calendar columns derived from the timestamps.
+
+These are deterministic functions of time, so they are known for every
+future period and can be used as future-known model inputs. Features a
+frequency cannot vary (for example hour of day at daily frequency) are
+omitted.
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`basic` | <code>[bool](#bool)</code> | Add year, quarter, month, day of year and, where the frequency resolves them, day of week, day of month, weekend flag, hour and minute (default: True). | *required*
+`cyclical` | <code>[bool](#bool)</code> | Add sin/cos encodings of hour, day of week, month and day of year (default: False). | *required*
+
+#### `CalendarFeatures.basic`
+
+```python
+basic: bool = Field(default=True, description='Add calendar columns')
+```
+
+#### `CalendarFeatures.cyclical`
+
+```python
+cyclical: bool = Field(default=False, description='Add sin/cos encodings')
+```
+
+#### `CalendarFeatures.model_config`
+
+```python
+model_config = ConfigDict(extra='forbid', frozen=True)
+```
+
+
+### `DiagnosticsConfig`
+
+Bases: <code>[BaseModel](#pydantic.BaseModel)</code>
+
+Ground-truth labels of what the overlays injected.
+
+Adds binary columns marking the steps where anomalies, changepoints or
+missing values were injected. These are labels for evaluation (for
+example anomaly or changepoint detection), not model inputs: realized
+anomalies and breaks are not known at a forecast origin, so do not feed
+these columns to a forecaster as known-future covariates. Events that are
+announced in advance belong in a grouped task with explicit roles (see
+:mod:`synforecast.groups`).
+
+**Parameters:**
+
+Name | Type | Description | Default
+---- | ---- | ----------- | -------
+`anomalies` | <code>[bool](#bool)</code> | Add an ``anomaly_flag`` column (default: False). | *required*
+`changepoints` | <code>[bool](#bool)</code> | Add a ``changepoint_flag`` column (default: False). | *required*
+`missing` | <code>[bool](#bool)</code> | Add a ``missing_flag`` column (default: False). | *required*
+
+#### `DiagnosticsConfig.anomalies`
+
+```python
+anomalies: bool = Field(default=False, description='Add anomaly_flag')
+```
+
+#### `DiagnosticsConfig.changepoints`
+
+```python
+changepoints: bool = Field(default=False, description='Add changepoint_flag')
+```
+
+#### `DiagnosticsConfig.columns`
+
+```python
+columns: list[str]
+```
+
+Names of the label columns this config adds.
+
+#### `DiagnosticsConfig.missing`
+
+```python
+missing: bool = Field(default=False, description='Add missing_flag')
+```
+
+#### `DiagnosticsConfig.model_config`
+
+```python
+model_config = ConfigDict(extra='forbid', frozen=True)
+```
+
