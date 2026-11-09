@@ -16,7 +16,7 @@ import pytest
 
 from synforecast import SynSet
 from synforecast.base import BaseGenerator
-from synforecast.exogenous import DiagnosticsConfig
+from synforecast.exogenous import ExogenousConfig
 from synforecast.generators import (
     CopulaGenerator,
     DailyActiveUsersGenerator,
@@ -34,7 +34,7 @@ pytestmark = pytest.mark.skipif(
     reason="hashes pin floating-point output on Linux x86_64",
 )
 
-_FLAGS = DiagnosticsConfig(anomalies=True, changepoints=True, missing=True)
+_FLAGS = ExogenousConfig(anomaly_flags=True, changepoint_flags=True, missing_flags=True)
 
 CONFIGS: dict[str, dict[str, Any]] = {
     "off": {},
@@ -49,7 +49,7 @@ CONFIGS: dict[str, dict[str, Any]] = {
         "missing_pattern": "block",
         "missing_rate": 0.1,
         "missing_block_size": 4,
-        "diagnostics": _FLAGS,
+        "exogenous": _FLAGS,
     },
     "relative": {
         "changepoints": True,
@@ -65,7 +65,7 @@ CONFIGS: dict[str, dict[str, Any]] = {
         "missing_data": True,
         "missing_rate": 0.05,
         "overlay_scale": "relative",
-        "diagnostics": _FLAGS,
+        "exogenous": _FLAGS,
     },
 }
 

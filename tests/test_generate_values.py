@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from synforecast.base import BaseGenerator
-from synforecast.exogenous import CalendarFeatures, DiagnosticsConfig
+from synforecast.exogenous import CorrelatedExogConfig, ExogenousConfig
 from synforecast.generators import (
     CopulaGenerator,
     DailyActiveUsersGenerator,
@@ -82,14 +82,15 @@ def _frame_values(df) -> list[np.ndarray]:
     ]
 
 
-def test_repeated_calls_follow_generate_with_extra_columns() -> None:
+def test_repeated_calls_follow_generate_with_correlated_exogenous() -> None:
     kwargs = {
         "min_length": 30,
         "max_length": 50,
         "freq": "D",
         "seed": 4,
-        "calendar_features": CalendarFeatures(cyclical=True),
-        "diagnostics": DiagnosticsConfig(anomalies=True),
+        "exogenous": ExogenousConfig(
+            correlated=[CorrelatedExogConfig(name="x", correlation=0.7)]
+        ),
     }
     values_gen, frame_gen = SARIMAGenerator(**kwargs), SARIMAGenerator(**kwargs)
     for _ in range(3):

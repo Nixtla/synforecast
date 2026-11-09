@@ -15,7 +15,7 @@ from synforecast import (
     pretraining_pool,
 )
 from synforecast.base import BaseGenerator
-from synforecast.exogenous import DiagnosticsConfig
+from synforecast.exogenous import ExogenousConfig
 from synforecast.generators import (
     ETSGenerator,
     PoissonProcessGenerator,
@@ -33,7 +33,7 @@ from synforecast.overlays import (
     Waveform,
 )
 
-_FLAGS = DiagnosticsConfig(anomalies=True, changepoints=True, missing=True)
+_FLAGS = ExogenousConfig(anomaly_flags=True, changepoint_flags=True, missing_flags=True)
 
 
 class _ThreadedWalk(BaseGenerator):
@@ -86,7 +86,7 @@ def test_flat_arguments_warn_and_draw_as_the_new_api(cls: type) -> None:
         "max_length": 120,
         "freq": "h",
         "seed": 5,
-        "diagnostics": _FLAGS,
+        "exogenous": _FLAGS,
     }
     with pytest.warns(
         DeprecationWarning, match="flat overlay arguments are deprecated"
@@ -165,7 +165,7 @@ def test_switching_a_stage_on_never_moves_another(cls: type, extra: dict) -> Non
         "max_length": 200,
         "freq": "h",
         "seed": 9,
-        "diagnostics": _FLAGS,
+        "exogenous": _FLAGS,
     }
     before = cls(**base, overlays=released).generate(3, n_jobs=1)
     after_gen = cls(**base, overlays=released.model_copy(update=extra))
@@ -206,7 +206,7 @@ def test_relative_sizes_are_measured_on_the_base_series() -> None:
         "max_length": 400,
         "freq": "h",
         "seed": 4,
-        "diagnostics": _FLAGS,
+        "exogenous": _FLAGS,
     }
     walk = RandomWalkGenerator(**base).generate_values(1, n_jobs=1)[0]
     spiked = RandomWalkGenerator(**base, overlays=OverlayConfig(anomalies=anomalies))

@@ -1,83 +1,85 @@
-"""Calendar features and diagnostic labels added to generator output."""
+"""Exogenous variable generation for synthetic time series."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-class CalendarFeatures(BaseModel):
-    """Calendar columns derived from the timestamps.
+class CorrelatedExogConfig(BaseModel):
+    """Configuration for a single correlated exogenous variable."""
 
-    These are deterministic functions of time, so they are known for every
-    future period and can be used as future-known model inputs. Features a
-    frequency cannot vary (for example hour of day at daily frequency) are
-    omitted.
+    model_config = ConfigDict(extra="forbid")
 
-    Args:
-        basic (bool): Add year, quarter, month, day of year and, where the
-            frequency resolves them, day of week, day of month, weekend flag,
-            hour and minute (default: True).
-        cyclical (bool): Add sin/cos encodings of hour, day of week, month and
-            day of year (default: False).
-    """
+    name: str = Field(..., description="Column name for this exogenous variable")
+    method: Literal["correlated_noise", "lagged_copy", "trend_following"] = Field(
+        default="correlated_noise",
+        description="Method for generating correlated exogenous",
+    )
+    # For correlated_noise
+    correlation: float = Field(
+        default=0.7, ge=-1, le=1, description="Target correlation with the series"
+    )
+    # For lagged_copy
+    lag: int = Field(default=1, ge=1, description="Lag for lagged_copy method")
+    noise_std: float = Field(
+        default=0.1, ge=0, description="Noise std for lagged_copy method"
+    )
+    # For trend_following
+    smoothing_window: int = Field(
+        default=10, ge=1, description="Window size for trend_following method"
+    )
+    trend_noise_std: float = Field(
+        default=0.1, ge=0, description="Noise std for trend_following method"
+    )
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
 
-    basic: bool = Field(default=True, description="Add calendar columns")
-    cyclical: bool = Field(default=False, description="Add sin/cos encodings")
+class ExogenousConfig(BaseModel):
+    """Configuration for exogenous variable generation.
 
-    @model_validator(mode="after")
-    def _check(self) -> CalendarFeatures:
-        if not (self.basic or self.cyclical):
-            raise ValueError("enable basic and/or cyclical, or pass None")
-        return self
-
-
-class DiagnosticsConfig(BaseModel):
-    """Ground-truth labels of what the overlays injected.
-
-    Adds binary columns marking the steps where anomalies, changepoints or
-    missing values were injected. These are labels for evaluation (for
-    example anomaly or changepoint detection), not model inputs: realized
-    anomalies and breaks are not known at a forecast origin, so do not feed
-    these columns to a forecaster as known-future covariates. Events that are
-    announced in advance belong in a grouped task with explicit roles (see
-    :mod:`synforecast.groups`).
+    Controls which exogenous columns are added to the output DataFrame.
+    All options are off by default for backward compatibility.
 
     Args:
-        anomalies (bool): Add an ``anomaly_flag`` column (default: False).
-        changepoints (bool): Add a ``changepoint_flag`` column
-            (default: False).
-        missing (bool): Add a ``missing_flag`` column (default: False).
+        datetime_features: Add calendar features (year, month, day_of_week, etc.)
+        datetime_cyclical: Add sin/cos cyclical encodings of datetime features
+        anomaly_flags: Add binary column indicating anomaly positions
+        changepoint_flags: Add binary column indicating changepoint positions
+        missing_flags: Add binary column indicating missing data positions
+        correlated: List of correlated exogenous variables to generate
     """
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid")
 
-    anomalies: bool = Field(default=False, description="Add anomaly_flag")
-    changepoints: bool = Field(default=False, description="Add changepoint_flag")
-    missing: bool = Field(default=False, description="Add missing_flag")
+    datetime_features: bool = Field(default=False, description="Add calendar features")
+    datetime_cyclical: bool = Field(
+        default=False, description="Add sin/cos cyclical encodings"
+    )
+    anomaly_flags: bool = Field(
+        default=False, description="Add anomaly indicator column"
+    )
+    changepoint_flags: bool = Field(
+        default=False, description="Add changepoint indicator column"
+    )
+    missing_flags: bool = Field(
+        default=False, description="Add missing data indicator column"
+    )
+    correlated: list[CorrelatedExogConfig] = Field(
+        default_factory=list,
+        description="Correlated exogenous variables to generate",
+    )
 
     @model_validator(mode="after")
-    def _check(self) -> DiagnosticsConfig:
-        if not (self.anomalies or self.changepoints or self.missing):
-            raise ValueError("enable at least one label, or pass None")
+    def validate_unique_names(self) -> ExogenousConfig:
+        """Reject duplicate output columns before dataframe construction."""
+        names = [config.name for config in self.correlated]
+        if len(names) != len(set(names)):
+            raise ValueError("correlated exogenous variable names must be unique")
         return self
-
-    @property
-    def columns(self) -> list[str]:
-        """Names of the label columns this config adds."""
-        names = []
-        if self.anomalies:
-            names.append("anomaly_flag")
-        if self.changepoints:
-            names.append("changepoint_flag")
-        if self.missing:
-            names.append("missing_flag")
-        return names
 
 
 @dataclass
@@ -196,3 +198,75 @@ def build_flag_column(
             flags[valid] = 1
         all_flags.append(flags)
     return np.concatenate(all_flags)
+
+
+def generate_correlated_exog(
+    series_metadata: list[SeriesMetadata],
+    flat_values: np.ndarray,
+    config: CorrelatedExogConfig,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Generate a correlated exogenous variable for all series.
+
+    Args:
+        series_metadata: List of SeriesMetadata
+        flat_values: Concatenated target values
+        config: Configuration for this exogenous variable
+        rng: Random number generator
+
+    Returns:
+        Concatenated exogenous values array
+    """
+    all_exog = []
+    offset = 0
+    for meta in series_metadata:
+        target = flat_values[offset : offset + meta.length]
+        exog = _generate_single_correlated(target, config, rng)
+        all_exog.append(exog)
+        offset += meta.length
+    return np.concatenate(all_exog)
+
+
+def _generate_single_correlated(
+    target: np.ndarray,
+    config: CorrelatedExogConfig,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Generate correlated exogenous values for a single series.
+
+    Args:
+        target: Target series values
+        config: Configuration for correlation method
+        rng: Random number generator
+
+    Returns:
+        Exogenous values array of same length as target
+    """
+    length = len(target)
+
+    if config.method == "correlated_noise":
+        rho = config.correlation
+        # Standardize target (handle NaN)
+        target_mean = np.nanmean(target)
+        target_std = np.nanstd(target)
+        z1 = (target - target_mean) / (target_std + 1e-10)
+        z1 = np.where(np.isnan(z1), 0.0, z1)
+        z2 = rng.standard_normal(length)
+        return rho * z1 + np.sqrt(1 - rho**2) * z2
+
+    elif config.method == "lagged_copy":
+        lag = config.lag
+        exog = np.roll(target, lag)
+        exog[:lag] = target[:lag]
+        noise = rng.normal(0, config.noise_std, length)
+        return exog + noise
+
+    elif config.method == "trend_following":
+        kernel = np.ones(config.smoothing_window) / config.smoothing_window
+        target_clean = np.where(np.isnan(target), 0, target)
+        smoothed = np.convolve(target_clean, kernel, mode="same")
+        noise = rng.normal(0, config.trend_noise_std, length)
+        return smoothed + noise
+
+    else:
+        raise ValueError(f"Unknown correlated exogenous method: {config.method}")

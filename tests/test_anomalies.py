@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from synforecast._core import _add_anomalies
-from synforecast.exogenous import DiagnosticsConfig
+from synforecast.exogenous import ExogenousConfig
 from synforecast.generators import RandomWalkGenerator, VARGenerator
 from tests.helpers import to_pandas
 
@@ -103,7 +103,7 @@ class TestGeneratorAPI:
             anomaly_fraction=0.05,
             anomaly_types=["spike"],
             spike_magnitude=100.0,
-            diagnostics=DiagnosticsConfig(anomalies=True),
+            exogenous=ExogenousConfig(anomaly_flags=True),
         )
         pdf = to_pandas(gen.generate(n_series=3))
         assert "anomaly_flag" in pdf.columns
@@ -122,7 +122,7 @@ class TestGeneratorAPI:
             anomaly_fraction=fraction,
             anomaly_types=["spike"],
             spike_magnitude=100.0,
-            diagnostics=DiagnosticsConfig(anomalies=True),
+            exogenous=ExogenousConfig(anomaly_flags=True),
         )
         pdf = to_pandas(gen.generate(n_series=5))
         expected = int(n * fraction)

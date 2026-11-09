@@ -126,15 +126,22 @@ class GeneratorSpec(BaseModel):
 
     @field_validator("params")
     @classmethod
-    def _no_reserved(cls, params: dict[str, Any]) -> dict[str, Any]:
+    def _check_params(cls, params: dict[str, Any]) -> dict[str, Any]:
         reserved = sorted(_RESERVED_PARAMS & set(params))
         if reserved:
             raise ValueError(f"params must not set {reserved}; the prior owns them")
+        # NumPy arrays and scalars become lists and Python scalars so specs
+        # serialize into recipes and fingerprints.
+        params = _jsonable(params)
+        try:
+            json.dumps(params)
+        except TypeError as exc:
+            raise ValueError(f"params must be JSON-serializable: {exc}") from exc
         return params
 
     @field_serializer("generator")
     def _serialize_generator(self, generator: type[BaseGenerator]) -> str:
-        return generator.__name__
+        return f"{generator.__module__}.{generator.__qualname__}"
 
     @property
     def name(self) -> str:
@@ -440,7 +447,9 @@ class CoupledSpec(BaseModel):
       are of size ``s``.
     - ``"leadlag"``: with probability ``p_leadlag`` (at least once), a
       channel becomes ``sign * z_src[t - lag] + sigma * eps`` of an earlier
-      channel. Lags read the burn-in, so nothing wraps around.
+      channel. Lags read the burn-in, so nothing wraps around; the prior's
+      ``burn_in`` must exceed the longest possible chain of lags,
+      ``(n_channels[1] - 1) * lag_range[1]``.
 
     With ``targets='all'`` every channel is a target (multivariate
     forecasting). With ``targets='one'`` one random channel is the target
@@ -505,8 +514,11 @@ class CoupledSpec(BaseModel):
 
     @property
     def largest_lag(self) -> int:
-        """Largest lead-lag offset."""
-        return self.lag_range[1] if "leadlag" in self.couplings else 0
+        """Largest accumulated lead-lag offset: a lead-lag source can itself be
+        a lead-lag copy, so chains reach ``(n_channels - 1) * max lag``."""
+        if "leadlag" not in self.couplings:
+            return 0
+        return (self.n_channels[1] - 1) * self.lag_range[1]
 
 
 class VARXSpec(BaseModel):
@@ -593,7 +605,7 @@ class VARXSpec(BaseModel):
             raise ValueError("n_clusters exceeds the smallest target count")
         fixed = {
             "coef_matrices": None
-            if self.coef_matrices is None
+            if not self.coef_matrices
             else len(self.coef_matrices[0]),
             "intercept": None if self.intercept is None else len(self.intercept),
             "innovation_covariance": None
@@ -604,13 +616,34 @@ class VARXSpec(BaseModel):
             if size is not None and (lo, hi) != (size, size):
                 raise ValueError(f"{name} fixes n_targets to ({size}, {size})")
         if self.coef_matrices is not None:
-            if len(self.coef_matrices) != self.lag_order:
-                raise ValueError("coef_matrices needs one matrix per lag")
-            mats = [np.asarray(m, dtype=np.float64) for m in self.coef_matrices]
-            if _spectral_radius(mats) >= 1.0:
+            mats = np.asarray(self.coef_matrices, dtype=np.float64)
+            n = lo
+            if mats.shape != (self.lag_order, n, n):
+                raise ValueError(
+                    f"coef_matrices must have shape (lag_order, N, N) = "
+                    f"({self.lag_order}, {n}, {n}), got {mats.shape}"
+                )
+            if not np.isfinite(mats).all():
+                raise ValueError("coef_matrices must be finite")
+            if _spectral_radius(list(mats)) >= 1.0:
                 raise ValueError("coef_matrices define an unstable VAR")
+        if self.intercept is not None and not np.isfinite(self.intercept).all():
+            raise ValueError("intercept must be finite")
         if self.innovation_covariance is not None:
-            np.linalg.cholesky(np.asarray(self.innovation_covariance))
+            cov = np.asarray(self.innovation_covariance, dtype=np.float64)
+            n = lo
+            if cov.shape != (n, n) or not np.isfinite(cov).all():
+                raise ValueError(
+                    f"innovation_covariance must be a finite ({n}, {n}) matrix"
+                )
+            if not np.allclose(cov, cov.T):
+                raise ValueError("innovation_covariance must be symmetric")
+            try:
+                np.linalg.cholesky(cov)
+            except np.linalg.LinAlgError as exc:
+                raise ValueError(
+                    "innovation_covariance must be positive definite"
+                ) from exc
         return self
 
     @property
@@ -896,14 +929,15 @@ class GroupBatch:
 
     @property
     def diagnostics(self) -> dict[str, int]:
-        """Counts of null groups, redraws and composition fallbacks."""
+        """Counts of null groups, redraws, composition fallbacks and shuffled
+        controls (counted on their source groups)."""
+        recipes = [g.recipe.get("source", g.recipe) for g in self.groups]
         return {
             "n_groups": len(self.groups),
-            "n_null": sum(bool(g.recipe.get("null")) for g in self.groups),
-            "n_redrawn": sum(g.recipe["attempt"] > 0 for g in self.groups),
-            "n_fallback": sum(
-                g.recipe.get("fallback") is not None for g in self.groups
-            ),
+            "n_null": sum(bool(r.get("null")) for r in recipes),
+            "n_redrawn": sum(r["attempt"] > 0 for r in recipes),
+            "n_fallback": sum(r.get("fallback") is not None for r in recipes),
+            "n_controls": sum("control" in g.recipe for g in self.groups),
         }
 
     def to_long(
@@ -952,7 +986,16 @@ class GroupBatch:
         Groups are matched within buckets of equal length, target count and
         covariate count; every bucket needs at least two groups. Whole
         covariate sets move together, so relations between covariates are
-        preserved while their relation to the targets is broken.
+        preserved while their relation to the targets is broken. Targets keep
+        their channel positions; the donor's covariates fill the covariate
+        positions in order, with their roles.
+
+        A control group's recipe is a control record: ``source`` holds the
+        receiving group's recipe, ``covariates_from`` the donor's group ID and
+        ``covariate_sources`` which donor channel fills each covariate
+        position. Control groups have no single generating process, so
+        :meth:`GroupPrior.replay` and :meth:`VARXTruth.from_recipe` reject
+        them; replay the source groups instead.
         """
         rng = np.random.default_rng(seed)
         buckets: dict[tuple[int, int, int], list[int]] = defaultdict(list)
@@ -977,14 +1020,24 @@ class GroupBatch:
         shuffled = []
         for i, group in enumerate(self.groups):
             donor = self.groups[donors[i]]
-            values = donor.values.copy()
+            values = group.values.copy()
+            roles = list(group.roles)
+            sources = []
             for dst, src in zip(
-                donor.target_indices, group.target_indices, strict=True
+                group.covariate_indices, donor.covariate_indices, strict=True
             ):
-                values[dst] = group.values[src]
-            recipe = dict(group.recipe, covariates_from=donor.group_id)
+                values[dst] = donor.values[src]
+                roles[dst] = donor.roles[src]
+                sources.append({"channel": dst, "donor_channel": src})
+            recipe = {
+                "version": RECIPE_VERSION,
+                "control": "shuffled_covariates",
+                "source": group.recipe,
+                "covariates_from": donor.group_id,
+                "covariate_sources": sources,
+            }
             shuffled.append(
-                replace(group, values=values, roles=donor.roles, recipe=recipe)
+                replace(group, values=values, roles=tuple(roles), recipe=recipe)
             )
         return GroupBatch(tuple(shuffled))
 
@@ -1021,6 +1074,11 @@ class VARXTruth:
     @classmethod
     def from_recipe(cls, recipe: dict) -> VARXTruth:
         """Rebuild the truth of a VARX group from its recipe."""
+        if "control" in recipe:
+            raise ValueError(
+                "control groups have no single VARX process; use the source "
+                "group's recipe"
+            )
         if recipe.get("mechanism") != "varx":
             raise ValueError("recipe is not a VARX group")
         process = recipe["process"]
@@ -1043,6 +1101,8 @@ class VARXTruth:
         """Channels of a VARX group by kind, in target and regressor order:
         ``y`` ``(T, N)``, ``shared`` ``(T, S)``, ``future`` ``(T, N, F)`` and
         ``past`` ``(T, N, H)``."""
+        if group.recipe.get("mechanism") != "varx":
+            raise ValueError("split needs an unshuffled VARX group")
         layout = group.recipe["channels"]
         n = sum(c["kind"] == "target" for c in layout)
         counts = {
@@ -1223,6 +1283,11 @@ class GroupPrior(BaseModel):
 
     def replay(self, recipe: dict) -> Group:
         """Rebuild the group a recipe describes; the prior must match it."""
+        if "control" in recipe:
+            raise ValueError(
+                "control groups cannot be replayed; replay recipe['source'] and "
+                "the donor group instead"
+            )
         if recipe.get("version") != RECIPE_VERSION:
             raise ValueError("recipe version does not match this SynForecast")
         if recipe.get("prior") != self.fingerprint:
@@ -1745,7 +1810,7 @@ def probe_suite(
     target-only forecast as controls.
 
     Args:
-        context (int): Context length (default: 24).
+        context (int): Context length, at least ``horizon`` (default: 24).
         horizon (int): Forecast horizon (default: 24).
         target_ar (tuple[float, ...]): Target AR coefficients
             (default: (0.0, 0.3, 0.6, 0.9)).
@@ -1759,6 +1824,13 @@ def probe_suite(
     """
     from synforecast.generators import SARIMAGenerator
 
+    if context < 1 or horizon < 1:
+        raise ValueError("context and horizon must be positive")
+    if context < horizon:
+        raise ValueError(
+            "past-only probes act at lag horizon, so context must be at least "
+            "horizon for every lead to see its covariate value"
+        )
     order = {"d": 0, "q": 0, "P": 0, "D": 0, "Q": 0}
     drivers = {
         "iid": GeneratorSpec(

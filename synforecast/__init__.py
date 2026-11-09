@@ -32,7 +32,6 @@ from synforecast.evaluation import (
     compute_features,
     feature_coverage,
 )
-from synforecast.exogenous import CalendarFeatures, DiagnosticsConfig
 from synforecast.groups import (
     CoupledSpec,
     FixedRegressionSpec,
@@ -70,12 +69,10 @@ from synforecast.utils import generate_series
 
 __all__ = [
     "DBA",
-    "DiagnosticsConfig",
     "Anomalies",
     "BaseAugmenter",
     "BaseGenerator",
     "Calendar",
-    "CalendarFeatures",
     "CalendarCycle",
     "Changepoints",
     "CoupledSpec",

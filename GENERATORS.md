@@ -201,8 +201,7 @@ Defined on `BaseGenerator` (`synforecast/base.py`) and accepted by every generat
 | `seed` | `None` | Random seed for reproducibility |
 | `innovation_distribution` | `"normal"` | Innovation/noise distribution: `normal`, `t`, `laplace`, `uniform`, `skew_normal` |
 | `innovation_params` | `None` | Distribution parameters, e.g. `{"df": 5}` for `t` (df > 2), `{"alpha": 5}` for `skew_normal` |
-| `calendar_features` | `None` | `CalendarFeatures` for calendar and cyclical time columns (known for future periods) |
-| `diagnostics` | `None` | `DiagnosticsConfig` for label columns marking injected anomalies, changepoints and missing values (evaluation labels, not model inputs) |
+| `exogenous` | `None` | `ExogenousConfig` for exogenous variable generation (pattern flags, datetime features, correlated columns) |
 
 ### Overlays
 

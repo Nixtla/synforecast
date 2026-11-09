@@ -29,7 +29,7 @@ STATIONARY = GeneratorSpec(
 def _coupled(**overrides) -> GroupPrior:
     spec = {"base_pool": [STATIONARY], "n_channels": (4, 4)}
     spec.update(overrides.pop("spec", {}))
-    kwargs = {"length": (512, 512), "freq": "h", "burn_in": 64}
+    kwargs = {"length": (512, 512), "freq": "h", "burn_in": 128}
     kwargs.update(overrides)
     return GroupPrior(mechanism=CoupledSpec(**spec), **kwargs)
 
@@ -113,6 +113,12 @@ class TestCoupled:
             CoupledSpec(noise_scale=(0.0, 0.1))
         with pytest.raises(ValidationError, match="burn_in"):
             GroupPrior(mechanism=CoupledSpec(lag_range=(1, 100)), burn_in=64)
+        # Lead-lag chains: burn-in must cover (n_channels - 1) * max lag
+        chained = CoupledSpec(n_channels=(6, 6), lag_range=(24, 24))
+        assert chained.largest_lag == 120
+        with pytest.raises(ValidationError, match="burn_in"):
+            GroupPrior(mechanism=chained, burn_in=100)
+        GroupPrior(mechanism=chained, burn_in=121)
 
 
 @pytest.mark.stats
@@ -179,7 +185,7 @@ class TestCoupledDependence:
             ),
             length=(512, 512),
             freq="D",
-            burn_in=64,
+            burn_in=128,
         )
         rows = np.array(
             [
@@ -327,6 +333,65 @@ class TestVARX:
             VARXSpec(n_targets=(1, 1), coef_matrices=[[[1.2]]])
         with pytest.raises(ValueError, match="not a VARX"):
             VARXTruth.from_recipe({"mechanism": "coupled"})
+        with pytest.raises(ValidationError, match="shape"):
+            VARXSpec(n_targets=(2, 2), coef_matrices=[[[0.2], [0.1]]])
+        with pytest.raises(ValidationError, match="shape"):
+            VARXSpec(n_targets=(1, 1), lag_order=2, coef_matrices=[[[0.2]]])
+        with pytest.raises(ValidationError, match="symmetric"):
+            VARXSpec(n_targets=(2, 2), innovation_covariance=[[1, 10], [0, 1]])
+        with pytest.raises(ValidationError, match="positive definite"):
+            VARXSpec(n_targets=(2, 2), innovation_covariance=[[1, 2], [2, 1]])
+        with pytest.raises(ValidationError, match="finite"):
+            VARXSpec(n_targets=(1, 1), intercept=[float("nan")])
+
+    def test_shuffled_controls_have_no_process(self) -> None:
+        batch = _varx(spec={"n_clusters": None}).sample(4, seed=0)
+        control = batch.shuffle_covariates(seed=0)[0]
+        with pytest.raises(ValueError, match="control"):
+            VARXTruth.from_recipe(control.recipe)
+        with pytest.raises(ValueError, match="unshuffled"):
+            VARXTruth.split(control)
+        truth = VARXTruth.from_recipe(control.recipe["source"])
+        np.testing.assert_array_equal(
+            VARXTruth.split(batch[0])["y"][:, 0],
+            control.values[control.recipe["source"]["channels"][0]["channel"]],
+        )
+        assert truth.lag_matrices.shape == (1, 4, 4)
+
+    def test_oracle_multistep_matches_a_noiseless_process(self) -> None:
+        """Without innovations and past-only regressors, the h-step oracle is
+        the process itself, for lag order 2 and every horizon step."""
+        prior = _varx(
+            spec={
+                "n_targets": (3, 3),
+                "lag_order": 2,
+                "n_past": 0,
+                "n_clusters": None,
+                "innovation_covariance": (1e-24 * np.eye(3)).tolist(),
+            }
+        )
+        group = prior.sample(1, seed=5)[0]
+        truth = VARXTruth.from_recipe(group.recipe)
+        y = VARXTruth.split(group)["y"]
+        np.testing.assert_allclose(
+            truth.forecast_group(group, origin=150, h=10), y[150:160], atol=1e-8
+        )
+
+    def test_oracle_past_regressors_decay_with_persistence(self) -> None:
+        truth = VARXTruth(
+            lag_matrices=np.zeros((1, 1, 1)),
+            intercept=np.zeros(1),
+            shared_effects=np.zeros((1, 0)),
+            future_effects=np.zeros((0, 1, 1)),
+            past_effects=np.full((1, 1, 1), 2.0),
+            innovation_covariance=np.eye(1),
+            exog_persistence=0.5,
+            clusters=None,
+        )
+        out = truth.forecast(
+            np.zeros((1, 1)), np.zeros((3, 0)), np.zeros((3, 1, 0)), np.ones((1, 1)), 3
+        )
+        np.testing.assert_allclose(out[:, 0], [2.0, 1.0, 0.5])
 
     def test_oracle_forecast_needs_room(self) -> None:
         group = _varx().sample(1, seed=0)[0]

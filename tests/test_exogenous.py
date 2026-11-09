@@ -1,4 +1,4 @@
-"""Tests for calendar feature and diagnostic label columns."""
+"""Tests for exogenous variable generation."""
 
 import numpy as np
 import polars as pl
@@ -6,11 +6,12 @@ import pytest
 
 from synforecast.dataset import SynSet
 from synforecast.exogenous import (
-    CalendarFeatures,
-    DiagnosticsConfig,
+    CorrelatedExogConfig,
+    ExogenousConfig,
     SeriesMetadata,
     build_flag_column,
     extract_datetime_features,
+    generate_correlated_exog,
 )
 from synforecast.generators import (
     CopulaGenerator,
@@ -22,35 +23,54 @@ from synforecast.generators import (
 
 
 # ---------------------------------------------------------------------------
-# Config validation
+# ExogenousConfig validation
 # ---------------------------------------------------------------------------
-class TestColumnConfigs:
-    """Tests for CalendarFeatures and DiagnosticsConfig validation."""
+class TestExogenousConfig:
+    """Tests for ExogenousConfig and CorrelatedExogConfig validation."""
 
-    def test_calendar_defaults(self) -> None:
-        cfg = CalendarFeatures()
-        assert cfg.basic is True
-        assert cfg.cyclical is False
+    def test_default_config(self) -> None:
+        cfg = ExogenousConfig()
+        assert cfg.datetime_features is False
+        assert cfg.datetime_cyclical is False
+        assert cfg.anomaly_flags is False
+        assert cfg.changepoint_flags is False
+        assert cfg.missing_flags is False
+        assert cfg.correlated == []
 
-    def test_diagnostics_columns(self) -> None:
-        cfg = DiagnosticsConfig(anomalies=True, changepoints=True, missing=True)
-        assert cfg.columns == ["anomaly_flag", "changepoint_flag", "missing_flag"]
-        assert DiagnosticsConfig(missing=True).columns == ["missing_flag"]
+    def test_all_flags_enabled(self) -> None:
+        cfg = ExogenousConfig(
+            datetime_features=True,
+            datetime_cyclical=True,
+            anomaly_flags=True,
+            changepoint_flags=True,
+            missing_flags=True,
+        )
+        assert cfg.datetime_features is True
+        assert cfg.missing_flags is True
 
-    def test_empty_configs_are_rejected(self) -> None:
-        with pytest.raises(ValueError, match="pass None"):
-            CalendarFeatures(basic=False, cyclical=False)
-        with pytest.raises(ValueError, match="pass None"):
-            DiagnosticsConfig()
+    def test_correlated_config_defaults(self) -> None:
+        cfg = CorrelatedExogConfig(name="price")
+        assert cfg.method == "correlated_noise"
+        assert cfg.correlation == 0.7
+        assert cfg.lag == 1
+        assert cfg.noise_std == 0.1
+
+    def test_correlated_config_correlation_bounds(self) -> None:
+        CorrelatedExogConfig(name="a", correlation=-1.0)
+        CorrelatedExogConfig(name="b", correlation=1.0)
+        with pytest.raises(ValueError):
+            CorrelatedExogConfig(name="c", correlation=1.5)
+        with pytest.raises(ValueError):
+            CorrelatedExogConfig(name="d", correlation=-1.5)
 
 
 # ---------------------------------------------------------------------------
-# Core columns only
+# Backward compatibility
 # ---------------------------------------------------------------------------
-class TestNoExtraColumns:
-    """Without column configs the output has the three core columns."""
+class TestBackwardCompatibility:
+    """Ensure exogenous=None produces the original 3-column output."""
 
-    def test_no_configs_give_three_columns(self) -> None:
+    def test_no_exogenous_gives_three_columns(self) -> None:
         gen = RandomWalkGenerator(
             **{
                 "min_length": 50,
@@ -62,6 +82,21 @@ class TestNoExtraColumns:
         )
         df = gen.generate(n_series=2)
         assert isinstance(df, pl.DataFrame)
+        assert set(df.columns) == {"unique_id", "ds", "y"}
+
+    def test_empty_exogenous_gives_three_columns(self) -> None:
+        """ExogenousConfig with all defaults off should still be 3 columns."""
+        gen = RandomWalkGenerator(
+            **{
+                "min_length": 50,
+                "max_length": 50,
+                "freq": "D",
+                "engine": "polars",
+                "seed": 42,
+                "exogenous": ExogenousConfig(),
+            }
+        )
+        df = gen.generate(n_series=2)
         assert set(df.columns) == {"unique_id", "ds", "y"}
 
 
@@ -79,7 +114,7 @@ class TestDatetimeFeatures:
                 "freq": "D",
                 "engine": "polars",
                 "seed": 42,
-                "calendar_features": CalendarFeatures(),
+                "exogenous": ExogenousConfig(datetime_features=True),
             }
         )
         df = gen.generate(n_series=1)
@@ -107,7 +142,7 @@ class TestDatetimeFeatures:
                 "freq": "h",
                 "engine": "polars",
                 "seed": 42,
-                "calendar_features": CalendarFeatures(),
+                "exogenous": ExogenousConfig(datetime_features=True),
             }
         )
         df = gen.generate(n_series=1)
@@ -121,7 +156,7 @@ class TestDatetimeFeatures:
                 "freq": "h",
                 "engine": "polars",
                 "seed": 42,
-                "calendar_features": CalendarFeatures(cyclical=True, basic=False),
+                "exogenous": ExogenousConfig(datetime_cyclical=True),
             }
         )
         df = gen.generate(n_series=1)
@@ -189,7 +224,7 @@ class TestFlagColumns:
                 "seed": 42,
                 "anomalies": True,
                 "anomaly_fraction": 0.1,
-                "diagnostics": DiagnosticsConfig(anomalies=True),
+                "exogenous": ExogenousConfig(anomaly_flags=True),
             }
         )
         df = gen.generate(n_series=2)
@@ -210,7 +245,7 @@ class TestFlagColumns:
                 "seed": 42,
                 "changepoints": True,
                 "num_changepoints": 3,
-                "diagnostics": DiagnosticsConfig(changepoints=True),
+                "exogenous": ExogenousConfig(changepoint_flags=True),
             }
         )
         df = gen.generate(n_series=2)
@@ -229,7 +264,7 @@ class TestFlagColumns:
                 "seed": 42,
                 "missing_data": True,
                 "missing_rate": 0.1,
-                "diagnostics": DiagnosticsConfig(missing=True),
+                "exogenous": ExogenousConfig(missing_flags=True),
             }
         )
         df = gen.generate(n_series=2)
@@ -248,7 +283,7 @@ class TestFlagColumns:
                 "engine": "polars",
                 "seed": 42,
                 "anomalies": False,
-                "diagnostics": DiagnosticsConfig(anomalies=True),
+                "exogenous": ExogenousConfig(anomaly_flags=True),
             }
         )
         df = gen.generate(n_series=1)
@@ -286,12 +321,156 @@ class TestFlagColumns:
 
 
 # ---------------------------------------------------------------------------
+# Correlated exogenous
+# ---------------------------------------------------------------------------
+class TestCorrelatedExogenous:
+    """Tests for correlated exogenous variable generation."""
+
+    def test_correlated_noise_column_exists(self) -> None:
+        gen = RandomWalkGenerator(
+            **{
+                "min_length": 200,
+                "max_length": 200,
+                "freq": "D",
+                "engine": "polars",
+                "seed": 42,
+                "exogenous": ExogenousConfig(
+                    correlated=[
+                        CorrelatedExogConfig(name="price", correlation=0.8),
+                    ]
+                ),
+            }
+        )
+        df = gen.generate(n_series=2)
+        assert "price" in df.columns
+        assert len(df.filter(pl.col("price").is_not_null())) > 0
+
+    def test_correlated_noise_correlation(self) -> None:
+        """Correlation of correlated_noise output should be roughly correct."""
+        gen = RandomWalkGenerator(
+            **{
+                "min_length": 5000,
+                "max_length": 5000,
+                "freq": "D",
+                "engine": "polars",
+                "seed": 42,
+                "exogenous": ExogenousConfig(
+                    correlated=[
+                        CorrelatedExogConfig(
+                            name="corr_var",
+                            method="correlated_noise",
+                            correlation=0.9,
+                        ),
+                    ]
+                ),
+            }
+        )
+        df = gen.generate(n_series=1)
+        y = df["y"].to_numpy()
+        exog = df["corr_var"].to_numpy()
+        corr = np.corrcoef(y, exog)[0, 1]
+        # With 5000 points, empirical correlation should be close
+        assert abs(corr - 0.9) < 0.15, f"Expected ~0.9, got {corr}"
+
+    def test_lagged_copy(self) -> None:
+        gen = RandomWalkGenerator(
+            **{
+                "min_length": 100,
+                "max_length": 100,
+                "freq": "D",
+                "engine": "polars",
+                "seed": 42,
+                "exogenous": ExogenousConfig(
+                    correlated=[
+                        CorrelatedExogConfig(
+                            name="lagged_y",
+                            method="lagged_copy",
+                            lag=3,
+                            noise_std=0.0,
+                        ),
+                    ]
+                ),
+            }
+        )
+        df = gen.generate(n_series=1)
+        y = df["y"].to_numpy()
+        lagged = df["lagged_y"].to_numpy()
+        # With noise_std=0, lagged values after the lag offset should equal
+        # the original values shifted by lag
+        np.testing.assert_array_almost_equal(lagged[3:], y[:-3])
+
+    def test_trend_following(self) -> None:
+        gen = RandomWalkGenerator(
+            **{
+                "min_length": 100,
+                "max_length": 100,
+                "freq": "D",
+                "engine": "polars",
+                "seed": 42,
+                "exogenous": ExogenousConfig(
+                    correlated=[
+                        CorrelatedExogConfig(
+                            name="trend",
+                            method="trend_following",
+                            smoothing_window=5,
+                            trend_noise_std=0.0,
+                        ),
+                    ]
+                ),
+            }
+        )
+        df = gen.generate(n_series=1)
+        assert "trend" in df.columns
+        # Trend-following with no noise should be a moving average
+        y = df["y"].to_numpy()
+        trend = df["trend"].to_numpy()
+        # The moving average smooths the signal; check it's correlated
+        corr = np.corrcoef(y, trend)[0, 1]
+        assert corr > 0.5, f"Expected positive correlation, got {corr}"
+
+    def test_multiple_correlated(self) -> None:
+        gen = RandomWalkGenerator(
+            **{
+                "min_length": 100,
+                "max_length": 100,
+                "freq": "D",
+                "engine": "polars",
+                "seed": 42,
+                "exogenous": ExogenousConfig(
+                    correlated=[
+                        CorrelatedExogConfig(name="a", correlation=0.5),
+                        CorrelatedExogConfig(name="b", method="lagged_copy", lag=2),
+                        CorrelatedExogConfig(name="c", method="trend_following"),
+                    ]
+                ),
+            }
+        )
+        df = gen.generate(n_series=2)
+        assert "a" in df.columns
+        assert "b" in df.columns
+        assert "c" in df.columns
+
+    def test_generate_correlated_exog_function(self) -> None:
+        rng = np.random.default_rng(42)
+        values = rng.standard_normal(50)
+        meta = SeriesMetadata(
+            values=values,
+            timestamps=np.zeros(50),
+            series_id=0,
+            length=50,
+        )
+        config = CorrelatedExogConfig(name="test", correlation=0.8)
+        result = generate_correlated_exog([meta], values, config, rng)
+        assert len(result) == 50
+
+
+# ---------------------------------------------------------------------------
 # Integration with overriding generators
 # ---------------------------------------------------------------------------
 class TestOverridingGenerators:
-    """Test extra columns in generators that override generate()."""
+    """Test exogenous support in generators that override generate()."""
 
-    def test_copula_with_extra_columns(self) -> None:
+    def test_copula_with_exogenous(self) -> None:
         gen = CopulaGenerator(
             **{
                 "min_length": 100,
@@ -300,8 +479,10 @@ class TestOverridingGenerators:
                 "engine": "polars",
                 "seed": 42,
                 "anomalies": True,
-                "calendar_features": CalendarFeatures(),
-                "diagnostics": DiagnosticsConfig(anomalies=True),
+                "exogenous": ExogenousConfig(
+                    datetime_features=True,
+                    anomaly_flags=True,
+                ),
             }
         )
         df = gen.generate(n_series=3)
@@ -309,7 +490,7 @@ class TestOverridingGenerators:
         assert "year" in df.columns
         assert df["unique_id"].n_unique() == 3
 
-    def test_var_with_extra_columns(self) -> None:
+    def test_var_with_exogenous(self) -> None:
         gen = VARGenerator(
             **{
                 "min_length": 100,
@@ -319,8 +500,10 @@ class TestOverridingGenerators:
                 "seed": 42,
                 "changepoints": True,
                 "num_changepoints": 2,
-                "calendar_features": CalendarFeatures(cyclical=True, basic=False),
-                "diagnostics": DiagnosticsConfig(changepoints=True),
+                "exogenous": ExogenousConfig(
+                    changepoint_flags=True,
+                    datetime_cyclical=True,
+                ),
             }
         )
         df = gen.generate(n_series=3)
@@ -328,7 +511,7 @@ class TestOverridingGenerators:
         assert "month_sin" in df.columns
         assert df["unique_id"].n_unique() == 3
 
-    def test_iot_sensor_with_extra_columns(self) -> None:
+    def test_iot_sensor_with_exogenous(self) -> None:
         gen = IoTSensorGenerator(
             **{
                 "min_length": 100,
@@ -338,15 +521,17 @@ class TestOverridingGenerators:
                 "seed": 42,
                 "n_sensors": 1,
                 "missing_data": True,
-                "calendar_features": CalendarFeatures(),
-                "diagnostics": DiagnosticsConfig(missing=True),
+                "exogenous": ExogenousConfig(
+                    missing_flags=True,
+                    datetime_features=True,
+                ),
             }
         )
         df = gen.generate(n_series=2)
         assert "missing_flag" in df.columns
         assert "hour" in df.columns
 
-    def test_dau_with_extra_columns_and_event_col(self) -> None:
+    def test_dau_with_exogenous_and_event_col(self) -> None:
         gen = DailyActiveUsersGenerator(
             **{
                 "min_length": 100,
@@ -355,8 +540,13 @@ class TestOverridingGenerators:
                 "engine": "polars",
                 "seed": 42,
                 "anomalies": True,
-                "calendar_features": CalendarFeatures(),
-                "diagnostics": DiagnosticsConfig(anomalies=True),
+                "exogenous": ExogenousConfig(
+                    anomaly_flags=True,
+                    datetime_features=True,
+                    correlated=[
+                        CorrelatedExogConfig(name="price", correlation=0.5),
+                    ],
+                ),
             }
         )
         df = gen.generate(n_series=2)
@@ -364,8 +554,9 @@ class TestOverridingGenerators:
         assert "event" in df.columns
         assert "anomaly_flag" in df.columns
         assert "year" in df.columns
+        assert "price" in df.columns
 
-    def test_iot_multivariate_with_extra_columns(self) -> None:
+    def test_iot_multivariate_with_exogenous(self) -> None:
         gen = IoTSensorGenerator(
             **{
                 "min_length": 50,
@@ -374,7 +565,7 @@ class TestOverridingGenerators:
                 "engine": "polars",
                 "seed": 42,
                 "n_sensors": 3,
-                "calendar_features": CalendarFeatures(),
+                "exogenous": ExogenousConfig(datetime_features=True),
             }
         )
         df = gen.generate(n_series=2)
@@ -387,9 +578,9 @@ class TestOverridingGenerators:
 # All-in-one integration
 # ---------------------------------------------------------------------------
 class TestFullIntegration:
-    """Test combining all extra column types at once."""
+    """Test combining all exogenous types at once."""
 
-    def test_all_column_types_together(self) -> None:
+    def test_all_exogenous_types_together(self) -> None:
         gen = RandomWalkGenerator(
             **{
                 "min_length": 200,
@@ -400,9 +591,18 @@ class TestFullIntegration:
                 "anomalies": True,
                 "changepoints": True,
                 "missing_data": True,
-                "calendar_features": CalendarFeatures(cyclical=True),
-                "diagnostics": DiagnosticsConfig(
-                    anomalies=True, changepoints=True, missing=True
+                "exogenous": ExogenousConfig(
+                    datetime_features=True,
+                    datetime_cyclical=True,
+                    anomaly_flags=True,
+                    changepoint_flags=True,
+                    missing_flags=True,
+                    correlated=[
+                        CorrelatedExogConfig(name="price", correlation=0.8),
+                        CorrelatedExogConfig(
+                            name="lagged_y", method="lagged_copy", lag=3
+                        ),
+                    ],
                 ),
             }
         )
@@ -423,11 +623,15 @@ class TestFullIntegration:
         assert "hour" in df.columns
         assert "hour_sin" in df.columns
 
+        # Correlated columns
+        assert "price" in df.columns
+        assert "lagged_y" in df.columns
+
         # Series count
         assert df["unique_id"].n_unique() == 3
 
     def test_pandas_backend(self) -> None:
-        """Extra columns should work with the pandas backend too."""
+        """Exogenous should work with pandas backend too."""
         import pandas as pd
 
         gen = RandomWalkGenerator(
@@ -438,8 +642,10 @@ class TestFullIntegration:
                 "seed": 42,
                 "engine": "pandas",
                 "anomalies": True,
-                "calendar_features": CalendarFeatures(),
-                "diagnostics": DiagnosticsConfig(anomalies=True),
+                "exogenous": ExogenousConfig(
+                    anomaly_flags=True,
+                    datetime_features=True,
+                ),
             }
         )
         df = gen.generate(n_series=1)
@@ -452,13 +658,10 @@ class TestFullIntegration:
 # SynSet integration
 # ---------------------------------------------------------------------------
 class TestSynSetIntegration:
-    """Test column configs with SynSet."""
+    """Test exogenous config with SynSet."""
 
-    def test_synset_with_extra_columns(self) -> None:
-        columns = {
-            "calendar_features": CalendarFeatures(),
-            "diagnostics": DiagnosticsConfig(anomalies=True),
-        }
+    def test_synset_with_exogenous(self) -> None:
+        exog = ExogenousConfig(datetime_features=True, anomaly_flags=True)
         gen1 = RandomWalkGenerator(
             **{
                 "min_length": 50,
@@ -467,7 +670,7 @@ class TestSynSetIntegration:
                 "engine": "polars",
                 "seed": 42,
                 "anomalies": True,
-                **columns,
+                "exogenous": exog,
             }
         )
         gen2 = RandomWalkGenerator(
@@ -478,7 +681,7 @@ class TestSynSetIntegration:
                 "engine": "polars",
                 "seed": 43,
                 "anomalies": True,
-                **columns,
+                "exogenous": exog,
             }
         )
         synset = SynSet(generators=[gen1, gen2])
@@ -486,8 +689,8 @@ class TestSynSetIntegration:
         assert "anomaly_flag" in df.columns
         assert "year" in df.columns
 
-    def test_synset_mismatched_columns_no_crash(self) -> None:
-        """SynSet with mismatched column configs should not crash."""
+    def test_synset_mismatched_exogenous_no_crash(self) -> None:
+        """SynSet with mismatched exogenous configs should not crash."""
         gen1 = RandomWalkGenerator(
             **{
                 "min_length": 50,
@@ -495,7 +698,7 @@ class TestSynSetIntegration:
                 "freq": "D",
                 "engine": "polars",
                 "seed": 42,
-                "calendar_features": CalendarFeatures(),
+                "exogenous": ExogenousConfig(datetime_features=True),
             }
         )
         gen2 = RandomWalkGenerator(
@@ -505,7 +708,7 @@ class TestSynSetIntegration:
                 "freq": "D",
                 "engine": "polars",
                 "seed": 43,
-                "diagnostics": DiagnosticsConfig(anomalies=True),
+                "exogenous": ExogenousConfig(anomaly_flags=True),
             }
         )
         # Construction should not crash even with mismatched configs

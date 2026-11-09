@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from synforecast._core import _add_changepoints
-from synforecast.exogenous import DiagnosticsConfig
+from synforecast.exogenous import ExogenousConfig
 from synforecast.generators import RandomWalkGenerator, VARGenerator
 from tests.helpers import to_pandas
 
@@ -176,7 +176,7 @@ class TestGeneratorAPI:
             changepoint_type="level",
             changepoint_level_changes=[50.0],
             changepoint_locations=[0.5],
-            diagnostics=DiagnosticsConfig(changepoints=True),
+            exogenous=ExogenousConfig(changepoint_flags=True),
         )
         pdf = to_pandas(gen.generate(n_series=2))
         assert "changepoint_flag" in pdf.columns

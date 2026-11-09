@@ -239,10 +239,11 @@ def test_null_groups_have_no_effect():
         np.testing.assert_allclose(group.values[group.target_index], base[96:])
 
 
-def _generator_class(name: str):
-    from synforecast import generators
+def _generator_class(path: str):
+    import importlib
 
-    return getattr(generators, name)
+    module, _, name = path.rpartition(".")
+    return getattr(importlib.import_module(module), name)
 
 
 def test_roles_are_independent_of_informativeness():
@@ -346,18 +347,80 @@ def test_shuffle_covariates():
     prior = probe_suite()["sum/phi0.0/future/d2/iid"]
     batch = prior.sample(8, seed=0)
     shuffled = batch.shuffle_covariates(seed=1)
+    assert shuffled.diagnostics["n_controls"] == 8
     for original, control in zip(batch, shuffled, strict=True):
+        recipe = control.recipe
+        assert recipe["control"] == "shuffled_covariates"
+        assert recipe["source"] == original.recipe
+        # Targets keep their position and values
+        assert control.target_index == original.target_index
         np.testing.assert_array_equal(
             control.values[control.target_index], original.values[original.target_index]
         )
-        assert control.recipe["covariates_from"] != original.group_id
-        donor = batch[control.recipe["covariates_from"]]
-        for c in donor.covariate_indices:
-            np.testing.assert_array_equal(control.values[c], donor.values[c])
+        donor = batch[recipe["covariates_from"]]
+        assert donor.group_id != original.group_id
+        assert [s["channel"] for s in recipe["covariate_sources"]] == (
+            original.covariate_indices
+        )
+        for source in recipe["covariate_sources"]:
+            np.testing.assert_array_equal(
+                control.values[source["channel"]],
+                donor.values[source["donor_channel"]],
+            )
+            assert (
+                control.roles[source["channel"]] == donor.roles[source["donor_channel"]]
+            )
+        with pytest.raises(ValueError, match="cannot be replayed"):
+            prior.replay(recipe)
     lone = GroupPrior(length=(16, 64)).sample(3, seed=0)
     if len({(g.length, len(g.covariate_indices)) for g in lone}) == 3:
         with pytest.raises(ValueError, match="bucket"):
             lone.shuffle_covariates(seed=0)
+
+
+def test_numpy_params_are_normalized():
+    spec = GeneratorSpec(
+        generator=SARIMAGenerator,
+        params={
+            "p": 1,
+            "q": 0,
+            "ar_params": np.array([0.5]),
+            "noise_std": np.float64(1),
+        },
+    )
+    assert spec.params == {"p": 1, "q": 0, "ar_params": [0.5], "noise_std": 1.0}
+    prior = GroupPrior(
+        mechanism=RegressionSpec(target_pool=[spec], driver_pool=[spec]),
+        length=(32, 32),
+        burn_in=96,
+    )
+    group = prior.sample(1, seed=0)[0]
+    assert prior.replay(group.recipe).values.tolist() == group.values.tolist()
+    with pytest.raises(ValidationError, match="JSON-serializable"):
+        GeneratorSpec(generator=SARIMAGenerator, params={"mean": object()})
+
+
+def test_generator_identity_includes_module():
+    def make(module: str) -> type[BaseGenerator]:
+        cls = type("SameName", (_ConstantGenerator,), {"__module__": module})
+        return cls
+
+    a = GeneratorSpec(generator=make("pkg_a"))
+    b = GeneratorSpec(generator=make("pkg_b"))
+    assert a.describe()["generator"] != b.describe()["generator"]
+    prior_a = GroupPrior(
+        mechanism=RegressionSpec(target_pool=[a], driver_pool=[a]),
+        length=(16, 16),
+        burn_in=96,
+    )
+    prior_b = GroupPrior(
+        mechanism=RegressionSpec(target_pool=[b], driver_pool=[b]),
+        length=(16, 16),
+        burn_in=96,
+    )
+    assert prior_a.fingerprint != prior_b.fingerprint
+    with pytest.raises(ValueError, match="different prior"):
+        prior_b.replay(prior_a.sample(1, seed=0)[0].recipe)
 
 
 # ---------------------------------------------------------------------------
@@ -372,6 +435,18 @@ def test_probe_suite_shapes():
     assert group.values.shape == (1 + 3 + 4, 36)
     assert sorted(set(group.roles)) == ["past", "target"]
     assert {t["lag"] for t in group.recipe["terms"]} == {12}
+
+
+def test_probe_suite_needs_context_for_past_only_lags():
+    with pytest.raises(ValueError, match="context must be at least"):
+        probe_suite(context=12, horizon=24)
+    with pytest.raises(ValueError, match="positive"):
+        probe_suite(context=0, horizon=0)
+    probes = probe_suite(context=24, horizon=24)
+    group = probes["identity/phi0.0/past/d0/iid"].sample(1, seed=0)[0]
+    y, x = group.values[group.target_index], group.values[group.covariate_indices[0]]
+    # Every forecast lead reads a covariate value inside the context window
+    np.testing.assert_allclose(y[24:], x[:24], atol=0.5)
 
 
 def test_identity_probe_is_exact_up_to_noise():

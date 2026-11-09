@@ -5,7 +5,7 @@ import inspect
 import pytest
 from pydantic import ValidationError
 
-from synforecast.exogenous import CalendarFeatures, DiagnosticsConfig
+from synforecast.exogenous import CorrelatedExogConfig, ExogenousConfig
 from synforecast.generators import RandomWalkGenerator
 
 BASE = {"min_length": 10, "max_length": 10, "freq": "D"}
@@ -56,25 +56,21 @@ def test_generator_rejects_invalid_shared_configuration(
         RandomWalkGenerator(**BASE, **kwargs)
 
 
-def test_column_configs_reject_unknown_and_empty_settings() -> None:
+def test_exogenous_models_reject_unknown_parameters() -> None:
     with pytest.raises(ValidationError, match="extra_forbidden"):
-        CalendarFeatures(datetime_features=True)
+        CorrelatedExogConfig(name="x", corelation=0.5)
+
     with pytest.raises(ValidationError, match="extra_forbidden"):
-        DiagnosticsConfig(anomaly_flags=True)
-    with pytest.raises(ValidationError, match="pass None"):
-        CalendarFeatures(basic=False)
-    with pytest.raises(ValidationError, match="pass None"):
-        DiagnosticsConfig()
+        ExogenousConfig(datetime_feature=True)
 
 
-def test_removed_exogenous_argument_is_rejected() -> None:
-    with pytest.raises(ValidationError, match="extra_forbidden"):
-        RandomWalkGenerator(**BASE, exogenous=None)
+def test_correlated_exogenous_names_are_unique_and_do_not_collide() -> None:
+    duplicate = [CorrelatedExogConfig(name="x"), CorrelatedExogConfig(name="x")]
+    with pytest.raises(ValidationError, match="names must be unique"):
+        ExogenousConfig(correlated=duplicate)
 
-
-def test_label_columns_do_not_collide_with_output_columns() -> None:
     with pytest.raises(ValidationError, match="collide with output columns"):
         RandomWalkGenerator(
-            **{**BASE, "target_col": "anomaly_flag"},
-            diagnostics=DiagnosticsConfig(anomalies=True),
+            **BASE,
+            exogenous=ExogenousConfig(correlated=[CorrelatedExogConfig(name="y")]),
         )

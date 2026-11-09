@@ -32,10 +32,6 @@
     `forecast_group()` returns its conditional-mean (oracle) forecast.
   - Groups may hold several targets: `Group.target_indices`, and
     `shuffle_covariates()` keeps every target.
-- `CalendarFeatures` and `DiagnosticsConfig` (exported from `synforecast`):
-  calendar columns, known for future periods, and evaluation labels for
-  injected anomalies, changepoints and missing values, set on every
-  generator with `calendar_features=` and `diagnostics=`.
 
 - `overlays=OverlayConfig(...)` on every generator: one optional spec per
   stage (`Calendar`, `Waveform`, `Changepoints`, `Anomalies`, `Observation`,
@@ -169,16 +165,6 @@
 
 ### Removed
 
-- **Breaking:** `exogenous=ExogenousConfig(...)` on generators. Calendar
-  columns move to `calendar_features=CalendarFeatures(basic=..., cyclical=...)`
-  and label columns to `diagnostics=DiagnosticsConfig(anomalies=...,
-  changepoints=..., missing=...)`; column names are unchanged and so are the
-  draws. Passing `exogenous=` now raises a validation error.
-- **Breaking:** `CorrelatedExogConfig`, `ExogenousConfig.correlated`,
-  `generate_correlated_exog` and `_generate_single_correlated`. They derived
-  covariates from the whole target path, so a "known-future" covariate leaked
-  the future target. There is no automatic translation: build covariate
-  tasks with `GroupPrior(mechanism=RegressionSpec(...))`.
 - **Breaking:** `Multivariatizer`, including `apply_overlays` and
   `last_recipe`. Use `GroupPrior(mechanism=CoupledSpec(...))`; recipes come
   back with every group. Overlays are not applied inside groups yet.
