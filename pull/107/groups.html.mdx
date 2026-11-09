@@ -880,9 +880,12 @@ A generator class plus explicit parameters, built fresh for every draw.
 
 The prior draws every series with its own seed. Generators whose native
 parameters do not depend on the seed are resolved once into a template and
-drawn in parallel batches; generators that randomize parameters in their
-constructor (for example ``SARIMAGenerator`` without ``ar_params``) are
-rebuilt per draw, so each draw gets fresh parameters. The wrapped
+drawn in parallel batches. Generators that randomize parameters in their
+constructor (SARIMA, ETS, GARCH, INAR and StateSpace without explicit
+parameters) are resolved into a template whose randomized parameters are
+re-sampled natively per draw, from the same distributions as their
+constructors; any other seed-dependent generator is rebuilt per draw.
+Either way each draw gets fresh parameters. The wrapped
 generator's own seed never affects the result. NumPy arrays and scalars
 in ``params`` are converted to lists and Python scalars, and ``params``
 are snapshotted at construction: later changes to the dict affect no draw,
