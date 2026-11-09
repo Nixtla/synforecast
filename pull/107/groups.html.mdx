@@ -352,7 +352,9 @@ to each channel's calibration-window level and scale:
   are of size ``s``.
 - ``"leadlag"``: with probability ``p_leadlag`` (at least once), a
   channel becomes ``sign * z_src[t - lag] + sigma * eps`` of an earlier
-  channel. Lags read the burn-in, so nothing wraps around.
+  channel. Lags read the burn-in, so nothing wraps around; the prior's
+  ``burn_in`` must exceed the longest possible chain of lags,
+  ``(n_channels[1] - 1) * lag_range[1]``.
 
 With ``targets='all'`` every channel is a target (multivariate
 forecasting). With ``targets='one'`` one random channel is the target
@@ -408,7 +410,8 @@ lag_range: tuple[int, int] = (1, 24)
 largest_lag: int
 ```
 
-Largest lead-lag offset.
+Largest accumulated lead-lag offset: a lead-lag source can itself be
+a lead-lag copy, so chains reach ``(n_channels - 1) * max lag``.
 
 #### `CoupledSpec.mixing_strength`
 
@@ -893,7 +896,16 @@ covariate set (values and roles) of another group.
 Groups are matched within buckets of equal length, target count and
 covariate count; every bucket needs at least two groups. Whole
 covariate sets move together, so relations between covariates are
-preserved while their relation to the targets is broken.
+preserved while their relation to the targets is broken. Targets keep
+their channel positions; the donor's covariates fill the covariate
+positions in order, with their roles.
+
+A control group's recipe is a control record: ``source`` holds the
+receiving group's recipe, ``covariates_from`` the donor's group ID and
+``covariate_sources`` which donor channel fills each covariate
+position. Control groups have no single generating process, so
+:meth:`GroupPrior.replay` and :meth:`VARXTruth.from_recipe` reject
+them; replay the source groups instead.
 
 #### `GroupBatch.diagnostics`
 
@@ -901,7 +913,8 @@ preserved while their relation to the targets is broken.
 diagnostics: dict[str, int]
 ```
 
-Counts of null groups, redraws and composition fallbacks.
+Counts of null groups, redraws, composition fallbacks and shuffled
+controls (counted on their source groups).
 
 
 ### `Group`
@@ -1013,7 +1026,7 @@ target-only forecast as controls.
 
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
-`context` | <code>[int](#int)</code> | Context length (default: 24). | <code>24</code>
+`context` | <code>[int](#int)</code> | Context length, at least ``horizon`` (default: 24). | <code>24</code>
 `horizon` | <code>[int](#int)</code> | Forecast horizon (default: 24). | <code>24</code>
 `target_ar` | <code>[tuple](#tuple)[[float](#float), ...]</code> | Target AR coefficients (default: (0.0, 0.3, 0.6, 0.9)). | <code>(0.0, 0.3, 0.6, 0.9)</code>
 `n_distractors` | <code>[tuple](#tuple)[[int](#int), ...]</code> | Distractor counts (default: (0, 2, 4)). | <code>(0, 2, 4)</code>

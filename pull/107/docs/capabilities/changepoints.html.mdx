@@ -15,7 +15,7 @@ detectors a labelled benchmark.
 > `"variance"`, or `"mixed"`. Set `changepoint_locations` (fractions of
 > the series) and the matching `changepoint_*_changes` to place breaks
 > exactly, or give only `num_changepoints` to scatter them randomly.
-> `diagnostics=DiagnosticsConfig(changepoints=True)` adds a
+> `exogenous=ExogenousConfig(changepoint_flags=True)` adds a
 > `changepoint_flag` column marking each break — drawn as dashed
 > vertical lines below.
 
@@ -23,11 +23,11 @@ detectors a labelled benchmark.
 import matplotlib.pyplot as plt
 import polars as pl
 
-from synforecast.exogenous import DiagnosticsConfig
+from synforecast.exogenous import ExogenousConfig
 from synforecast.generators import RandomWalkGenerator, SeasonalGenerator, VARGenerator
 from synforecast import Anomalies, Changepoints, Missing, OverlayConfig
 
-FLAGS = DiagnosticsConfig(changepoints=True)
+FLAGS = ExogenousConfig(changepoint_flags=True)
 
 
 def plot_changepoints(df, title):
@@ -67,7 +67,7 @@ level_df = RandomWalkGenerator(
             level_changes=[50.0, -30.0, 40.0],
         ),
     ),
-    diagnostics=FLAGS,
+    exogenous=FLAGS,
     seed=42,
 ).generate(n_series=1)
 plot_changepoints(level_df, "Level breaks at 20%, 50%, 80%")
@@ -102,7 +102,7 @@ trend_df = SeasonalGenerator(
             trend_changes=[0.3, -0.2],
         ),
     ),
-    diagnostics=FLAGS,
+    exogenous=FLAGS,
     seed=42,
 ).generate(n_series=1)
 plot_changepoints(trend_df, "Trend breaks on a seasonal series")
@@ -132,7 +132,7 @@ variance_df = RandomWalkGenerator(
             variance_changes=[2.0, 0.5],
         ),
     ),
-    diagnostics=FLAGS,
+    exogenous=FLAGS,
     seed=42,
 ).generate(n_series=1)
 plot_changepoints(variance_df, "Variance breaks (2x then 0.5x)")
@@ -157,7 +157,7 @@ mixed_df = RandomWalkGenerator(
     overlays=OverlayConfig(
         changepoints=Changepoints(count=4, kind="mixed"),
     ),
-    diagnostics=FLAGS,
+    exogenous=FLAGS,
     seed=42,
 ).generate(n_series=1)
 plot_changepoints(mixed_df, "Four mixed breaks at random locations")
@@ -186,7 +186,7 @@ var_df = VARGenerator(
             level_changes=[30.0, -20.0],
         ),
     ),
-    diagnostics=FLAGS,
+    exogenous=FLAGS,
     seed=42,
 ).generate(n_series=3)
 plot_changepoints(var_df, "Level breaks shared across correlated VAR series")
@@ -212,7 +212,7 @@ composed_df = RandomWalkGenerator(
         ),
         missing=Missing(pattern="random", rate=0.05),
     ),
-    diagnostics=FLAGS,
+    exogenous=FLAGS,
     seed=42,
 ).generate(n_series=1)
 print(f"missing values: {composed_df['y'].null_count()} of {len(composed_df)}")

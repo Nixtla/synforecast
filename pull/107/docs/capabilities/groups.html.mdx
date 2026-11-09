@@ -67,6 +67,19 @@ df.head()
 
 ```
 
+```shell
+{'n_groups': 8, 'n_null': 0, 'n_redrawn': 0, 'n_fallback': 0, 'n_controls': 0}
+```
+
+| group_id | unique_id | ds                  | y         | role   |
+|----------|-----------|---------------------|-----------|--------|
+| i64      | str       | datetime\[ns\]      | f64       | str    |
+| 0        | "0_0"     | 2000-01-01 00:00:00 | 0.781472  | "past" |
+| 0        | "0_0"     | 2000-01-02 00:00:00 | 0.420626  | "past" |
+| 0        | "0_0"     | 2000-01-03 00:00:00 | -0.087798 | "past" |
+| 0        | "0_0"     | 2000-01-04 00:00:00 | 0.294967  | "past" |
+| 0        | "0_0"     | 2000-01-05 00:00:00 | 0.753935  | "past" |
+
 ## Inspect the ground truth
 
 The recipe records each covariate’s role and whether it is informative,
@@ -77,11 +90,38 @@ group exactly.
 ```python
 group = next(g for g in batch if not g.recipe["null"])
 for cov in group.recipe["covariates"]:
-    print(cov["channel"], cov["role"], "informative" if cov["informative"] else "distractor", cov["spec"]["generator"])
+    print(cov["channel"], cov["role"], "informative" if cov["informative"] else "distractor", cov["spec"]["generator"].rsplit(".", 1)[-1])
 group.recipe["terms"], group.recipe["composition"], round(group.recipe["realized"], 3)
 
 ```
 
+```shell
+3 past informative SARIMAGenerator
+2 past informative SARIMAGenerator
+0 past distractor SARIMAGenerator
+1 past distractor OrnsteinUhlenbeckGenerator
+4 past distractor IntermittentDemandGenerator
+6 future distractor TSIGenerator
+```
+
+```shell
+([{'kind': 'hinge',
+   'driver': 0,
+   'coef': 0.5621416382497819,
+   'lag': 5,
+   'param': -0.1546255576046831,
+   'partner': None,
+   'partner_lag': 0},
+  {'kind': 'abs_sqrt',
+   'driver': 1,
+   'coef': -0.6918387771309418,
+   'lag': 54,
+   'param': None,
+   'partner': None,
+   'partner_lag': 0}],
+ 'additive',
+ 0.613)
+```
 
 ```python
 informative = {c["channel"] for c in group.recipe["covariates"] if c["informative"]}
@@ -97,6 +137,8 @@ plt.show()
 
 ```
 
+![](./groups_files/figure-markdown_strict/cell-5-output-1.png)
+
 ## Coupled channels
 
 `CoupledSpec` turns one base generator into cross-dependent channels:
@@ -108,12 +150,15 @@ are covariates.
 
 ```python
 tsi = GeneratorSpec(generator=TSIGenerator)
-coupled = GroupPrior(mechanism=CoupledSpec(base_pool=[tsi], n_channels=(4, 4)), length=(256, 256), freq="h", burn_in=64)
+coupled = GroupPrior(mechanism=CoupledSpec(base_pool=[tsi], n_channels=(4, 4)), length=(256, 256), freq="h", burn_in=96)
 panel = coupled.sample(n_groups=1, seed=42)[0]
 panel.recipe["coupling"]["leadlag"]
 
 ```
 
+```shell
+[{'src': 0, 'dst': 1, 'lag': 17, 'sign': 1.0, 'noise': 0.10400978067086616}]
+```
 
 ```python
 fig, ax = plt.subplots(figsize=(10, 4))
@@ -124,6 +169,15 @@ ax.legend()
 plt.show()
 np.corrcoef(panel.values).round(2)
 
+```
+
+![](./groups_files/figure-markdown_strict/cell-7-output-1.png)
+
+```shell
+array([[ 1.  , -0.15, -0.02,  0.13],
+       [-0.15,  1.  , -0.25, -0.18],
+       [-0.02, -0.25,  1.  ,  0.29],
+       [ 0.13, -0.18,  0.29,  1.  ]])
 ```
 
 ## A VARX panel with an oracle
@@ -157,6 +211,8 @@ plt.show()
 
 ```
 
+![](./groups_files/figure-markdown_strict/cell-8-output-1.png)
+
 ## Covariate-extraction probes
 
 `probe_suite()` returns fixed tasks in the style of the controlled
@@ -175,10 +231,19 @@ probe[0].values.shape, control[0].recipe["covariates_from"]
 
 ```
 
+```shell
+192 probes, e.g. ['identity/phi0.0/future/d0/iid', 'identity/phi0.0/future/d0/smooth', 'identity/phi0.0/future/d2/iid']
+```
+
+```shell
+((6, 48), 49)
+```
+
 ## Related
 
--   [Calendar features and labels](./exogenous.html): calendar columns
-    and ground-truth labels on any generator.
+-   [Exogenous variables](./exogenous.html): calendar features, pattern
+    flags, and correlated and lagged copies of the target on any
+    generator.
 -   [VAR](../generators/multivariate/var.html) and
     [copula](../generators/multivariate/copula.html) generators:
     processes that are multivariate by construction.

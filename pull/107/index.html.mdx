@@ -6,8 +6,8 @@ description: Fast synthetic time series for testing, augmentation, and pretraini
 **SynForecast** generates synthetic time-series panels with 32
 statistical, stochastic, multivariate, domain-specific, and pretraining
 generators. It follows the Nixtla long format and supports controlled
-changepoints, anomalies, missing data, covariate groups with known structure,
-and augmentation of observed series.
+changepoints, anomalies, missing data, exogenous variables, covariate groups
+with known structure, and augmentation of observed series.
 
 > **Note**
 >
@@ -196,8 +196,7 @@ pretraining choices can be evaluated against observed-only baselines.
   and pretraining categories
 - Long-format output following Nixtla conventions
 - pandas, Polars, cuDF, Modin, and PyArrow output through Narwhals
-- Changepoint, anomaly, and missingness injection with calendar features and
-  ground-truth labels
+- Changepoint, anomaly, missingness, and exogenous-variable injection
 - Covariate groups (`GroupPrior`): targets with informative and distractor
   covariates, coupled channels and VARX panels, each with its recipe
 - Dataset composition with `SynSet` and augmentation with `SynAugment`

@@ -7,8 +7,7 @@ sometimes need a data-generating process they do not produce.
 `BaseGenerator` exists for that: subclass it, implement one method, and
 your generator inherits timestamp handling, reproducible seeding,
 parallel generation, pattern injection (changepoints, anomalies,
-missingness), calendar features and diagnostic labels, and every
-dataframe backend.
+missingness), exogenous variables, and every dataframe backend.
 
 This guide builds a small logistic-growth (“S-curve”) generator, a shape
 none of the built-ins produce directly.
@@ -122,11 +121,11 @@ Because changepoint, anomaly, and missingness injection live in
 enabling them is a matter of setting the same parameters the built-in
 generators use. Below the S-curve is generated with injected spikes and
 dips and a level changepoint, and the ground-truth `anomaly_flag` column
-is requested through `DiagnosticsConfig` so the injected points can be
+is requested through `ExogenousConfig` so the injected points can be
 marked.
 
 ```python
-from synforecast.exogenous import DiagnosticsConfig
+from synforecast.exogenous import ExogenousConfig
 
 messy = LogisticGrowthGenerator(
     min_length=160,
@@ -144,7 +143,7 @@ messy = LogisticGrowthGenerator(
             dip_magnitude=-150.0,
         ),
     ),
-    diagnostics=DiagnosticsConfig(anomalies=True),
+    exogenous=ExogenousConfig(anomaly_flags=True),
     engine="polars",
     seed=1,
 )
@@ -200,8 +199,8 @@ for the conventions and verification expectations.
 -   [Changepoints](./changepoints.html), [anomalies](./anomalies.html),
     and [missingness](./missingness.html) — the injection this generator
     inherits.
--   [Calendar features and labels](./exogenous.html) — calendar columns
-    and the ground-truth labels used above.
+-   [Exogenous variables](./exogenous.html) — datetime features,
+    correlated regressors, and the ground-truth flags used above.
 -   [Compose a dataset](./dataset.html) — combine your generator with
     others in a `SynSet`.
 

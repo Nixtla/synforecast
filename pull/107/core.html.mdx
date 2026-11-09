@@ -23,9 +23,8 @@ Name | Type | Description | Default
 `target_col` | <code>[str](#str)</code> | Name of the value column (default: 'y') | *required*
 `start_datetime` | <code>[str](#str)</code> | First timestamp of every series, in any format accepted by pandas.Timestamp (default: '2000-01-01'). Ignored when freq is an integer | *required*
 `seed` | <code>[int](#int) \| None</code> | Random seed for reproducibility (default: None) | *required*
-`Extra columns` |  |  | *required*
-`calendar_features` | <code>[CalendarFeatures](#synforecast.exogenous.CalendarFeatures) \| None</code> | Calendar columns derived from the timestamps, known for every future period. None = no calendar columns (default: None) | *required*
-`diagnostics` | <code>[DiagnosticsConfig](#synforecast.exogenous.DiagnosticsConfig) \| None</code> | Label columns marking injected anomalies, changepoints and missing values, for evaluation; not model inputs. None = no label columns (default: None) | *required*
+`Exogenous parameters` |  |  | *required*
+`exogenous` | <code>[ExogenousConfig](#synforecast.exogenous.ExogenousConfig) \| None</code> | Configuration for exogenous variable generation. None = no exogenous columns (default: None) | *required*
 `Overlay parameters` |  |  | *required*
 `overlays` | <code>[OverlayConfig](#synforecast.overlays.OverlayConfig)</code> | Calendar cycles, waveforms, changepoints, anomalies, observation effects and missing data drawn on every series, in that order (default: none). The flat missing_*, anomaly_*, changepoint_* and overlay_scale arguments still work but are deprecated. | *required*
 
@@ -49,7 +48,7 @@ Name | Type | Description | Default
 
 Type | Description
 ---- | -----------
-<code>[IntoDataFrameT](#narwhals.stable.v2.typing.IntoDataFrameT)</code> | DataFrame in long format with columns [id_col, time_col, target_col] (default ['unique_id', 'ds', 'y']), plus any calendar, label or generator-specific columns.
+<code>[IntoDataFrameT](#narwhals.stable.v2.typing.IntoDataFrameT)</code> | DataFrame in long format with columns [id_col, time_col, target_col] (default ['unique_id', 'ds', 'y']), plus any exogenous or flag columns.
 
 #### `BaseGenerator.generate_values`
 
@@ -61,7 +60,7 @@ Generate series as value arrays, without building a DataFrame.
 
 Draws exactly the series :meth:`generate` would, with the same overlays
 (missing points as NaN), and leaves the generator in the same state.
-No DataFrame, calendar or label column, or timestamp is built, so lengths beyond
+No DataFrame, exogenous column, or calendar is built, so lengths beyond
 pandas' datetime range work. Generators with their own generation
 scheme override :meth:`_generate_metadata`, which both methods share.
 

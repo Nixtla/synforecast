@@ -1,96 +1,130 @@
 ---
-title: Calendar Features and Labels
-description: Calendar columns and diagnostic label columns on generator output
+title: Exogenous Variables
+description: Exogenous variable configuration and generation
 ---
 
-### `CalendarFeatures`
+### `ExogenousConfig`
 
 Bases: <code>[BaseModel](#pydantic.BaseModel)</code>
 
-Calendar columns derived from the timestamps.
+Configuration for exogenous variable generation.
 
-These are deterministic functions of time, so they are known for every
-future period and can be used as future-known model inputs. Features a
-frequency cannot vary (for example hour of day at daily frequency) are
-omitted.
+Controls which exogenous columns are added to the output DataFrame.
+All options are off by default for backward compatibility.
 
 **Parameters:**
 
 Name | Type | Description | Default
 ---- | ---- | ----------- | -------
-`basic` | <code>[bool](#bool)</code> | Add year, quarter, month, day of year and, where the frequency resolves them, day of week, day of month, weekend flag, hour and minute (default: True). | *required*
-`cyclical` | <code>[bool](#bool)</code> | Add sin/cos encodings of hour, day of week, month and day of year (default: False). | *required*
+`datetime_features` |  | Add calendar features (year, month, day_of_week, etc.) | *required*
+`datetime_cyclical` |  | Add sin/cos cyclical encodings of datetime features | *required*
+`anomaly_flags` |  | Add binary column indicating anomaly positions | *required*
+`changepoint_flags` |  | Add binary column indicating changepoint positions | *required*
+`missing_flags` |  | Add binary column indicating missing data positions | *required*
+`correlated` |  | List of correlated exogenous variables to generate | *required*
 
-#### `CalendarFeatures.basic`
-
-```python
-basic: bool = Field(default=True, description='Add calendar columns')
-```
-
-#### `CalendarFeatures.cyclical`
+#### `ExogenousConfig.anomaly_flags`
 
 ```python
-cyclical: bool = Field(default=False, description='Add sin/cos encodings')
+anomaly_flags: bool = Field(default=False, description='Add anomaly indicator column')
 ```
 
-#### `CalendarFeatures.model_config`
+#### `ExogenousConfig.changepoint_flags`
 
 ```python
-model_config = ConfigDict(extra='forbid', frozen=True)
+changepoint_flags: bool = Field(default=False, description='Add changepoint indicator column')
 ```
 
+#### `ExogenousConfig.correlated`
 
-### `DiagnosticsConfig`
+```python
+correlated: list[CorrelatedExogConfig] = Field(default_factory=list, description='Correlated exogenous variables to generate')
+```
+
+#### `ExogenousConfig.datetime_cyclical`
+
+```python
+datetime_cyclical: bool = Field(default=False, description='Add sin/cos cyclical encodings')
+```
+
+#### `ExogenousConfig.datetime_features`
+
+```python
+datetime_features: bool = Field(default=False, description='Add calendar features')
+```
+
+#### `ExogenousConfig.missing_flags`
+
+```python
+missing_flags: bool = Field(default=False, description='Add missing data indicator column')
+```
+
+#### `ExogenousConfig.model_config`
+
+```python
+model_config = ConfigDict(extra='forbid')
+```
+
+#### `ExogenousConfig.validate_unique_names`
+
+```python
+validate_unique_names()
+```
+
+Reject duplicate output columns before dataframe construction.
+
+
+### `CorrelatedExogConfig`
 
 Bases: <code>[BaseModel](#pydantic.BaseModel)</code>
 
-Ground-truth labels of what the overlays injected.
+Configuration for a single correlated exogenous variable.
 
-Adds binary columns marking the steps where anomalies, changepoints or
-missing values were injected. These are labels for evaluation (for
-example anomaly or changepoint detection), not model inputs: realized
-anomalies and breaks are not known at a forecast origin, so do not feed
-these columns to a forecaster as known-future covariates. Events that are
-announced in advance belong in a grouped task with explicit roles (see
-:mod:`synforecast.groups`).
-
-**Parameters:**
-
-Name | Type | Description | Default
----- | ---- | ----------- | -------
-`anomalies` | <code>[bool](#bool)</code> | Add an ``anomaly_flag`` column (default: False). | *required*
-`changepoints` | <code>[bool](#bool)</code> | Add a ``changepoint_flag`` column (default: False). | *required*
-`missing` | <code>[bool](#bool)</code> | Add a ``missing_flag`` column (default: False). | *required*
-
-#### `DiagnosticsConfig.anomalies`
+#### `CorrelatedExogConfig.correlation`
 
 ```python
-anomalies: bool = Field(default=False, description='Add anomaly_flag')
+correlation: float = Field(default=0.7, ge=(-1), le=1, description='Target correlation with the series')
 ```
 
-#### `DiagnosticsConfig.changepoints`
+#### `CorrelatedExogConfig.lag`
 
 ```python
-changepoints: bool = Field(default=False, description='Add changepoint_flag')
+lag: int = Field(default=1, ge=1, description='Lag for lagged_copy method')
 ```
 
-#### `DiagnosticsConfig.columns`
+#### `CorrelatedExogConfig.method`
 
 ```python
-columns: list[str]
+method: Literal['correlated_noise', 'lagged_copy', 'trend_following'] = Field(default='correlated_noise', description='Method for generating correlated exogenous')
 ```
 
-Names of the label columns this config adds.
-
-#### `DiagnosticsConfig.missing`
+#### `CorrelatedExogConfig.model_config`
 
 ```python
-missing: bool = Field(default=False, description='Add missing_flag')
+model_config = ConfigDict(extra='forbid')
 ```
 
-#### `DiagnosticsConfig.model_config`
+#### `CorrelatedExogConfig.name`
 
 ```python
-model_config = ConfigDict(extra='forbid', frozen=True)
+name: str = Field(..., description='Column name for this exogenous variable')
+```
+
+#### `CorrelatedExogConfig.noise_std`
+
+```python
+noise_std: float = Field(default=0.1, ge=0, description='Noise std for lagged_copy method')
+```
+
+#### `CorrelatedExogConfig.smoothing_window`
+
+```python
+smoothing_window: int = Field(default=10, ge=1, description='Window size for trend_following method')
+```
+
+#### `CorrelatedExogConfig.trend_noise_std`
+
+```python
+trend_noise_std: float = Field(default=0.1, ge=0, description='Noise std for trend_following method')
 ```
 

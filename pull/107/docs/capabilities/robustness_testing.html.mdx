@@ -22,7 +22,7 @@ import polars as pl
 
 from utilsforecast.losses import mase
 
-from synforecast.exogenous import DiagnosticsConfig
+from synforecast.exogenous import ExogenousConfig
 from synforecast.generators import SeasonalGenerator
 from synforecast import Anomalies, OverlayConfig
 
@@ -45,12 +45,12 @@ def robust_zscores(y: np.ndarray, window: int = 25) -> np.ndarray:
 ## Detecting anomalies
 
 We make weekly-seasonal series with 4% of points hit by spikes and dips,
-and record their positions with `DiagnosticsConfig(anomalies=True)`. A
+and record their positions with `ExogenousConfig(anomaly_flags=True)`. A
 rolling robust z-score scores each point; varying the threshold moves
 along the precision/recall trade-off.
 
 ```python
-FLAGS = DiagnosticsConfig(anomalies=True)
+FLAGS = ExogenousConfig(anomaly_flags=True)
 
 panel = SeasonalGenerator(
     engine='polars', min_length=400, max_length=400, freq='D',
@@ -64,7 +64,7 @@ panel = SeasonalGenerator(
             dip_magnitude=-30.0,
         ),
     ),
-    diagnostics=FLAGS, seed=7,
+    exogenous=FLAGS, seed=7,
 ).generate(n_series=25)
 
 # Pool robust z-scores and ground-truth labels across every series.
