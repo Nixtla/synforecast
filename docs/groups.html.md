@@ -8,6 +8,8 @@ description: Grouped targets and covariates with known structure: regression pri
       members:
         - sample
         - replay
+        - draw_channel
+        - fingerprint
 
 ::: synforecast.groups.RegressionSpec
 
@@ -27,13 +29,16 @@ description: Grouped targets and covariates with known structure: regression pri
 
 ::: synforecast.groups.Term
 
-::: synforecast.groups.RoleSpec
-
 ::: synforecast.groups.GeneratorSpec
+
+::: synforecast.groups.default_target_pool
+
+::: synforecast.groups.default_driver_pool
 
 ::: synforecast.groups.GroupBatch
     options:
       members:
+        - to_padded
         - to_long
         - shuffle_covariates
         - diagnostics

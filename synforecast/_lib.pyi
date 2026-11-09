@@ -573,6 +573,56 @@ class batch:
         n_workers: int = 0,
     ) -> list[list[dict[str, npt.NDArray]]]: ...
 
+class groups:
+    @staticmethod
+    def draw_series(
+        gen_types: npt.NDArray[np.int32],
+        scalar_params: list[npt.NDArray[np.float64]],
+        array_params: list[list[npt.NDArray[np.float64]]],
+        spec_index: npt.NDArray[np.uint32],
+        lengths: npt.NDArray[np.int64],
+        seeds: npt.NDArray[np.uint64],
+        n_workers: int = 0,
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.uint8]]: ...
+    @staticmethod
+    def compose_batch(
+        base: npt.NDArray[np.float64],
+        base_offsets: npt.NDArray[np.int64],
+        drivers: npt.NDArray[np.float64],
+        n_drivers: npt.NDArray[np.int64],
+        term_offsets: npt.NDArray[np.int64],
+        kind: npt.NDArray[np.uint8],
+        driver: npt.NDArray[np.int64],
+        partner: npt.NDArray[np.int64],
+        lag: npt.NDArray[np.int64],
+        partner_lag: npt.NDArray[np.int64],
+        coef: npt.NDArray[np.float64],
+        param: npt.NDArray[np.float64],
+        adstock: npt.NDArray[np.float64],
+        persistence: npt.NDArray[np.float64],
+        target_ar: npt.NDArray[np.float64],
+        composition: npt.NDArray[np.int32],
+        share: npt.NDArray[np.float64],
+        log_std: npt.NDArray[np.float64],
+        burn_in: int,
+        calibrate: bool,
+        n_workers: int = 0,
+    ) -> tuple[npt.NDArray, ...]: ...
+    @staticmethod
+    def ar_columns(
+        x: npt.NDArray[np.float64],
+        m: int,
+        phi: float,
+        init: npt.NDArray[np.float64],
+    ) -> npt.NDArray[np.float64]: ...
+    @staticmethod
+    def var_filter(
+        drive: npt.NDArray[np.float64],
+        n: int,
+        lags: npt.NDArray[np.float64],
+        p: int,
+    ) -> npt.NDArray[np.float64]: ...
+
 class distributions:
     @staticmethod
     def norm_cdf(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]: ...

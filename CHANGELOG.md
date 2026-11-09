@@ -4,27 +4,44 @@
 
 ### Added
 
-- `GroupPrior` (`synforecast.groups`): grouped forecasting tasks of one
-  target plus covariates that drive it. `RegressionSpec` samples a random
-  structural regression per group: informative covariates and distractors
-  from one generator pool, edges (linear, saturating, quadratic, signed and
-  absolute square root, threshold, hinge) at sampled lags, product and gate
-  interactions, geometric distributed lags, effect persistence, target AR
-  feedback, additive or multiplicative composition, null groups, and an
-  effect strength calibrated on a discarded burn-in window so no future
-  value shapes the past. Every covariate is known in the future or
-  past-only (`RoleSpec`), independently of whether it is informative.
-  `FixedRegressionSpec` gives explicit terms for controlled tasks.
-  `GroupBatch` returns aligned channel arrays with versioned recipes,
-  `to_long()` and a `shuffle_covariates()` control; `GroupPrior.replay()`
-  rebuilds one group from its recipe. `GeneratorSpec` builds wrapped
-  generators fresh per draw, so constructor-randomized generators draw
-  fresh parameters. `probe_suite()` returns fixed identity, sum, nonlinear
-  and quadratic covariate-extraction probes with target AR, known-future
-  and past-only covariates, distractors and IID or smooth drivers.
+- `GroupPrior` (`synforecast.groups`): grouped forecasting tasks of aligned
+  target and covariate channels with known structure. `RegressionSpec`
+  samples a random structural regression per group: informative covariates
+  and distractors from one generator pool, edges (linear, saturating,
+  quadratic, signed and absolute square root, threshold, hinge) at sampled
+  lags, product and gate interactions, geometric distributed lags, effect
+  persistence, target AR feedback, additive or multiplicative composition,
+  null groups, and an effect strength calibrated on a discarded burn-in
+  window so no later value shapes the effect. Every covariate is known in the
+  future or past-only (`p_known_future`), independently of whether it is
+  informative. `FixedRegressionSpec` gives explicit terms for controlled
+  tasks. `GroupBatch` returns aligned channel arrays with versioned recipes,
+  `to_padded()` dense training arrays with target and known-future masks,
+  `to_long()` and a `shuffle_covariates()` control that works across lengths;
+  `GroupPrior.replay()` rebuilds one group from its recipe and
+  `draw_channel()` any latent channel. `GeneratorSpec` wraps a generator:
+  seed-independent native parameters are cached as a template, constructor
+  randomized generators are rebuilt per draw. `probe_suite()` returns fixed
+  identity, sum, nonlinear and quadratic covariate-extraction probes with
+  target AR, known-future and past-only covariates, distractors and IID or
+  smooth drivers.
+  - Batched native sampling for pretraining throughput: every channel of a
+    `sample()` call is drawn in one parallel Rust call and every regression
+    target is composed in another (`synforecast._lib.groups`); results depend
+    only on `(seed, group_id)`, never on batch size or `n_jobs`.
+    `recipes=False` skips full recipes, `components=True` returns the
+    target's base and applied effect. Generator noise fallbacks (KernelSynth)
+    are recorded per group or redrawn (`on_generator_fallback`). A failing
+    or panicking native draw is reported for its own request and redraws
+    only its group. Spec parameters are snapshotted at construction and
+    pools are tuples, so cached templates, recipes and fingerprints cannot go
+    stale; pickled or copied priors reuse their cached templates.
+    `benchmarks/benchmark_groups.py` measures throughput and runs in CI.
   - `CoupledSpec`: related channels from one base generator, coupled by
     mixing and a causal lead-lag that reads the burn-in instead of wrapping
-    around; all channels targets, or one target plus covariates. Replaces
+    around; positive generators are coupled in log space and keep their own
+    zeros; all channels targets, or one target plus covariates, with lagged
+    copies of the target labelled `derived_from_target`. Replaces
     `Multivariatizer`.
   - `VARXSpec`: a stable VAR panel of targets driven by shared, future-known
     and past-only AR(1) regressors with known effects, dense, sparse or

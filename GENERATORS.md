@@ -950,15 +950,25 @@ Not a generator: `synforecast.GroupPrior` samples groups of aligned channels,
 each a target or a covariate that is known in the future (`future`) or only up
 to the forecast origin (`past`), and returns the ground truth of every group as
 a versioned recipe. A discarded burn-in window absorbs lags and filters and
-fixes every scale, so no future value shapes the past. Generators enter through
-`GeneratorSpec`, which builds them fresh per draw with the prior's seeds.
+fixes every scale, so the covariate effect at a time step uses no later value;
+the wrapped generators still draw whole latent paths. Generators enter through
+`GeneratorSpec`; those whose native parameters do not depend on the seed are
+drawn from one cached template, the rest are rebuilt per draw.
 
 | Mechanism | Channels |
 |-----------|----------|
-| `RegressionSpec` | One target caused by sampled covariates (linear, saturating, quadratic, square-root, threshold and hinge edges at sampled lags; product and gate interactions; distributed lags; persistence; additive or multiplicative composition) plus distractors from the same pool; 15% null groups by default |
-| `FixedRegressionSpec` | An explicit regression; `probe_suite()` builds covariate-extraction probes from it |
-| `CoupledSpec` | Related channels from one base generator: `mixing` (instantaneous correlation through a well-conditioned mixing matrix) and causal `leadlag` (lagged, noisy copies); all channels targets, or one target plus covariates |
+| `RegressionSpec` | One target caused by sampled covariates (linear, saturating, quadratic, square-root, threshold and hinge edges at sampled lags; product and gate interactions; distributed lags; persistence; additive or multiplicative composition) plus distractors from the same pool; 15% null groups and a `p_known_future` role share by default |
+| `FixedRegressionSpec` | An explicit regression on raw driver values; `probe_suite()` builds covariate-extraction probes from it |
+| `CoupledSpec` | Related channels from one base generator: `mixing` (instantaneous correlation through the Cholesky factor of `(1-s)I + sQ`) and causal `leadlag` (lagged, noisy copies); positive generators are coupled in log space and keep their own zeros; all channels targets, or one target plus covariates |
 | `VARXSpec` | A stable VAR panel of targets driven by shared, future-known and past-only AR(1) regressors with known effects; dense, sparse or cluster lag structures; `VARXTruth` gives the oracle forecast |
+
+Sampling is batched for pretraining throughput: one `sample()` call plans its
+groups in Python, draws every channel of every group in one parallel native
+call, and composes every regression target in a second one. Results depend only
+on `(seed, group_id)`, never on the batch size or `n_jobs`. Use `n_jobs=1`
+inside data-loader worker processes, `recipes=False` to keep only replayable
+provenance, and `to_padded()` for dense training arrays with target and
+known-future masks. `benchmarks/benchmark_groups.py` measures the throughput.
 
 ```python
 from synforecast import CoupledSpec, GeneratorSpec, GroupPrior, RegressionSpec
@@ -967,8 +977,8 @@ from synforecast.generators import TSIGenerator
 batch = GroupPrior(mechanism=RegressionSpec(), length=(256, 512), freq="D").sample(
     n_groups=64, seed=0
 )
-df = batch.to_long()  # group_id, unique_id, ds, y, role
-recipe = batch[0].recipe  # terms, lags, roles, informative covariates
+arrays = batch.to_padded()  # values, observed, target_mask, known_future_mask, ...
+recipe = batch[0].recipe  # channels, roles, terms, lags, informative covariates
 
 coupled = GroupPrior(
     mechanism=CoupledSpec(base_pool=[GeneratorSpec(generator=TSIGenerator)]),
@@ -1103,7 +1113,18 @@ does not establish how its implementation was written.
 - Ansari et al. (2025), “Chronos-2: From Univariate to Universal Forecasting,”
   [arXiv:2510.15821](https://arxiv.org/abs/2510.15821) (motivation for the
   cotemporaneous and sequential couplings in `CoupledSpec` and the synthetic
-  covariate tasks of `RegressionSpec`).
+  covariate tasks of `RegressionSpec`). The mixing construction, lag ranges,
+  calibration, term sampler and role assignment are SynForecast's own design
+  rather than a reproduction of the reference code.
+- Hollmann et al. (2025), “Accurate predictions on small data with a tabular
+  foundation model,” Nature,
+  [doi:10.1038/s41586-024-08328-6](https://doi.org/10.1038/s41586-024-08328-6)
+  (synthetic regression tasks behind `RegressionSpec`; SynForecast's prior is
+  its own design).
+- Berthelier et al. (2026), “Investigating simple target-covariate
+  relationships for Chronos-2 and TabPFN-TS,”
+  [arXiv:2605.12200](https://arxiv.org/abs/2605.12200) (style of
+  `probe_suite`; the relations and drivers are SynForecast's own).
 - Wong and Li (2000), “On a mixture autoregressive model,” Journal of the
   Royal Statistical Society Series B 62(1),
   [doi:10.1111/1467-9868.00222](https://doi.org/10.1111/1467-9868.00222)

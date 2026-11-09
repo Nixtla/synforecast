@@ -1,5 +1,8 @@
 """Tests for the multivariate group mechanisms: CoupledSpec and VARXSpec."""
 
+import json
+from typing import ClassVar
+
 import numpy as np
 import pytest
 from pydantic import ValidationError
@@ -8,11 +11,15 @@ from synforecast import (
     CoupledSpec,
     GeneratorSpec,
     GroupPrior,
-    RoleSpec,
     VARXSpec,
     VARXTruth,
 )
-from synforecast.generators import TSIGenerator
+from synforecast.base import BaseGenerator
+from synforecast.generators import (
+    IntermittentDemandGenerator,
+    SARIMAGenerator,
+    TSIGenerator,
+)
 from tests.helpers import assert_std
 from tests.test_tsi import pool_metrics
 
@@ -24,6 +31,18 @@ STATIONARY = GeneratorSpec(
         "irregular_types": ["gaussian"],
     },
 )
+
+
+class _Bump(BaseGenerator):
+    """Gaussian noise, plus 50 from ``bump_at`` on (a class switch)."""
+
+    bump_at: ClassVar[int | None] = None
+
+    def generate_single_series(self, length: int) -> np.ndarray:
+        x = self.rng.normal(size=length)
+        if type(self).bump_at is not None:
+            x[type(self).bump_at :] += 50.0
+        return x
 
 
 def _coupled(**overrides) -> GroupPrior:
@@ -58,13 +77,27 @@ class TestCoupled:
         with pytest.raises(ValueError, match="target_indices"):
             _ = group.target_index
 
-    def test_one_target_with_role_sampling(self) -> None:
+    @pytest.mark.parametrize(("p", "role"), [(1.0, "future"), (0.0, "past")])
+    def test_one_target_roles(self, p: float, role: str) -> None:
         prior = _coupled(
-            spec={"targets": "one", "n_channels": (5, 5)},
-            roles=RoleSpec(p_known_future=1.0),
+            spec={"targets": "one", "n_channels": (5, 5), "p_known_future": p}
         )
         for group in prior.sample(5, seed=1):
-            assert sorted(group.roles) == ["future"] * 4 + ["target"]
+            assert sorted(group.roles) == sorted([role] * 4 + ["target"])
+
+    def test_one_target_role_rate_and_positions(self) -> None:
+        prior = _coupled(
+            spec={"targets": "one", "n_channels": (5, 5), "p_known_future": 0.3},
+            length=(32, 32),
+        )
+        batch = prior.sample(300, seed=2)
+        future = [r == "future" for g in batch for r in g.roles if r != "target"]
+        se = np.sqrt(0.3 * 0.7 / len(future))
+        assert abs(np.mean(future) - 0.3) < 5 * se
+        assert {g.target_index for g in batch} == set(range(5))
+        for g in batch:
+            for c in g.recipe["channels"]:
+                assert g.roles[c["channel"]] == c["role"]
 
     def test_reproducible_and_replayable(self) -> None:
         prior = _coupled(length=(64, 128))
@@ -72,9 +105,10 @@ class TestCoupled:
         again = prior.sample(4, seed=2)
         for a, b in zip(batch, again, strict=True):
             np.testing.assert_array_equal(a.values, b.values)
-        np.testing.assert_array_equal(
-            prior.replay(batch[1].recipe).values, batch[1].values
-        )
+        loaded = json.loads(json.dumps(batch[1].recipe, allow_nan=False))
+        np.testing.assert_array_equal(prior.replay(loaded).values, batch[1].values)
+        other = prior.sample(1, seed=3)[0]
+        assert not np.allclose(other.values, batch[0].values[:, : other.length])
 
     def test_single_channel(self) -> None:
         group = _coupled(spec={"n_channels": (1, 1)}).sample(1, seed=0)[0]
@@ -82,13 +116,51 @@ class TestCoupled:
         assert group.recipe["coupling"] == {}
 
     def test_wraps_constructor_randomized_generators(self) -> None:
-        from synforecast.generators import SARIMAGenerator
-
         spec = GeneratorSpec(generator=SARIMAGenerator, params={"p": 2, "q": 1})
-        group = _coupled(spec={"base_pool": [spec], "couplings": ["leadlag"]}).sample(
-            1, seed=0
-        )[0]
-        assert np.isfinite(group.values).all()
+        prior = _coupled(spec={"base_pool": [spec], "couplings": ["leadlag"]})
+        assert np.isfinite(prior.sample(1, seed=0)[0].values).all()
+
+    def test_default_pool_output_guards(self) -> None:
+        prior = GroupPrior(mechanism=CoupledSpec(), length=(256, 256))
+        for group in prior.sample(30, seed=0):
+            assert np.isfinite(group.values).all()
+            assert np.abs(group.values).max() < 1e8
+
+    def test_positive_channels_keep_their_zeros(self) -> None:
+        spec = GeneratorSpec(generator=IntermittentDemandGenerator, positive=True)
+        prior = _coupled(spec={"base_pool": [spec]}, freq="D")
+        for group in prior.sample(5, seed=0):
+            assert group.recipe["space"] == "log"
+            assert (group.values >= 0).all()
+            r = group.recipe
+            total = r["burn_in"] + r["length"]
+            for c in r["channels"]:
+                raw = prior.draw_channel(spec, total, c["seed"])[r["burn_in"] :]
+                np.testing.assert_array_equal(group.values[c["channel"]] == 0, raw == 0)
+
+    def test_lagged_target_copies_are_labelled(self) -> None:
+        prior = _coupled(
+            spec={
+                "targets": "one",
+                "n_channels": (2, 2),
+                "couplings": ["leadlag"],
+                "p_leadlag": 1.0,
+            },
+            length=(64, 64),
+        )
+        seen = set()
+        for group in prior.sample(20, seed=0):
+            channels = group.recipe["channels"]
+            target = next(i for i, c in enumerate(channels) if c["role"] == "target")
+            for j, c in enumerate(channels):
+                if j == target:
+                    assert (
+                        "derived_from_target" not in c or not c["derived_from_target"]
+                    )
+                    continue
+                assert c["derived_from_target"] == (c["leadlag_root"] == target)
+                seen.add(c["derived_from_target"])
+        assert seen == {True, False}
 
     def test_shuffle_keeps_every_target(self) -> None:
         prior = _coupled(spec={"targets": "one"})
@@ -105,20 +177,46 @@ class TestCoupled:
             CoupledSpec(couplings=["unknown"])
         with pytest.raises(ValidationError, match="couplings"):
             CoupledSpec(couplings=[])
-        with pytest.raises(ValidationError, match="mixing_strength"):
-            CoupledSpec(mixing_strength=(0.5, 1.0))
-        with pytest.raises(ValidationError, match="lag_range"):
-            CoupledSpec(lag_range=(0, 5))
-        with pytest.raises(ValidationError, match="noise_scale"):
-            CoupledSpec(noise_scale=(0.0, 0.1))
+        for bad in [(0.5, 1.0), (0.5, 0.2)]:
+            with pytest.raises(ValidationError, match="mixing_strength"):
+                CoupledSpec(mixing_strength=bad)
+        for bad in [(0, 5), (5, 2)]:
+            with pytest.raises(ValidationError, match="lag_range"):
+                CoupledSpec(lag_range=bad)
+        for bad in [(0.0, 0.1), (0.2, 0.1)]:
+            with pytest.raises(ValidationError, match="noise_scale"):
+                CoupledSpec(noise_scale=bad)
+        with pytest.raises(ValidationError, match="n_channels"):
+            CoupledSpec(n_channels=(0, 2))
         with pytest.raises(ValidationError, match="burn_in"):
             GroupPrior(mechanism=CoupledSpec(lag_range=(1, 100)), burn_in=64)
-        # Lead-lag chains: burn-in must cover (n_channels - 1) * max lag
         chained = CoupledSpec(n_channels=(6, 6), lag_range=(24, 24))
         assert chained.largest_lag == 120
         with pytest.raises(ValidationError, match="burn_in"):
             GroupPrior(mechanism=chained, burn_in=100)
         GroupPrior(mechanism=chained, burn_in=121)
+
+
+@pytest.mark.parametrize("couplings", [["mixing"], ["leadlag"], ["mixing", "leadlag"]])
+def test_coupled_groups_are_prefix_invariant(couplings, monkeypatch) -> None:
+    prior = GroupPrior(
+        mechanism=CoupledSpec(
+            base_pool=[GeneratorSpec(generator=_Bump)],
+            n_channels=(3, 3),
+            couplings=couplings,
+            p_leadlag=1.0,
+            lag_range=(2, 5),
+        ),
+        length=(200, 200),
+        burn_in=64,
+    )
+    monkeypatch.setattr(_Bump, "bump_at", None)
+    plain = prior.sample(3, seed=4)
+    monkeypatch.setattr(_Bump, "bump_at", 64 + 120)
+    bumped = prior.sample(3, seed=4)
+    for a, b in zip(plain, bumped, strict=True):
+        np.testing.assert_array_equal(a.values[:, :120], b.values[:, :120])
+        assert not np.allclose(a.values[:, 120:], b.values[:, 120:])
 
 
 @pytest.mark.stats
@@ -136,7 +234,9 @@ class TestCoupledDependence:
                 _mean_abs_offdiag_corr(
                     np.stack(
                         [
-                            STATIONARY.draw(512, "h", int(rng.integers(2**31)))
+                            coupled.draw_channel(
+                                STATIONARY, 512, int(rng.integers(2**31))
+                            )
                             for _ in range(4)
                         ]
                     )
@@ -177,6 +277,25 @@ class TestCoupledDependence:
             corr = np.corrcoef(x[src, :-lag], x[dst, lag:])[0, 1]
             assert corr == pytest.approx(pair["sign"], abs=1e-6)
 
+    def test_chained_leadlag_stays_inside_the_burn_in(self) -> None:
+        """At the chain bound, no emitted channel starts with the constant
+        padding that a too-short burn-in would leak."""
+        prior = GroupPrior(
+            mechanism=CoupledSpec(
+                base_pool=[STATIONARY],
+                n_channels=(6, 6),
+                couplings=["leadlag"],
+                p_leadlag=1.0,
+                lag_range=(24, 24),
+                noise_scale=(1e-9, 1e-9),
+            ),
+            length=(200, 200),
+            burn_in=121,
+        )
+        for group in prior.sample(3, seed=0):
+            for channel in group.values:
+                assert np.abs(np.diff(channel[:120])).min() > 1e-6
+
     def test_coupled_tsi_pool_diversity(self) -> None:
         """Coupled TSI channels keep the synthetic-pool diversity targets."""
         prior = GroupPrior(
@@ -185,7 +304,6 @@ class TestCoupledDependence:
             ),
             length=(512, 512),
             freq="D",
-            burn_in=128,
         )
         rows = np.array(
             [
@@ -239,6 +357,8 @@ class TestVARX:
         assert group.roles.count("target") == 4
         assert group.roles.count("future") == 1 + 8
         assert group.roles.count("past") == 4
+        for c in group.recipe["channels"]:
+            assert group.roles[c["channel"]] == c["role"]
         parts = VARXTruth.split(group)
         assert parts["y"].shape == (200, 4)
         assert parts["future"].shape == (200, 4, 2)
@@ -246,7 +366,7 @@ class TestVARX:
 
     def test_truth_shapes_and_clusters(self) -> None:
         group = _varx(spec={"n_targets": (6, 6)}).sample(1, seed=1)[0]
-        truth = VARXTruth.from_recipe(group.recipe)
+        truth = VARXTruth.from_recipe(json.loads(json.dumps(group.recipe)))
         assert truth.lag_matrices.shape == (1, 6, 6)
         assert truth.shared_effects.shape == (6, 1)
         assert truth.future_effects.shape == (2, 6, 6)
@@ -331,8 +451,6 @@ class TestVARX:
             VARXSpec(n_targets=(2, 4), intercept=[0.0, 1.0])
         with pytest.raises(ValidationError, match="unstable"):
             VARXSpec(n_targets=(1, 1), coef_matrices=[[[1.2]]])
-        with pytest.raises(ValueError, match="not a VARX"):
-            VARXTruth.from_recipe({"mechanism": "coupled"})
         with pytest.raises(ValidationError, match="shape"):
             VARXSpec(n_targets=(2, 2), coef_matrices=[[[0.2], [0.1]]])
         with pytest.raises(ValidationError, match="shape"):
@@ -344,19 +462,38 @@ class TestVARX:
         with pytest.raises(ValidationError, match="finite"):
             VARXSpec(n_targets=(1, 1), intercept=[float("nan")])
 
+    def test_recipe_decoding_is_validated(self) -> None:
+        group = _varx().sample(1, seed=0)[0]
+        recipe = group.recipe
+        with pytest.raises(ValueError, match="not a VARX"):
+            VARXTruth.from_recipe({"mechanism": "coupled"})
+        with pytest.raises(ValueError, match="version"):
+            VARXTruth.from_recipe({**recipe, "version": -1})
+        tampered = json.loads(json.dumps(recipe))
+        tampered["process"]["intercept"] = [0.0]
+        with pytest.raises(ValueError, match="inconsistent shapes"):
+            VARXTruth.from_recipe(tampered)
+        light = _varx().sample(1, seed=0, recipes=False)[0]
+        with pytest.raises(ValueError, match="recipes=True"):
+            VARXTruth.from_recipe(light.recipe)
+        with pytest.raises(ValueError, match="split needs"):
+            VARXTruth.split(light)
+
     def test_shuffled_controls_have_no_process(self) -> None:
         batch = _varx(spec={"n_clusters": None}).sample(4, seed=0)
         control = batch.shuffle_covariates(seed=0)[0]
         with pytest.raises(ValueError, match="control"):
             VARXTruth.from_recipe(control.recipe)
-        with pytest.raises(ValueError, match="unshuffled"):
+        with pytest.raises(ValueError, match="split needs"):
             VARXTruth.split(control)
         truth = VARXTruth.from_recipe(control.recipe["source"])
-        np.testing.assert_array_equal(
-            VARXTruth.split(batch[0])["y"][:, 0],
-            control.values[control.recipe["source"]["channels"][0]["channel"]],
-        )
         assert truth.lag_matrices.shape == (1, 4, 4)
+
+    def test_oracle_forecast_needs_room(self) -> None:
+        group = _varx().sample(1, seed=0)[0]
+        truth = VARXTruth.from_recipe(group.recipe)
+        with pytest.raises(ValueError, match="origin"):
+            truth.forecast_group(group, origin=199, h=5)
 
     def test_oracle_multistep_matches_a_noiseless_process(self) -> None:
         """Without innovations and past-only regressors, the h-step oracle is
@@ -389,15 +526,13 @@ class TestVARX:
             clusters=None,
         )
         out = truth.forecast(
-            np.zeros((1, 1)), np.zeros((3, 0)), np.zeros((3, 1, 0)), np.ones((1, 1)), 3
+            np.zeros((1, 1)),
+            np.zeros((3, 0)),
+            np.zeros((3, 1, 0)),
+            np.ones((1, 1)),
+            3,
         )
         np.testing.assert_allclose(out[:, 0], [2.0, 1.0, 0.5])
-
-    def test_oracle_forecast_needs_room(self) -> None:
-        group = _varx().sample(1, seed=0)[0]
-        truth = VARXTruth.from_recipe(group.recipe)
-        with pytest.raises(ValueError, match="origin"):
-            truth.forecast_group(group, origin=199, h=5)
 
 
 @pytest.mark.stats
@@ -414,7 +549,8 @@ class TestVARXStats:
             length=(5000, 5000),
         )
         x = VARXTruth.split(prior.sample(1, seed=0)[0])["future"][:, 0, 0]
-        assert_std(x, expected=1.0)
+        # AR(1) samples: thin to near independence before the iid variance test
+        assert_std(x[::8], expected=1.0)
         assert abs(np.corrcoef(x[1:], x[:-1])[0, 1] - 0.6) < 0.05
 
     def test_oracle_one_step_error_is_the_innovation(self) -> None:
@@ -428,3 +564,33 @@ class TestVARXStats:
             for t in range(100, 600)
         ]
         assert_std(np.concatenate(errors), expected=1.0)
+
+
+def test_derived_from_target_follows_the_whole_chain() -> None:
+    from synforecast.generators import RandomWalkGenerator
+
+    prior = GroupPrior(
+        mechanism=CoupledSpec(
+            base_pool=[GeneratorSpec(generator=RandomWalkGenerator)],
+            n_channels=(4, 4),
+            couplings=["leadlag"],
+            p_leadlag=1.0,
+            targets="one",
+        ),
+        length=(64, 64),
+    )
+    checked = 0
+    for group in prior.sample(30, seed=0):
+        channels = group.recipe["channels"]
+        target = next(i for i, c in enumerate(channels) if c["role"] == "target")
+        ancestors: dict[int, set[int]] = {i: set() for i in range(4)}
+        for pair in group.recipe["coupling"]["leadlag"]:
+            ancestors[pair["dst"]] = ancestors[pair["src"]] | {pair["src"]}
+        for j, c in enumerate(channels):
+            if j != target:
+                assert c["derived_from_target"] == (target in ancestors[j])
+                checked += (
+                    c["derived_from_target"]
+                    and channels[target]["leadlag_root"] != target
+                )
+    assert checked > 0  # chains whose target is itself a copy are covered

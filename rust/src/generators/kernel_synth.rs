@@ -307,10 +307,21 @@ pub fn kernel_synth(
     params: &[f64],
     seed: u64,
 ) -> Result<(), String> {
+    kernel_synth_with_status(out, sp, kinds, params, seed).map(|_| ())
+}
+
+/// [`kernel_synth`] that also reports whether the series is the white-noise fallback.
+pub fn kernel_synth_with_status(
+    out: &mut [f64],
+    sp: &[f64],
+    kinds: &[f64],
+    params: &[f64],
+    seed: u64,
+) -> Result<bool, String> {
     validate(sp, kinds, params)?;
     let length = out.len();
     if length == 0 {
-        return Ok(());
+        return Ok(false);
     }
     let max_kernels = sp[0] as i32;
     let jitter = sp[1];
@@ -345,10 +356,10 @@ pub fn kernel_synth(
             }
         }
         out.copy_from_slice(&values);
-        return Ok(());
+        return Ok(false);
     }
     out.iter_mut().for_each(|v| *v = rng.standard_normal());
-    Ok(())
+    Ok(true)
 }
 
 #[cfg(test)]
