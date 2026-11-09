@@ -36,7 +36,6 @@ from synforecast import (
     GeneratorSpec,
     GroupPrior,
     RegressionSpec,
-    RoleSpec,
     VARXSpec,
     VARXTruth,
     probe_suite,
@@ -49,14 +48,14 @@ from synforecast.generators import TSIGenerator
 
 The default `RegressionSpec` draws one to six covariates per group, one
 to three of them informative, and makes 15% of groups null (every
-covariate a distractor). `RoleSpec` assigns roles independently of
-informativeness, and channels are shuffled, so neither role nor position
-gives the answer away.
+covariate a distractor). `p_known_future` sets the share of covariates
+known for the forecast periods, independently of informativeness, and
+channels are shuffled, so neither role nor position gives the answer
+away.
 
 ```python
 prior = GroupPrior(
-    mechanism=RegressionSpec(),
-    roles=RoleSpec(p_known_future=0.5),
+    mechanism=RegressionSpec(p_known_future=0.5),
     length=(256, 256),
     freq="D",
 )
@@ -68,63 +67,71 @@ df.head()
 ```
 
 ```shell
-{'n_groups': 8, 'n_null': 0, 'n_redrawn': 0, 'n_fallback': 0, 'n_controls': 0}
+{'n_groups': 8, 'n_null': 0, 'n_redrawn': 0, 'n_fallback': 0, 'n_generator_fallback': 0, 'n_controls': 0}
 ```
 
 | group_id | unique_id | ds                  | y         | role   |
 |----------|-----------|---------------------|-----------|--------|
 | i64      | str       | datetime\[ns\]      | f64       | str    |
-| 0        | "0_0"     | 2000-01-01 00:00:00 | 0.781472  | "past" |
-| 0        | "0_0"     | 2000-01-02 00:00:00 | 0.420626  | "past" |
-| 0        | "0_0"     | 2000-01-03 00:00:00 | -0.087798 | "past" |
-| 0        | "0_0"     | 2000-01-04 00:00:00 | 0.294967  | "past" |
-| 0        | "0_0"     | 2000-01-05 00:00:00 | 0.753935  | "past" |
+| 0        | "0_0"     | 2000-01-01 00:00:00 | -0.671502 | "past" |
+| 0        | "0_0"     | 2000-01-02 00:00:00 | 0.709447  | "past" |
+| 0        | "0_0"     | 2000-01-03 00:00:00 | 0.513848  | "past" |
+| 0        | "0_0"     | 2000-01-04 00:00:00 | 0.457897  | "past" |
+| 0        | "0_0"     | 2000-01-05 00:00:00 | 1.290752  | "past" |
 
 ## Inspect the ground truth
 
-The recipe records each covariate’s role and whether it is informative,
-every term (kind, driver, coefficient, lag), the composition and the
-calibrated effect strength. `GroupPrior.replay(recipe)` rebuilds the
-group exactly.
+The recipe lists every channel (target first) with its role, whether it
+is informative, its generator and seed, and every term (kind, driver,
+coefficient, lag), plus the composition and the calibrated effect
+strength. `GroupPrior.replay(recipe)` rebuilds the group exactly, and
+`draw_channel` redraws any latent channel from its spec and seed.
 
 ```python
 group = next(g for g in batch if not g.recipe["null"])
-for cov in group.recipe["covariates"]:
-    print(cov["channel"], cov["role"], "informative" if cov["informative"] else "distractor", cov["spec"]["generator"].rsplit(".", 1)[-1])
+for ch in group.recipe["channels"][1:]:
+    kind = "informative" if ch["informative"] else "distractor"
+    print(ch["channel"], ch["role"], kind, ch["spec"]["generator"].rsplit(".", 1)[-1])
 group.recipe["terms"], group.recipe["composition"], round(group.recipe["realized"], 3)
 
 ```
 
 ```shell
-3 past informative SARIMAGenerator
-2 past informative SARIMAGenerator
-0 past distractor SARIMAGenerator
-1 past distractor OrnsteinUhlenbeckGenerator
-4 past distractor IntermittentDemandGenerator
-6 future distractor TSIGenerator
+5 past informative SARIMAGenerator
+0 past informative SARIMAGenerator
+6 past distractor SARIMAGenerator
+2 past distractor OrnsteinUhlenbeckGenerator
+3 past distractor PoissonProcessGenerator
+1 future distractor TSIGenerator
 ```
 
 ```shell
 ([{'kind': 'hinge',
-   'driver': 0,
-   'coef': 0.5621416382497819,
-   'lag': 5,
-   'param': -0.1546255576046831,
-   'partner': None,
-   'partner_lag': 0},
-  {'kind': 'abs_sqrt',
    'driver': 1,
-   'coef': -0.6918387771309418,
-   'lag': 54,
-   'param': None,
    'partner': None,
-   'partner_lag': 0}],
+   'lag': 0,
+   'partner_lag': 0,
+   'coef': 0.8353122073468151,
+   'param': -0.1546255576046831,
+   'adstock': None,
+   'driver_channel': 5,
+   'partner_channel': None},
+  {'kind': 'signed_sqrt',
+   'driver': 2,
+   'partner': None,
+   'lag': 6,
+   'partner_lag': 0,
+   'coef': 0.9986049678946055,
+   'param': None,
+   'adstock': None,
+   'driver_channel': 0,
+   'partner_channel': None}],
  'additive',
- 0.613)
+ 0.013)
 ```
 
 ```python
-informative = {c["channel"] for c in group.recipe["covariates"] if c["informative"]}
+informative = {c["channel"] for c in group.recipe["channels"][1:] if c["informative"]}
 fig, axes = plt.subplots(len(group.roles), 1, figsize=(11, 1.6 * len(group.roles)), sharex=True)
 for channel, (ax, role) in enumerate(zip(axes, group.roles, strict=True)):
     color = "black" if role == "target" else ("crimson" if channel in informative else "grey")
@@ -174,10 +181,10 @@ np.corrcoef(panel.values).round(2)
 ![](./groups_files/figure-markdown_strict/cell-7-output-1.png)
 
 ```shell
-array([[ 1.  , -0.15, -0.02,  0.13],
-       [-0.15,  1.  , -0.25, -0.18],
-       [-0.02, -0.25,  1.  ,  0.29],
-       [ 0.13, -0.18,  0.29,  1.  ]])
+array([[ 1.  ,  0.21, -0.11, -0.08],
+       [ 0.21,  1.  ,  0.03, -0.13],
+       [-0.11,  0.03,  1.  ,  0.2 ],
+       [-0.08, -0.13,  0.2 ,  1.  ]])
 ```
 
 ## A VARX panel with an oracle
@@ -236,7 +243,35 @@ probe[0].values.shape, control[0].recipe["covariates_from"]
 ```
 
 ```shell
-((6, 48), 49)
+((6, 48), 30)
+```
+
+## Training arrays and speed
+
+`to_padded` turns a batch into dense arrays for model training: values,
+an observation mask, and target and known-future channel masks. Sampling
+is batched: groups are planned in Python, then every channel of every
+group is drawn in one parallel native call and every regression target
+is composed in another. Pass `n_jobs=1` inside data-loader worker
+processes and `recipes=False` when only replayable provenance is needed;
+results never depend on either.
+
+```python
+import time
+
+arrays = batch.to_padded()
+print({name: a.shape for name, a in arrays.items()})
+
+big = GroupPrior(mechanism=RegressionSpec(), length=(512, 2048), freq="h")
+start = time.perf_counter()
+big.sample(n_groups=1000, seed=0)
+print(f"{1000 / (time.perf_counter() - start):.0f} groups/s")
+
+```
+
+```shell
+{'values': (8, 7, 256), 'observed': (8, 7, 256), 'target_mask': (8, 7), 'known_future_mask': (8, 7), 'channel_mask': (8, 7), 'lengths': (8,)}
+3249 groups/s
 ```
 
 ## Related
