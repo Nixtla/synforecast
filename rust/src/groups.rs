@@ -460,7 +460,7 @@ pub fn ar_columns(x: &mut [f64], m: usize, phi: f64, init: &[f64]) {
 /// `y[t] = drive[t]` for `t < p`. `drive` is row-major `(T, N)`, `lags` is
 /// `(p, N, N)` row-major.
 pub fn var_filter(drive: &[f64], n: usize, lags: &[f64], p: usize) -> Vec<f64> {
-    let t_len = if n == 0 { 0 } else { drive.len() / n };
+    let t_len = drive.len().checked_div(n).unwrap_or(0);
     let mut y = drive.to_vec();
     for t in p..t_len {
         for l in 0..p {
