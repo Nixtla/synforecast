@@ -1489,14 +1489,17 @@ def _convert_params_for_generator(
         if "seasonality_amplitude" not in params:
             params["seasonality_amplitude"] = params.get("amplitude", 1.0)
 
-    elif generator_name == "RegimeSwitchingGenerator":
+    elif (
+        generator_name == "RegimeSwitchingGenerator"
+        and "persistence" in params
+        and "n_regimes" in params
+    ):
         # Derive the transition matrix from the fitted persistence, placing
         # the persistence on the diagonal and spreading the remainder.
-        if "persistence" in params and "n_regimes" in params:
-            n = params["n_regimes"]
-            p = params["persistence"]
-            transition_matrix = np.full((n, n), (1 - p) / (n - 1))
-            np.fill_diagonal(transition_matrix, p)
-            params["transition_matrix"] = transition_matrix.tolist()
+        n = params["n_regimes"]
+        p = params["persistence"]
+        transition_matrix = np.full((n, n), (1 - p) / (n - 1))
+        np.fill_diagonal(transition_matrix, p)
+        params["transition_matrix"] = transition_matrix.tolist()
 
     return params
