@@ -102,6 +102,11 @@ _SHORT_LAG = 8
 _TEMPLATE_LENGTH = 64
 # Errors a single draw may raise; they trigger a redraw instead of aborting
 _DRAW_ERRORS = (ValueError, ArithmeticError, np.linalg.LinAlgError)
+# Stream tags: group overlays draw from (seed, group_id, attempt, _OVERLAY_STREAM, ...), observation plans from (seed, group_id, _OBSERVATION_STREAM)
+_OVERLAY_STREAM = 0x6F76
+_OBSERVATION_STREAM = 29
+# Sub-streams of one channel's local overlays, as pretraining_pool's (overlay_seed, index[, stream])
+_LOCAL_CALENDAR, _LOCAL_OBSERVABILITY, _LOCAL_SEEDS = 1, 2, 3
 
 
 def _jsonable(value: Any) -> Any:
@@ -741,6 +746,155 @@ class VARXSpec(BaseModel):
 Mechanism = RegressionSpec | FixedRegressionSpec | CoupledSpec | VARXSpec
 
 
+class GroupOverlaySpec(BaseModel):
+    """Overlays on the channels of every group: shared events and local effects.
+
+    A group draws, from its own overlay streams of ``(seed, group_id,
+    attempt)``:
+
+    - **shared events** (probability ``shared_rate``): one event schedule,
+      changepoints and/or anomalies drawn as :func:`~synforecast.presets.pretraining_overlays`
+      draws them (conditioned on drawing at least one of the two), with one
+      set of overlay seeds. Event locations and kinds depend only on those
+      seeds and the length, so they coincide on every selected channel. Each
+      selected channel gets the event's change, sized on its own scale
+      (relative magnitudes) and multiplied by its own factor
+      ``sign * U(shared_scale)`` with a random sign: common shocks;
+    - **local overlays**, independently per emitted channel: with probability
+      ``local_rate`` the changepoints, anomalies and missing values of a
+      :func:`~synforecast.presets.pretraining_overlays` draw (its innovation
+      settings do not apply to an already drawn series); with probability
+      ``observability_rate`` the draw is replaced by an
+      :func:`~synforecast.presets.observability_overlays` draw (periods up to
+      a third of the length, between 12 and 720 steps); with probability
+      ``calendar_rate`` a :func:`~synforecast.presets.calendar_overlays`
+      calendar is added. Each draw has its own stream, as in
+      :func:`~synforecast.presets.pretraining_pool`, so a rate of 0 leaves
+      the other draws unchanged.
+
+    ``apply_to='emitted'`` applies shared events to the emitted channels after
+    composition. ``apply_to='drivers'`` applies them to the latent series
+    before composition (regression and fixed regression: the target's base
+    and its drivers; coupled: every base series), on the emitted window
+    only, so calibration on the burn-in is untouched and the target inherits
+    driver events through its edge functions. Local overlays always apply to
+    the emitted channels, after shared events. Recipes record the drawn
+    configurations, seeds, factors and event indices; :meth:`GroupPrior.replay`
+    rebuilds them exactly. Regression ``components`` describe the composition
+    before overlays.
+
+    Args:
+        sampler (str): Overlay distribution; 'pretraining' (default).
+        shared_rate (float): Probability that a group has shared events
+            (default: 0.3).
+        shared_channels (str): Channels that receive shared events: 'all',
+            'target_and_informative' (targets and informative drivers; every
+            channel of coupled and VARX groups) or 'covariates'
+            (default: 'all').
+        shared_scale (tuple[float, float]): Range of the per-channel factor
+            of the shared change (default: (0.5, 1.5)).
+        local_rate (float): Probability that a channel draws local
+            changepoints, anomalies and missing values (default: 0.3).
+        calendar_rate (float): Probability that a channel gets a calendar;
+            cycles that cannot show at the prior's frequency are skipped
+            (default: 0.0).
+        observability_rate (float): Probability that a channel's local draw
+            is an observability configuration (default: 0.0).
+        apply_to (str): 'emitted' or 'drivers' (default: 'emitted').
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False)
+
+    sampler: Literal["pretraining"] = "pretraining"
+    shared_rate: float = Field(default=0.3, ge=0.0, le=1.0)
+    shared_channels: Literal["all", "target_and_informative", "covariates"] = "all"
+    shared_scale: tuple[float, float] = (0.5, 1.5)
+    local_rate: float = Field(default=0.3, ge=0.0, le=1.0)
+    calendar_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    observability_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    apply_to: Literal["emitted", "drivers"] = "emitted"
+
+    @model_validator(mode="after")
+    def _check(self) -> GroupOverlaySpec:
+        lo, hi = self.shared_scale
+        if not 0.0 <= lo <= hi:
+            raise ValueError("shared_scale must satisfy 0 <= low <= high")
+        return self
+
+
+class ObservationSpec(BaseModel):
+    """Which covariates of a group are available: drops and block missingness.
+
+    The plan is a pure function of ``(seed, group_id)`` and covers ``slots``
+    covariate positions (covariates in channel order): with probability
+    ``p_drop_all`` every covariate is unavailable; each slot is unavailable
+    with probability ``p_drop_channel``; each slot gets block missingness
+    with probability ``p_missing_channel``, at a rate ``U(missing_rate)`` in
+    blocks of ``missing_block`` steps (both ends inclusive). Unavailable
+    covariates become all-NaN and missing steps NaN; targets are never
+    touched and no value is synthesized. The random stream is
+    ``numpy.random.default_rng([seed, group_id, 29])``, drawn in this order:
+    the drop-all flag, the per-slot drop flags, then per slot its missingness
+    flag, rate, block length and block starts (drawn for every slot, used
+    only where the flag is set).
+
+    Args:
+        p_drop_all (float): Probability that no covariate is available
+            (default: 0.0).
+        p_drop_channel (float): Per-slot probability of an unavailable
+            covariate (default: 0.0).
+        p_missing_channel (float): Per-slot probability of block missingness
+            (default: 0.0).
+        missing_rate (tuple[float, float]): Range of the missing share
+            (default: (0.02, 0.2)).
+        missing_block (tuple[int, int]): Range of the block length, inclusive
+            (default: (2, 20)).
+        slots (int): Covariate slots the plan covers; groups with more
+            covariates are rejected.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False)
+
+    p_drop_all: float = Field(default=0.0, ge=0.0, le=1.0)
+    p_drop_channel: float = Field(default=0.0, ge=0.0, le=1.0)
+    p_missing_channel: float = Field(default=0.0, ge=0.0, le=1.0)
+    missing_rate: tuple[float, float] = (0.02, 0.2)
+    missing_block: tuple[int, int] = (2, 20)
+    slots: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _check(self) -> ObservationSpec:
+        _check_range("missing_rate", self.missing_rate, 0.0, 1.0)
+        lo, hi = self.missing_block
+        if not 1 <= lo <= hi:
+            raise ValueError("missing_block must satisfy 1 <= low <= high")
+        return self
+
+    def plan(
+        self, seed: int, group_id: int, length: int
+    ) -> tuple[bool, np.ndarray, np.ndarray]:
+        """The plan of one group: drop-all flag, per-slot drop flags
+        ``(slots,)`` and per-slot missing masks ``(slots, length)``."""
+        rng = np.random.default_rng([int(seed), int(group_id), _OBSERVATION_STREAM])
+        drop_all = bool(rng.random() < self.p_drop_all)
+        dropped = rng.random(self.slots) < self.p_drop_channel
+        missing = np.zeros((self.slots, int(length)), dtype=bool)
+        lo, hi = self.missing_block
+        for slot in range(self.slots):
+            has_missing = rng.random() < self.p_missing_channel
+            rate = float(rng.uniform(*self.missing_rate))
+            block = int(rng.integers(lo, hi + 1))
+            starts = rng.integers(
+                0,
+                max(int(length) - block, 1),
+                size=max(int(np.ceil(rate * length / block)), 1),
+            )
+            if has_missing:
+                for start in starts:
+                    missing[slot, start : start + block] = True
+        return drop_all, dropped, missing
+
+
 # ---------------------------------------------------------------------------
 # Output containers
 # ---------------------------------------------------------------------------
@@ -794,6 +948,46 @@ class Group:
     def length(self) -> int:
         """Number of time steps."""
         return self.values.shape[1]
+
+    def observe(self, spec: ObservationSpec, seed: int) -> Group:
+        """This group under the observation plan of ``spec`` for
+        ``(seed, group_id)``: unavailable covariates become all-NaN and missing
+        steps NaN; targets, roles and timestamps are unchanged.
+
+        Covariate ``k`` (in channel order) takes plan slot ``k``. The plan is
+        keyed by this group's ID, so a control group from
+        :meth:`GroupBatch.shuffle_covariates` gets its receiver's plan. The
+        recipe gains an ``observation`` record (spec, seed, drop-all flag,
+        ``unavailable`` channels, ``missing`` steps per channel);
+        :meth:`GroupPrior.replay` re-applies it.
+        """
+        if "observation" in self.recipe:
+            raise ValueError("group is already observed")
+        covariates = self.covariate_indices
+        if len(covariates) > spec.slots:
+            raise ValueError(
+                f"group {self.group_id} has {len(covariates)} covariates > "
+                f"{spec.slots} observation slots"
+            )
+        drop_all, dropped, missing = spec.plan(seed, self.group_id, self.length)
+        values = np.array(self.values, dtype=np.float64, copy=True)
+        unavailable, missing_steps = [], {}
+        for slot, channel in enumerate(covariates):
+            if drop_all or dropped[slot]:
+                values[channel] = np.nan
+                unavailable.append(channel)
+                continue
+            values[channel] = np.where(missing[slot], np.nan, values[channel])
+            missing_steps[str(channel)] = int(missing[slot].sum())
+        recipe = dict(self.recipe)
+        recipe["observation"] = {
+            "spec": spec.model_dump(mode="json"),
+            "seed": int(seed),
+            "drop_all": drop_all,
+            "unavailable": unavailable,
+            "missing": missing_steps,
+        }
+        return replace(self, values=values, recipe=recipe)
 
 
 @dataclass(frozen=True)
@@ -930,6 +1124,14 @@ class GroupBatch:
         }
         return nw.DataFrame.from_dict(result, backend=engine).to_native()
 
+    def observe(self, spec: ObservationSpec, seed: int) -> GroupBatch:
+        """Every group under its own observation plan (:meth:`Group.observe`);
+        apply it after :meth:`shuffle_covariates` so each control group keeps
+        its receiver's plan."""
+        return GroupBatch(
+            tuple(g.observe(spec, seed) for g in self.groups), self.time_dtype
+        )
+
     def shuffle_covariates(self, seed: int) -> GroupBatch:
         """Control batch: each target keeps its own values but gets the whole
         covariate set (values and roles) of another group.
@@ -1034,6 +1236,11 @@ class VARXTruth:
             )
         if recipe.get("mechanism") != "varx":
             raise ValueError("recipe is not a VARX group")
+        if recipe.get("overlays") is not None or "observation" in recipe:
+            raise ValueError(
+                "overlaid or observed groups no longer follow the VARX process; "
+                "use a prior without overlays"
+            )
         if recipe.get("version") != RECIPE_VERSION:
             raise ValueError("recipe version does not match this SynForecast")
         if "process" not in recipe:
@@ -1426,6 +1633,9 @@ class GroupPrior(BaseModel):
         max_redraws (int): Redraws allowed per group (default: 5).
         on_generator_fallback (str): 'record' or 'redraw' groups whose
             generator returned its noise fallback (default: 'record').
+        overlays (GroupOverlaySpec | None): Shared events and local overlays
+            on the channels (default: None, which draws exactly as a prior
+            without the field: same values, recipes and fingerprint).
 
     Example:
         >>> prior = GroupPrior(length=(128, 128), freq="D")
@@ -1444,6 +1654,7 @@ class GroupPrior(BaseModel):
     burn_in: int = Field(default=128, ge=16)
     max_redraws: int = Field(default=5, ge=0)
     on_generator_fallback: Literal["record", "redraw"] = "record"
+    overlays: GroupOverlaySpec | None = None
 
     _sources: dict[str, _Source] = PrivateAttr(default_factory=dict)
     _fingerprint: str = PrivateAttr(default="")
@@ -1457,6 +1668,15 @@ class GroupPrior(BaseModel):
         if self.burn_in <= self.mechanism.largest_lag:
             raise ValueError(
                 f"burn_in must exceed the largest lag ({self.mechanism.largest_lag})"
+            )
+        if (
+            self.overlays is not None
+            and self.overlays.apply_to == "drivers"
+            and self.mechanism.kind == "varx"
+        ):
+            raise ValueError(
+                "apply_to='drivers' needs drawn latent series (regression, fixed "
+                "or coupled); VARX regressors are internal shocks"
             )
         return self
 
@@ -1490,9 +1710,12 @@ class GroupPrior(BaseModel):
             if spec._key not in sources:
                 sources[spec._key] = _resolve(spec, self.freq)
         self._sources = sources
+        # A prior without overlays keeps the fingerprint it had before the field existed.
+        dump = self.model_dump(
+            mode="json", exclude={"overlays"} if self.overlays is None else None
+        )
         payload = json.dumps(
-            {"prior": self.model_dump(mode="json"), "synforecast": __version__},
-            sort_keys=True,
+            {"prior": dump, "synforecast": __version__}, sort_keys=True
         )
         self._fingerprint = hashlib.sha256(payload.encode()).hexdigest()[:32]
 
@@ -1552,7 +1775,8 @@ class GroupPrior(BaseModel):
 
     def replay(self, recipe: dict, *, components: bool = False) -> Group:
         """Rebuild the group a recipe describes, with its full recipe; the
-        prior must match the one that produced it."""
+        prior must match the one that produced it. An ``observation`` record
+        (:meth:`Group.observe`) is re-applied."""
         if "control" in recipe:
             raise ValueError(
                 "control groups cannot be replayed; replay recipe['source'] and "
@@ -1570,6 +1794,10 @@ class GroupPrior(BaseModel):
                 "replay reached a different attempt than the recipe; the "
                 "generators changed since the recipe was produced"
             )
+        observed = recipe.get("observation")
+        if observed is not None:
+            spec = ObservationSpec.model_validate(observed["spec"])
+            group = group.observe(spec, observed["seed"])
         return group
 
     def draw_channel(self, spec: GeneratorSpec, length: int, seed: int) -> np.ndarray:
@@ -1619,6 +1847,18 @@ class GroupPrior(BaseModel):
                     fail(gid, attempt, f"plan: {exc}")
 
             series, flags, errors = self._draw(plans, workers)
+            if self.overlays is not None and self.overlays.apply_to == "drivers":
+                for pi, plan in enumerate(plans):
+                    if errors[pi] is not None:
+                        continue
+                    try:
+                        latent = self._overlay_latent(seed, plan, series[pi])
+                    except _DRAW_ERRORS as exc:
+                        latent = f"overlays: {exc}"
+                    if isinstance(latent, str):
+                        errors[pi] = latent
+                    else:
+                        series[pi] = latent
             composed = (
                 self._compose(plans, series, errors, workers)
                 if mech.kind in ("regression", "fixed")
@@ -1644,6 +1884,16 @@ class GroupPrior(BaseModel):
                     fail(gid, attempt, result)
                     continue
                 channels, roles, recipe, parts = result
+                overlay_record = None
+                if self.overlays is not None:
+                    try:
+                        overlaid = self._overlay_emitted(seed, plan, channels, roles)
+                    except _DRAW_ERRORS as exc:
+                        overlaid = f"overlays: {exc}"
+                    if isinstance(overlaid, str):
+                        fail(gid, attempt, overlaid)
+                        continue
+                    channels, overlay_record = overlaid
                 header = {
                     "version": RECIPE_VERSION,
                     "prior": self.fingerprint,
@@ -1659,6 +1909,8 @@ class GroupPrior(BaseModel):
                         channel_of[i] for i, f in enumerate(flag) if f
                     ]
                     header.update(recipe)
+                    if overlay_record is not None:
+                        header["overlays"] = overlay_record
                 done[gid] = Group(
                     group_id=gid,
                     timestamps=self._timestamps(channels.shape[1]),
@@ -1856,6 +2108,160 @@ class GroupPrior(BaseModel):
         position = np.empty(len(order), dtype=np.int64)
         position[order] = np.arange(len(order))
         return channels, tuple(roles[i] for i in order), position.tolist()
+
+    # -- overlays ------------------------------------------------------------------
+
+    def _shared_overlay(self, seed: int, plan: _Plan, n_items: int) -> dict | None:
+        """The group's shared event schedule, seeds and per-item factors, or None."""
+        from synforecast.overlays import OverlayConfig
+        from synforecast.presets import pretraining_overlays
+
+        spec = self.overlays
+        assert spec is not None
+        rng = np.random.default_rng(
+            [seed, plan.group_id, plan.attempt, _OVERLAY_STREAM, 0]
+        )
+        if rng.random() >= spec.shared_rate:
+            return None
+        while True:
+            drawn = pretraining_overlays(rng).get("overlays")
+            if drawn is not None and (
+                drawn.changepoints is not None or drawn.anomalies is not None
+            ):
+                break
+        config = OverlayConfig(
+            changepoints=drawn.changepoints, anomalies=drawn.anomalies
+        )
+        seeds = _seeds(rng, 3)
+        lo, hi = spec.shared_scale
+        scales = [
+            (1.0 if rng.random() < 0.5 else -1.0) * float(rng.uniform(lo, hi))
+            for _ in range(n_items)
+        ]
+        return {"config": config, "seeds": seeds, "scales": scales}
+
+    def _overlay_plan(self, config: Any, length: int) -> Any:
+        from synforecast.overlays import native_plan
+
+        return native_plan(
+            config,
+            self.freq,
+            pd.Timestamp(self.start_datetime),
+            self._timestamps(length),
+            length,
+        )
+
+    def _apply_shared(
+        self,
+        values: list[np.ndarray],
+        selected: list[int],
+        shared: dict,
+        length: int,
+    ) -> tuple[list[np.ndarray], dict]:
+        """Add the shared change of every selected series (each series' last
+        ``length`` steps), scaled by its factor."""
+        from synforecast.overlays import apply_plan
+
+        plan = self._overlay_plan(shared["config"], length)
+        out = list(values)
+        indices: dict[str, np.ndarray] = {}
+        for i in selected:
+            series = np.asarray(values[i], dtype=np.float64)
+            window = series[series.shape[0] - length :]
+            moved, indices = apply_plan(window, plan, shared["seeds"])
+            new = series.copy()
+            new[series.shape[0] - length :] = window + shared["scales"][i] * (
+                moved - window
+            )
+            out[i] = new
+        record = {
+            "config": shared["config"].model_dump(mode="json", exclude_none=True),
+            "seeds": shared["seeds"],
+            "items": selected,
+            "scales": [shared["scales"][i] for i in selected],
+            "changepoints": [int(x) for x in indices.get("changepoints", [])],
+            "anomalies": [int(x) for x in indices.get("anomalies", [])],
+        }
+        return out, record
+
+    def _overlay_latent(
+        self, seed: int, plan: _Plan, series: list[Any]
+    ) -> list[Any] | str:
+        """Shared events on the latent series before composition
+        (``apply_to='drivers'``), on the emitted window only."""
+        spec = self.overlays
+        assert spec is not None
+        kinds = _request_kinds(self.mechanism, plan)
+        shared = self._shared_overlay(seed, plan, len(kinds))
+        if shared is None:
+            return series
+        selected = [
+            i for i, k in enumerate(kinds) if _receives(k, spec.shared_channels)
+        ]
+        out, record = self._apply_shared(series, selected, shared, plan.length)
+        record["items_are"] = "latent requests"
+        if not all(_ok(out[i]) for i in selected):
+            return "overlaid latent series not finite or too large"
+        plan.data["shared_overlay"] = record
+        return out
+
+    def _overlay_emitted(
+        self,
+        seed: int,
+        plan: _Plan,
+        channels: np.ndarray,
+        roles: tuple[str, ...],
+    ) -> tuple[np.ndarray, dict] | str:
+        """Shared events (``apply_to='emitted'``) and local overlays on the
+        emitted channels; returns the channels and the overlay record."""
+        from synforecast.overlays import apply_plan
+
+        spec = self.overlays
+        assert spec is not None
+        n, length = channels.shape
+        rows = [np.asarray(channels[c], dtype=np.float64) for c in range(n)]
+        record: dict[str, Any] = {
+            "spec": spec.model_dump(mode="json"),
+            "shared": plan.data.get("shared_overlay"),
+            "local": [],
+        }
+        if spec.apply_to == "emitted":
+            shared = self._shared_overlay(seed, plan, n)
+            if shared is not None:
+                kinds = _channel_kinds(self.mechanism, plan, roles)
+                selected = [
+                    c for c in range(n) if _receives(kinds[c], spec.shared_channels)
+                ]
+                rows, record["shared"] = self._apply_shared(
+                    rows, selected, shared, length
+                )
+                record["shared"]["items_are"] = "emitted channels"
+        for c in range(n):
+            config, seeds = _local_overlay(spec, seed, plan, c, length)
+            if not config.active:
+                continue
+            rows[c], indices = apply_plan(
+                rows[c], self._overlay_plan(config, length), seeds
+            )
+            record["local"].append(
+                {
+                    "channel": c,
+                    "config": config.model_dump(mode="json", exclude_none=True),
+                    "seeds": seeds,
+                    "changepoints": [int(x) for x in indices["changepoints"]],
+                    "anomalies": [int(x) for x in indices["anomalies"]],
+                    "missing": int(indices["missing"].size),
+                }
+            )
+        out = np.stack(rows)
+        finite = np.isfinite(out)
+        if (
+            np.isinf(out).any()
+            or not finite.any(axis=1).all()
+            or np.abs(out[finite]).max(initial=0.0) >= MAX_ABS
+        ):
+            return "overlaid channels not finite or too large"
+        return out, record
 
     def _draw_length(self, rng: np.random.Generator) -> tuple[int, int]:
         length = int(rng.integers(self.length[0], self.length[1] + 1))
@@ -2482,6 +2888,103 @@ def _finish_varx(
         "fallback": None,
     }
     return channels, out_roles, recipe, None
+
+
+# ---------------------------------------------------------------------------
+# Overlays: which channels receive shared events, and local draws
+# ---------------------------------------------------------------------------
+
+
+def _informative_drivers(mechanism: Mechanism, plan: _Plan) -> set[int]:
+    """Driver indices (0-based) that enter the target, for regression mechanisms."""
+    if mechanism.kind == "regression":
+        return set(range(plan.data["n_inf"]))
+    used = set()
+    for term in plan.data["terms"]:
+        used.add(int(term[1]))
+        if term[2] is not None:
+            used.add(int(term[2]))
+    return used
+
+
+def _request_kinds(mechanism: Mechanism, plan: _Plan) -> list[str]:
+    """'target', 'informative' or 'covariate' for every latent series a plan
+    draws (shared events with ``apply_to='drivers'``)."""
+    kind = mechanism.kind
+    if kind == "regression":
+        informative = _informative_drivers(mechanism, plan)
+        return ["target"] + [
+            "informative" if j in informative else "covariate"
+            for j in range(len(plan.requests) - 1)
+        ]
+    if kind == "fixed":
+        informative = _informative_drivers(mechanism, plan)
+        n_drv = len(plan.data["specs"])
+        kinds = [
+            "informative" if j in informative else "covariate" for j in range(n_drv)
+        ]
+        return kinds + ["target"] * (len(plan.requests) - n_drv)
+    if kind == "coupled":
+        target = plan.data["target"]
+        return [
+            "target" if target is None or j == target else "informative"
+            for j in range(len(plan.requests))
+        ]
+    raise ValueError(f"{kind} groups have no drawn latent series to overlay")
+
+
+def _channel_kinds(
+    mechanism: Mechanism, plan: _Plan, roles: tuple[str, ...]
+) -> list[str]:
+    """'target', 'informative' or 'covariate' for every emitted channel;
+    every covariate of coupled and VARX groups counts as informative."""
+    if mechanism.kind not in ("regression", "fixed"):
+        return ["target" if r == "target" else "informative" for r in roles]
+    informative = _informative_drivers(mechanism, plan)
+    order = np.asarray(plan.data["order"])
+    position = np.empty(len(order), dtype=np.int64)
+    position[order] = np.arange(len(order))
+    kinds = ["covariate"] * len(roles)
+    kinds[int(position[0])] = "target"
+    for j in informative:
+        kinds[int(position[1 + j])] = "informative"
+    return kinds
+
+
+def _receives(kind: str, channels: str) -> bool:
+    if channels == "all":
+        return True
+    if channels == "covariates":
+        return kind != "target"
+    return kind in ("target", "informative")
+
+
+def _local_overlay(
+    spec: GroupOverlaySpec, seed: int, plan: _Plan, channel: int, length: int
+) -> tuple[Any, list[int]]:
+    """One channel's local overlay configuration and seeds, from its own
+    streams (as pretraining_pool draws an entry's overlays)."""
+    from synforecast.overlays import OverlayConfig
+    from synforecast.presets import (
+        calendar_overlays,
+        observability_overlays,
+        pretraining_overlays,
+    )
+
+    key = [seed, plan.group_id, plan.attempt, _OVERLAY_STREAM, 1 + channel]
+    config = OverlayConfig()
+    rng = np.random.default_rng(key)
+    if rng.random() < spec.local_rate:
+        drawn = pretraining_overlays(rng).get("overlays")
+        if drawn is not None:
+            config = drawn
+    observability = np.random.default_rng([*key, _LOCAL_OBSERVABILITY])
+    if spec.observability_rate > 0 and observability.random() < spec.observability_rate:
+        config = observability_overlays(observability, min(720, max(12, length // 3)))
+    calendar = np.random.default_rng([*key, _LOCAL_CALENDAR])
+    if spec.calendar_rate > 0 and calendar.random() < spec.calendar_rate:
+        config = config.model_copy(update={"calendar": calendar_overlays(calendar)})
+    return config, _seeds(np.random.default_rng([*key, _LOCAL_SEEDS]), 3)
 
 
 _PLANNERS = {

@@ -19,6 +19,13 @@ description: Grouped targets and covariates with known structure: regression pri
 
 ::: synforecast.groups.VARXSpec
 
+::: synforecast.groups.GroupOverlaySpec
+
+::: synforecast.groups.ObservationSpec
+    options:
+      members:
+        - plan
+
 ::: synforecast.groups.VARXTruth
     options:
       members:
@@ -41,8 +48,16 @@ description: Grouped targets and covariates with known structure: regression pri
         - to_padded
         - to_long
         - shuffle_covariates
+        - observe
         - diagnostics
 
 ::: synforecast.groups.Group
+    options:
+      members:
+        - observe
+        - target_indices
+        - target_index
+        - covariate_indices
+        - length
 
 ::: synforecast.groups.probe_suite

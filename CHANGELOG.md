@@ -4,6 +4,25 @@
 
 ### Added
 
+- Group overlays and observation plans (`synforecast.groups`).
+  `GroupPrior(overlays=GroupOverlaySpec(...))` draws, per group, shared
+  events (one changepoint and anomaly schedule from the
+  `pretraining_overlays` distribution, at the same locations on every
+  selected channel, sized on each channel and scaled by a per-channel factor
+  of random sign) and local overlays per channel (`pretraining_overlays`
+  changepoints, anomalies and missing values; `observability_overlays`;
+  `calendar_overlays`, each at its own rate and stream). Shared events apply
+  to the emitted channels or, with `apply_to='drivers'`, to the latent
+  series before composition so the target inherits them through its edges.
+  Recipes record every configuration, seed, factor and event index, and
+  `replay()` rebuilds them; `overlays=None` draws bitwise as before, with
+  the same recipes and fingerprints. `ObservationSpec` with `Group.observe()`
+  and `GroupBatch.observe()` makes covariates unavailable (all, or per slot)
+  or block-missing from a plan keyed by `(seed, group_id)`, never touching
+  targets; applied after `shuffle_covariates()`, a control keeps its
+  receiver's plan. `overlays.native_plan()` and `overlays.apply_plan()` run
+  an `OverlayConfig` on series no generator drew.
+
 - `GroupPrior` (`synforecast.groups`): grouped forecasting tasks of aligned
   target and covariate channels with known structure. `RegressionSpec`
   samples a random structural regression per group: informative covariates
