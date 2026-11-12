@@ -4,6 +4,14 @@
 
 ### Added
 
+- Real-window augmentation specs `Downsample`, `Stretch`, `PowerWarp`,
+  `AmplitudeEnvelope`, `Censor`, `Negate` and `Reverse` (after the Simons
+  training code), with `apply(df)` and a per-window numpy API (`draw`,
+  `plan`, `transform`), and `RealWindowAugment`, which composes them with
+  pairwise mixup at per-spec rates for training loaders. Missing values stay
+  missing and every data-dependent quantity reads only the first 512
+  observed values.
+
 - `overlays=OverlayConfig(...)` on every generator: one optional spec per
   stage (`Calendar`, `Waveform`, `Changepoints`, `Anomalies`, `Observation`,
   `Missing`, plus `base_weight`), all exported from `synforecast`. Stages run

@@ -18,10 +18,17 @@ except ImportError as exc:
 
 from synforecast.augment import (
     DBA,
+    AmplitudeEnvelope,
     BaseAugmenter,
+    Censor,
+    Downsample,
     FitAndSimulate,
     Mixup,
     MovingBlockBootstrap,
+    Negate,
+    PowerWarp,
+    Reverse,
+    Stretch,
 )
 from synforecast.base import BaseGenerator
 from synforecast.dataset import SynAugment, SynSet
@@ -56,29 +63,39 @@ from synforecast.presets import (
     seasonal_pool,
     step_cycle_overlays,
 )
+from synforecast.real_augment import RealWindowAugment, WindowPlan
 from synforecast.utils import generate_series
 
 __all__ = [
     "DBA",
+    "AmplitudeEnvelope",
     "Anomalies",
     "BaseAugmenter",
     "BaseGenerator",
     "Calendar",
     "CalendarCycle",
+    "Censor",
     "Changepoints",
     "CoverageDiagnostics",
     "CoverageResult",
+    "Downsample",
     "FitAndSimulate",
     "Halt",
     "Missing",
     "Mixup",
     "MovingBlockBootstrap",
     "Multivariatizer",
+    "Negate",
     "Observation",
     "OverlayConfig",
+    "PowerWarp",
+    "RealWindowAugment",
+    "Reverse",
+    "Stretch",
     "SynAugment",
     "SynSet",
     "Waveform",
+    "WindowPlan",
     "balanced_pool",
     "calendar_overlays",
     "compare_feature_coverage",
