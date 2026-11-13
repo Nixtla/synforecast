@@ -563,6 +563,12 @@ class BaseGenerator(BaseModel, ABC):
                 "relative": wave.scale == "relative",
                 "fallback_additive": wave.fallback == "additive",
             }
+        if config.halt is not None:
+            plan["halt"] = {
+                **config.halt.model_dump(exclude={"start"}),
+                "start_low": config.halt.start[0],
+                "start_high": config.halt.start[1],
+            }
         if config.observation is not None:
             plan["observation"] = config.observation.model_dump()
         return plan
