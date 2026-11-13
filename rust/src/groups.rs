@@ -16,6 +16,8 @@ use crate::rng::SfRng;
 pub const MAX_ABS: f64 = 1e8;
 /// Standard deviations below this on the calibration window are degenerate.
 pub const MIN_STD: f64 = 1e-8;
+/// Largest |log multiplier| of a multiplicative effect (ln MAX_ABS); beyond it the composition falls back to additive.
+pub const MAX_LOG_MULTIPLIER: f64 = 18.420_680_743_952_367;
 
 pub const KIND_LINEAR: u8 = 0;
 pub const KIND_SATURATING: u8 = 1;
@@ -197,6 +199,13 @@ fn ok(x: &[f64]) -> bool {
     x.iter().all(|v| v.is_finite() && v.abs() < MAX_ABS)
 }
 
+/// Whether every applied log multiplier `scale * e` is within [-MAX_LOG_MULTIPLIER, MAX_LOG_MULTIPLIER].
+fn multiplier_ok(effect: &[f64], scale: f64) -> bool {
+    effect
+        .iter()
+        .all(|e| (scale * e).abs() <= MAX_LOG_MULTIPLIER)
+}
+
 /// `x[t - lag]`, holding the first value before the start (no wrap-around).
 #[inline]
 fn lagged(x: &[f64], t: usize, lag: usize) -> f64 {
@@ -304,7 +313,8 @@ pub struct ComposeOutput {
 /// With `calibrate`, drivers are standardized with calibration-window
 /// statistics, the summed effect is centered on that window and scaled to the
 /// requested strength (see `GroupPrior`); a failing multiplicative
-/// composition falls back to additive. Without `calibrate` (fixed
+/// composition (a non-finite or too large target, or a multiplier outside
+/// [1/MAX_ABS, MAX_ABS] on the emitted window) falls back to additive. Without `calibrate` (fixed
 /// regressions), terms act on raw drivers with their literal coefficients.
 pub fn compose(input: &ComposeInput, burn_in: usize, calibrate: bool) -> ComposeOutput {
     let t_len = input.base.len();
@@ -393,7 +403,8 @@ pub fn compose(input: &ComposeInput, burn_in: usize, calibrate: bool) -> Compose
 
     let mut composition = input.composition;
     let (mut y, mut scale, mut calibration) = compose_with(composition);
-    let mut good = ok(&y[b..]);
+    let mut good =
+        ok(&y[b..]) && (composition != COMP_MULTIPLICATIVE || multiplier_ok(&effect[b..], scale));
     if !good && composition == COMP_MULTIPLICATIVE {
         composition = COMP_ADDITIVE;
         (y, scale, calibration) = compose_with(composition);
@@ -607,6 +618,48 @@ mod tests {
             assert_eq!(a.y[..120], b2.y[..120]);
             assert_ne!(a.y[120..], b2.y[120..]);
         }
+    }
+
+    #[test]
+    fn multiplier_outside_bound_falls_back_to_additive() {
+        let t_len = 200;
+        let burn_in = 50;
+        let base: Vec<f64> = (0..t_len).map(|i| ((i as f64) * 0.3).sin() + 2.0).collect();
+        let make = |level: f64| {
+            let drivers: Vec<f64> = (0..t_len)
+                .map(|i| {
+                    if i < burn_in {
+                        0.1 * ((i as f64) * 0.9).sin()
+                    } else {
+                        level
+                    }
+                })
+                .collect();
+            let terms = [term(KIND_LINEAR)];
+            compose(
+                &ComposeInput {
+                    base: &base,
+                    drivers: &drivers,
+                    n_drivers: 1,
+                    terms: &terms,
+                    persistence: 0.0,
+                    target_ar: 0.0,
+                    composition: COMP_MULTIPLICATIVE,
+                    share: 0.6,
+                    log_std: 0.2,
+                },
+                burn_in,
+                true,
+            )
+        };
+        // A small drift keeps |log multiplier| inside the bound: multiplicative, every value positive.
+        let kept = make(-0.1);
+        assert_eq!(kept.composition, COMP_MULTIPLICATIVE);
+        assert!(kept.ok && kept.y[burn_in..].iter().all(|v| *v > 0.0));
+        // A large drift drives the multiplier toward zero (finite, below MAX_ABS): previously kept, now additive.
+        let collapsed = make(-10.0);
+        assert_eq!(collapsed.composition, COMP_ADDITIVE);
+        assert!(collapsed.ok);
     }
 
     #[test]

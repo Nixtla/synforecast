@@ -557,6 +557,43 @@ def test_multiplicative_falls_back_to_additive():
         )
 
 
+def test_multiplier_collapse_falls_back_to_additive():
+    """A multiplicative effect whose log multiplier leaves +-ln(1e8) on the emitted
+    window falls back to additive, also when the target would stay finite and
+    small (collapsing toward zero) rather than overflow."""
+    spec = GeneratorSpec(generator=EnergyLoadGenerator, positive=True)
+    walk = GeneratorSpec(generator=RandomWalkGenerator)
+    prior = GroupPrior(
+        mechanism=RegressionSpec(
+            target_pool=[spec],
+            driver_pool=[walk],
+            p_null=0.0,
+            edge_kinds=["quadratic"],
+            n_covariates=(1, 1),
+            n_informative=(1, 1),
+            p_interaction=0.0,
+            p_adstock=0.0,
+            p_persistence=0.0,
+            p_multiplicative=1.0,
+            log_effect_std=(0.7, 0.7),
+            p_target_ar=0.0,
+        ),
+        length=(2048, 2048),
+        freq="h",
+    )
+    batch = prior.sample(100, seed=3, components=True)
+    kinds = dict.fromkeys(("multiplicative", "additive"), 0)
+    for g in batch:
+        r = g.recipe
+        kinds[r["composition"]] += 1
+        if r["composition"] == "multiplicative":
+            assert np.abs(g.components["effect"]).max() <= 18.420680743952367
+            assert np.all(g.values[g.target_index] > 0)
+        else:
+            assert r["fallback"] == "additive"
+    assert kinds["multiplicative"] > 0 and kinds["additive"] > 0
+
+
 def test_redraws_are_recorded_and_replayable():
     flaky = GeneratorSpec(generator=_Flaky)
     prior = GroupPrior(
