@@ -212,7 +212,7 @@ base weight → calendar → waveform → changepoints → anomalies → observa
 - Relative magnitudes (`scale="relative"`) are in standard deviations of the untouched base series, measured once before any stage.
 - Each stage draws from its own stream of the series' seeds, so switching one stage on never moves another, and no stage advances the generator's own random stream. With every stage off, draws are those of the generator alone.
 - Multiplicative calendar and waveform stages need a non-negative series (zeros stay zero); `fallback` decides what happens on series with negative values.
-- `generate_with_states` applies every stage to the observations and leaves the states clean. `Multivariatizer(apply_overlays=True)` draws the wrapped generator's overlays on each coupled channel.
+- `generate_with_states` applies every stage to the observations and leaves the states clean.
 
 ```python
 from synforecast import Anomalies, Calendar, CalendarCycle, Missing, OverlayConfig
@@ -944,25 +944,48 @@ Simulation options also apply while scoring candidates. Pattern injection and
 search-owned parameter options are not accepted. Native search changes the
 seeded stream used by the former Python search; worker counts do not change it.
 
-### Multivariatizer
+### Covariate groups (`GroupPrior`)
 
-Not a generator: `synforecast.Multivariatizer` wraps any univariate
-generator and produces cross-dependent channels sharing one length.
-Couplings (sampled per call): `mixing` — instantaneous random correlation
-via a well-conditioned mixing matrix; `leadlag` — channels as lagged,
-scaled, noise-perturbed transforms of others. Channel diversity statistics
-of the wrapped generator are preserved.
+Not a generator: `synforecast.GroupPrior` samples groups of aligned channels,
+each a target or a covariate that is known in the future (`future`) or only up
+to the forecast origin (`past`), and returns the ground truth of every group as
+a versioned recipe. A discarded burn-in window absorbs lags and filters and
+fixes every scale, so the covariate effect at a time step uses no later value;
+the wrapped generators still draw whole latent paths. Generators enter through
+`GeneratorSpec`; those whose native parameters do not depend on the seed are
+drawn from one cached template, and SARIMA, ETS, GARCH, INAR and StateSpace
+re-sample their constructor-randomized parameters natively per draw.
+
+| Mechanism | Channels |
+|-----------|----------|
+| `RegressionSpec` | One target caused by sampled covariates (linear, saturating, quadratic, square-root, threshold and hinge edges at sampled lags; product and gate interactions; distributed lags; persistence; additive or multiplicative composition) plus distractors from the same pool; 15% null groups and a `p_known_future` role share by default |
+| `FixedRegressionSpec` | An explicit regression on raw driver values; `probe_suite()` builds covariate-extraction probes from it |
+| `CoupledSpec` | Related channels from one base generator: `mixing` (instantaneous correlation through the Cholesky factor of `(1-s)I + sQ`) and causal `leadlag` (lagged, noisy copies); positive generators are coupled in log space and keep their own zeros; all channels targets, or one target plus covariates |
+| `VARXSpec` | A stable VAR panel of targets driven by shared, future-known and past-only AR(1) regressors with known effects; dense, sparse or cluster lag structures; `VARXTruth` gives the oracle forecast |
+
+Sampling is batched for pretraining throughput: one `sample()` call plans its
+groups in Python, draws every channel of every group in one parallel native
+call, and composes every regression target in a second one. Results depend only
+on `(seed, group_id)`, never on the batch size or `n_jobs`. Use `n_jobs=1`
+inside data-loader worker processes, `recipes=False` to keep only replayable
+provenance, and `to_padded()` for dense training arrays with target and
+known-future masks. `benchmarks/benchmark_groups.py` measures the throughput.
 
 ```python
-from synforecast import Multivariatizer
+from synforecast import CoupledSpec, GeneratorSpec, GroupPrior, RegressionSpec
 from synforecast.generators import TSIGenerator
 
-mv = Multivariatizer(
-    base=TSIGenerator(min_length=512, max_length=512, freq="D"),
-    couplings=["mixing", "leadlag"],
-    seed=42,
+batch = GroupPrior(mechanism=RegressionSpec(), length=(256, 512), freq="D").sample(
+    n_groups=64, seed=0
 )
-df = mv.generate(n_series=4)
+arrays = batch.to_padded()  # values, observed, target_mask, known_future_mask, ...
+recipe = batch[0].recipe  # channels, roles, terms, lags, informative covariates
+
+coupled = GroupPrior(
+    mechanism=CoupledSpec(base_pool=[GeneratorSpec(generator=TSIGenerator)]),
+    length=(512, 512),
+    freq="D",
+).sample(n_groups=4, seed=42)
 ```
 
 TSI, TCM, MAR, and KernelSynth use the Rust batch path for bulk `generate()`
@@ -1090,7 +1113,19 @@ does not establish how its implementation was written.
   and in the corresponding API documentation.
 - Ansari et al. (2025), “Chronos-2: From Univariate to Universal Forecasting,”
   [arXiv:2510.15821](https://arxiv.org/abs/2510.15821) (motivation for the
-  cotemporaneous and sequential couplings in `Multivariatizer`).
+  cotemporaneous and sequential couplings in `CoupledSpec` and the synthetic
+  covariate tasks of `RegressionSpec`). The mixing construction, lag ranges,
+  calibration, term sampler and role assignment are SynForecast's own design
+  rather than a reproduction of the reference code.
+- Hollmann et al. (2025), “Accurate predictions on small data with a tabular
+  foundation model,” Nature,
+  [doi:10.1038/s41586-024-08328-6](https://doi.org/10.1038/s41586-024-08328-6)
+  (synthetic regression tasks behind `RegressionSpec`; SynForecast's prior is
+  its own design).
+- Berthelier et al. (2026), “Investigating simple target-covariate
+  relationships for Chronos-2 and TabPFN-TS,”
+  [arXiv:2605.12200](https://arxiv.org/abs/2605.12200) (style of
+  `probe_suite`; the relations and drivers are SynForecast's own).
 - Wong and Li (2000), “On a mixture autoregressive model,” Journal of the
   Royal Statistical Society Series B 62(1),
   [doi:10.1111/1467-9868.00222](https://doi.org/10.1111/1467-9868.00222)

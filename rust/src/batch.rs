@@ -115,7 +115,7 @@ macro_rules! check_params {
 /// Dispatch to the correct generator based on type ID.
 ///
 /// Returns `Err` if `gen_type` is unknown or if `sp`/`ap` have insufficient length.
-fn dispatch_generator(
+pub(crate) fn dispatch_generator(
     gen_type: i32,
     out: &mut [f64],
     sp: &[f64],

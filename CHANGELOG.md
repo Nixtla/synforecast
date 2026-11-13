@@ -4,6 +4,77 @@
 
 ### Added
 
+- Group overlays and observation plans (`synforecast.groups`).
+  `GroupPrior(overlays=GroupOverlaySpec(...))` draws, per group, shared
+  events (one changepoint and anomaly schedule from the
+  `pretraining_overlays` distribution, at the same locations on every
+  selected channel, sized on each channel and scaled by a per-channel factor
+  of random sign) and local overlays per channel (`pretraining_overlays`
+  changepoints, anomalies and missing values; `observability_overlays`;
+  `calendar_overlays`, each at its own rate and stream). Shared events apply
+  to the emitted channels or, with `apply_to='drivers'`, to the latent
+  series before composition so the target inherits them through its edges.
+  Recipes record every configuration, seed, factor and event index, and
+  `replay()` rebuilds them; `overlays=None` draws bitwise as before, with
+  the same recipes and fingerprints. `ObservationSpec` with `Group.observe()`
+  and `GroupBatch.observe()` makes covariates unavailable (all, or per slot)
+  or block-missing from a plan keyed by `(seed, group_id)`, never touching
+  targets; applied after `shuffle_covariates()`, a control keeps its
+  receiver's plan. `overlays.native_plan()` and `overlays.apply_plan()` run
+  an `OverlayConfig` on series no generator drew.
+
+- `GroupPrior` (`synforecast.groups`): grouped forecasting tasks of aligned
+  target and covariate channels with known structure. `RegressionSpec`
+  samples a random structural regression per group: informative covariates
+  and distractors from one generator pool, edges (linear, saturating,
+  quadratic, signed and absolute square root, threshold, hinge) at sampled
+  lags, product and gate interactions, geometric distributed lags, effect
+  persistence, target AR feedback, additive or multiplicative composition,
+  null groups, and an effect strength calibrated on a discarded burn-in
+  window so no later value shapes the effect. Every covariate is known in the
+  future or past-only (`p_known_future`), independently of whether it is
+  informative. `FixedRegressionSpec` gives explicit terms for controlled
+  tasks. `GroupBatch` returns aligned channel arrays with versioned recipes,
+  `to_padded()` dense training arrays with target and known-future masks,
+  `to_long()` and a `shuffle_covariates()` control that works across lengths;
+  `GroupPrior.replay()` rebuilds one group from its recipe and
+  `draw_channel()` any latent channel. `GeneratorSpec` wraps a generator:
+  seed-independent native parameters are cached as a template, constructor
+  randomized generators are rebuilt per draw. `probe_suite()` returns fixed
+  identity, sum, nonlinear and quadratic covariate-extraction probes with
+  target AR, known-future and past-only covariates, distractors and IID or
+  smooth drivers.
+  - Batched native sampling for pretraining throughput: every channel of a
+    `sample()` call is drawn in one parallel Rust call and every regression
+    target is composed in another (`synforecast._lib.groups`); results depend
+    only on `(seed, group_id)`, never on batch size or `n_jobs`.
+    `recipes=False` skips full recipes, `components=True` returns the
+    target's base and applied effect. Generator noise fallbacks (KernelSynth)
+    are recorded per group or redrawn (`on_generator_fallback`). A failing
+    or panicking native draw is reported for its own request and redraws
+    only its group. Spec parameters are snapshotted at construction and
+    pools are tuples, so cached templates, recipes and fingerprints cannot go
+    stale; pickled or copied priors reuse their cached templates.
+  - Native per-draw parameter sampling (`rust/src/group_params.rs`) for the
+    generators that randomize parameters in their constructor (SARIMA, ETS,
+    GARCH, INAR, StateSpace): their cached templates re-sample those
+    parameters in Rust from the constructors' distributions instead of
+    rebuilding a Python generator per draw (about 3x faster for SARIMA-heavy
+    pools).
+    `benchmarks/benchmark_groups.py` measures throughput and runs in CI.
+  - `CoupledSpec`: related channels from one base generator, coupled by
+    mixing and a causal lead-lag that reads the burn-in instead of wrapping
+    around; positive generators are coupled in log space and keep their own
+    zeros; all channels targets, or one target plus covariates, with lagged
+    copies of the target labelled `derived_from_target`. Replaces
+    `Multivariatizer`.
+  - `VARXSpec`: a stable VAR panel of targets driven by shared, future-known
+    and past-only AR(1) regressors with known effects, dense, sparse or
+    cluster lag structures. `VARXTruth.from_recipe()` rebuilds the process and
+    `forecast_group()` returns its conditional-mean (oracle) forecast.
+  - Groups may hold several targets: `Group.target_indices`, and
+    `shuffle_covariates()` keeps every target.
+
 - `overlays=OverlayConfig(...)` on every generator: one optional spec per
   stage (`Calendar`, `Waveform`, `Changepoints`, `Anomalies`, `Observation`,
   `Missing`, plus `base_weight`), all exported from `synforecast`. Stages run
@@ -38,8 +109,6 @@
   `pretraining_pool` entries by `calendar_rate` and `observability_rate`,
   each from its own `(overlay_seed, index)` stream so pools at rate 0 are
   unchanged.
-- `Multivariatizer(apply_overlays=True)`: draws the wrapped generator's
-  overlays on each coupled channel; off by default, as before.
 - `pretraining_pool(include_extended=True)`: appends one default instance of
   each of the 11 univariate generators outside the interpretable and meta
   pools, after all existing entries.
@@ -84,7 +153,7 @@
   draws. No composition forms a dense covariance or an O(n^3) Cholesky any
   more, including those with a linear kernel. Both bulk `generate()` (Rust
   batch path) and `generate_single_series` run the same Rust sampler, so
-  `Multivariatizer` and `SynAugment` get it too. `jitter` is now added to each
+  `GroupPrior` and `SynAugment` get it too. `jitter` is now added to each
   polynomial term and escalated tenfold on a numerical breakdown, to at least
   1e-6 of the term's variance even with `jitter=0`.
 - `KernelSynthGenerator.max_kernels` is now at most 64.
@@ -138,6 +207,9 @@
 
 ### Removed
 
+- **Breaking:** `Multivariatizer`, including `apply_overlays` and
+  `last_recipe`. Use `GroupPrior(mechanism=CoupledSpec(...))`; recipes come
+  back with every group. Overlays are not applied inside groups yet.
 - Python 3.10 support (end of life 2026-10-31). synforecast now requires
   Python 3.11 or newer.
 

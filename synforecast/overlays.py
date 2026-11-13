@@ -407,6 +407,125 @@ def cycle_phase(
 
 
 # ---------------------------------------------------------------------------
+# Applying a config to series that no generator drew
+# ---------------------------------------------------------------------------
+
+
+def native_plan(
+    config: OverlayConfig,
+    freq: str | int,
+    start: pd.Timestamp,
+    timestamps: np.ndarray | None,
+    length: int,
+) -> Any:
+    """Parsed native plan of ``config`` for series of ``length`` steps, or None
+    with every stage off.
+
+    Builds the same plan a generator builds for its own series
+    (``BaseGenerator._overlay_plan_dict``): calendar cycles that cannot show
+    at ``freq`` are skipped, and calendar phases follow ``timestamps`` (the
+    series' first ``length`` timestamps; unused when every cycle is a step
+    cycle or no calendar is set).
+    """
+    from synforecast._lib import overlays as _rs_ov
+
+    if not config.active:
+        return None
+    plan: dict[str, Any] = {"base_weight": config.base_weight}
+    cp = config.changepoints
+    if cp is not None and cp.count > 0:
+        plan["changepoints"] = {
+            "count": cp.count,
+            "kind": cp.kind,
+            "locations": cp.locations or [],
+            "level_changes": cp.level_changes or [],
+            "trend_changes": cp.trend_changes or [],
+            "variance_changes": cp.variance_changes or [],
+            "relative": cp.scale == "relative",
+        }
+    an = config.anomalies
+    if an is not None:
+        plan["anomalies"] = {
+            "types": list(an.types),
+            "fraction": an.fraction,
+            "spike_magnitude": an.spike_magnitude,
+            "dip_magnitude": an.dip_magnitude,
+            "level_shift_magnitude": an.level_shift_magnitude,
+            "level_shift_duration": an.level_shift_duration,
+            "relative": an.scale == "relative",
+        }
+    miss = config.missing
+    if miss is not None:
+        plan["missing"] = {
+            "pattern": miss.pattern,
+            "rate": miss.rate,
+            "block_size": miss.block_size,
+            "seasonal_period": miss.seasonal_period,
+        }
+    calendar = config.calendar
+    if calendar is not None:
+        cycles = [c for c in calendar.cycles if cycle_supported(c, freq, start)]
+        if cycles:
+            phases = None if all(c.phase == "step" for c in cycles) else timestamps
+            plan["calendar"] = {
+                "cycles": [
+                    {
+                        "profile": c.profile,
+                        "harmonics": c.harmonics,
+                        "bins": c.n_bins,
+                        "values": c.values,
+                        "jitter": c.jitter,
+                        "weight": c.weight,
+                        "phase": cycle_phase(c, phases, length),
+                    }
+                    for c in cycles
+                ],
+                "mode": calendar.mode,
+                "amplitude": calendar.amplitude,
+                "swing": calendar.swing,
+                "relative": calendar.scale == "relative",
+                "fallback_additive": calendar.fallback == "additive",
+            }
+    wave = config.waveform
+    if wave is not None:
+        plan["waveform"] = {
+            **wave.model_dump(exclude={"scale", "fallback"}),
+            "relative": wave.scale == "relative",
+            "fallback_additive": wave.fallback == "additive",
+        }
+    if config.observation is not None:
+        plan["observation"] = config.observation.model_dump()
+    return _rs_ov.OverlayPlan(plan)
+
+
+def apply_plan(
+    values: np.ndarray, plan: Any, seeds: tuple[int, int, int]
+) -> tuple[np.ndarray, dict[str, np.ndarray]]:
+    """Run a :func:`native_plan` on one series with the native overlay kernel.
+
+    ``seeds`` are the series' three overlay seeds; the released stages
+    (changepoints, anomalies, missing values) draw from their NumPy redraws,
+    as on a generator's per-series path. Event locations and kinds depend
+    only on the seeds and the length, so one plan with the same seeds places
+    the same events on every series it is applied to, each sized on its own
+    series. The input is not modified.
+
+    Returns:
+        The new values, and the changepoint, anomaly and missing-value indices.
+    """
+    from synforecast._lib import overlays as _rs_ov
+
+    a, b, c = (int(s) for s in seeds)
+    raw = (a, b, c)
+    redraw = [int(np.random.default_rng(s).integers(0, 2**63)) for s in raw]
+    legacy = (redraw[0], redraw[1], redraw[2])
+    out, cp_idx, anom_idx, miss_idx = _rs_ov.apply_overlays(
+        np.ascontiguousarray(values, dtype=np.float64), plan, raw, legacy
+    )
+    return out, {"changepoints": cp_idx, "anomalies": anom_idx, "missing": miss_idx}
+
+
+# ---------------------------------------------------------------------------
 # Released flat keyword arguments
 # ---------------------------------------------------------------------------
 

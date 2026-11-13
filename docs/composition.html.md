@@ -1,6 +1,6 @@
 ---
 title: Generation and Composition
-description: Convenience APIs, generator pools, and multivariate composition
+description: Convenience APIs and generator pools
 ---
 
 ::: synforecast.utils.generate_series
@@ -18,9 +18,3 @@ description: Convenience APIs, generator pools, and multivariate composition
 ::: synforecast.presets.observability_overlays
 
 ::: synforecast.presets.seasonal_pool
-
-::: synforecast.multivariatize.Multivariatizer
-    options:
-      members:
-        - generate
-        - last_recipe

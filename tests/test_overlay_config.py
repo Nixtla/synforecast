@@ -9,7 +9,6 @@ import pytest
 from pydantic import ValidationError
 
 from synforecast import (
-    Multivariatizer,
     SynSet,
     calendar_overlays,
     observability_overlays,
@@ -502,25 +501,6 @@ def test_states_stay_clean_while_observations_get_every_overlay(cls: type) -> No
     obs, states = cls(**kwargs, overlays=config).generate_with_states(2)
     pd.testing.assert_frame_equal(states_plain, states)
     assert not np.allclose(obs_plain["y"], obs["y"])
-
-
-def test_multivariatizer_overlays_are_opt_in() -> None:
-    base = RandomWalkGenerator(
-        min_length=100,
-        max_length=100,
-        freq="h",
-        overlays=OverlayConfig(missing=Missing(rate=0.2)),
-    )
-    plain = Multivariatizer(
-        base=RandomWalkGenerator(min_length=100, max_length=100, freq="h"), seed=1
-    )
-    off = Multivariatizer(base=base, seed=1)
-    on = Multivariatizer(base=base, seed=1, apply_overlays=True)
-    pd.testing.assert_frame_equal(plain.generate(3), off.generate(3))
-    drawn = on.generate(3)
-    assert drawn["y"].isna().mean() == pytest.approx(0.2)
-    fresh = Multivariatizer(base=base, seed=1).generate(3)["y"]
-    np.testing.assert_allclose(drawn["y"].dropna(), fresh[drawn["y"].notna()])
 
 
 # ---------------------------------------------------------------------------
