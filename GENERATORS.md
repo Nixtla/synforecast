@@ -52,8 +52,9 @@ below states how far that verification reaches:
 | Procedural (4) | TSI, TCM, KernelSynth (published Chronos recipe), MAR (GRATIS recipe) |
 
 Augmentation strategies are frozen specs (`FitAndSimulate`, `Mixup`,
-`MovingBlockBootstrap`, `DBA`) run with `apply(df, ...)`; `SynAugment` is a
-facade over them. See the [README](README.md#augment-observed-series) for seed
+`MovingBlockBootstrap`, `DBA`, and the real-window specs of
+[Real-window augmentation](#real-window-augmentation)) run with
+`apply(df, ...)`; `SynAugment` is a facade over the first four. See the [README](README.md#augment-observed-series) for seed
 semantics, extra columns and `source_col`. The note below applies to both.
 
 A note on fit-and-simulate: outputs match the source series' mean,
@@ -178,6 +179,73 @@ storage, cached paths per copy, and batched output each have a 64 MiB limit;
 oversized requests raise `ValueError`. Python interrupts are checked between
 work chunks. Panel methods sort and partition once instead of filtering the
 whole frame for each source.
+
+### Real-window augmentation
+
+Seven specs transform **real** series in place of generating new ones, for
+foundation-model pretraining on real windows. They follow the real-window
+augmentation of the Simons training code (`training/augment.py` and
+`training/warp.py`). Missing values stay missing (they are not interpolated),
+and every data-dependent quantity reads only the **first 512 observed
+values** (`prefix`), so values after that prefix never change a parameter.
+
+| Spec | Transform | Data-independent draws | Data-dependent quantity |
+|------|-----------|------------------------|-------------------------|
+| `Downsample` | mean of the observed values in k-point buckets (NaN if none) | integer k ~ U{`k_min`..cap}, cap = min(`k_max`, length // `min_points`) so at least 512 points remain | – |
+| `Stretch` | up: linear interpolation (NaN where a neighbouring knot is NaN) plus a Brownian bridge; down: fractional bucket means (NaN below a quarter step of coverage) | up with probability `up_share`, r ~ LogU(1.15, 3), bridge scale c ~ U(0, 1); else down by k ~ LogU(1.15, min(6, length / 512)) | bridge step scale: 1.4826 x MAD of the prefix's first differences |
+| `PowerWarp` | `s * sign(x) * \|x / s\| ** p` | p ~ LogU(1.25, 2.5), convex with probability 0.65, else 1 / p | s = mean absolute prefix value; applied only when the prefix is nonnegative |
+| `AmplitudeEnvelope` | times a piecewise-linear envelope from the first observation to the end | 2 interior knots ~ U(0, 1), 4 levels ~ lognormal(0, 0.3) | – |
+| `Censor` | floor or cap, as `Observation`'s floor and cap: observed values clamped, missing kept | floor with probability 0.5 at q ~ U(0, 0.4), else cap at q ~ U(0.6, 1) | the q quantile (nearest rank) of the prefix |
+| `Negate` | `-x` | – | – |
+| `Reverse` | time reversal between the first and last observation | – | – |
+
+`apply(df, ...)` writes `n_augment` copies per series with IDs
+`"{original_id}_{suffix}_{i}"` (suffixes `downsample`, `stretch`,
+`powerwarp`, `envelope`, `censor`, `negate`, `reverse`). A copy sits on the
+source's **last** rows (their timestamps and extra columns), so a resampled
+copy keeps the source's frequency label. Series a spec cannot transform (too
+short to downsample, a negative prefix for `PowerWarp`, fewer than two
+observations for `Censor`) are skipped with a logged warning.
+
+```python
+from synforecast import Downsample, PowerWarp
+
+slower = Downsample(seed=42, n_augment=2).apply(train_df)
+warped = PowerWarp(seed=42).apply(train_df, include_original=False)
+```
+
+Each spec also has an array API for training loaders: `draw(rng)` consumes a
+fixed number of draws from a `numpy.random.Generator` and returns the
+data-independent parameters; `transform(values, mask, params)` applies them
+and returns `(values, mask)`, or `None` when the spec cannot act. The
+resampling specs add `plan(params, length, want)`, which names the raw slice
+`start:stop` to read for a crop of at most `want` points.
+
+`RealWindowAugment` composes them per window at independent rates, plus
+pairwise mixup with another real window (lam ~ Beta(1.5, 1.5) clipped to
+[0.2, 0.8], each window divided by the mean absolute value of its own first
+512 observed values, the result in the anchor's scale):
+
+```python
+import numpy as np
+from synforecast import RealWindowAugment
+
+aug = RealWindowAugment(downsample=0.4, stretch=0.25, power_warp=0.2,
+                        amplitude_envelope=0.2, censor=0.2, mixup=0.2,
+                        negate=0.2, reverse=0.1)
+rng = np.random.default_rng(seed)
+plan = aug.draw(rng, length=len(series), want=3041)
+raw = series[plan.resample.start:plan.resample.stop] if plan.resample else crop
+values, mask, applied = aug.transform(raw, None, plan, partner=partner_window)
+```
+
+`draw` consumes the same draws whatever the rates, so switching a spec on or
+off never moves another spec's parameters. Order: resampling (downsample,
+else stretch; stretch's effective rate is `stretch` times the share not
+downsampled), power warp, mixup, censor, envelope, negate, reverse. The value
+steps read only positions before the end of the first 512 observed values of
+the window entering them; `trace` returns those quantities with the output.
+One window takes about 0.1 ms of numpy compute (measured in the tsfm loader).
 
 ---
 

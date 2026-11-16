@@ -6,8 +6,9 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
 use crate::overlays::{
-    apply_overlays as apply, AnomalyPlan, CalendarPlan, ChangepointPlan, CyclePlan, MissingPlan,
-    ObservationPlan, OverlayPlan, Profile, WaveShape, WaveTiming, WaveformPlan,
+    apply_overlays as apply, AnomalyPlan, CalendarPlan, ChangepointPlan, CyclePlan, HaltPlan,
+    HaltState, MissingPlan, ObservationPlan, OverlayPlan, Profile, WaveShape, WaveTiming,
+    WaveformPlan,
 };
 
 /// Required key of a plan dict; a missing key or a wrong type is an error, never a default.
@@ -175,6 +176,38 @@ fn parse_observation(d: &Bound<'_, PyDict>) -> PyResult<ObservationPlan> {
     })
 }
 
+fn parse_halt(d: &Bound<'_, PyDict>) -> PyResult<HaltPlan> {
+    let state = match get::<String>(d, "state")?.as_str() {
+        "freeze" => HaltState::Freeze,
+        "level" => HaltState::Level,
+        "calm" => HaltState::Calm,
+        other => return Err(invalid("halt state", other)),
+    };
+    let start_low: f64 = get(d, "start_low")?;
+    let start_high: f64 = get(d, "start_high")?;
+    let duration: Option<usize> = get(d, "duration")?;
+    let window: usize = get(d, "window")?;
+    if !(0.0..1.0).contains(&start_low) || !(start_low..1.0).contains(&start_high) {
+        return Err(PyValueError::new_err(
+            "halt start must satisfy 0 <= low <= high < 1",
+        ));
+    }
+    if duration == Some(0) || window < 1 {
+        return Err(PyValueError::new_err(
+            "halt duration and window must be >= 1",
+        ));
+    }
+    Ok(HaltPlan {
+        state,
+        start_low,
+        start_high,
+        duration,
+        level: get(d, "level")?,
+        noise: get(d, "noise")?,
+        window,
+    })
+}
+
 /// Parse the dict built by `BaseGenerator._overlay_plan_dict` into an [`OverlayPlan`].
 pub fn parse_plan(d: &Bound<'_, PyDict>) -> PyResult<OverlayPlan> {
     let changepoints = section(d, "changepoints")?
@@ -234,6 +267,7 @@ pub fn parse_plan(d: &Bound<'_, PyDict>) -> PyResult<OverlayPlan> {
             .transpose()?,
         changepoints,
         anomalies,
+        halt: section(d, "halt")?.map(|h| parse_halt(&h)).transpose()?,
         observation: section(d, "observation")?
             .map(|o| parse_observation(&o))
             .transpose()?,

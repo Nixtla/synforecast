@@ -54,6 +54,8 @@ from synforecast.overlays import (
     Calendar,
     CalendarCycle,
     Changepoints,
+    Halt,
+    HaltState,
     Missing,
     Observation,
     OverlayConfig,
@@ -401,6 +403,179 @@ def observability_overlays(
     return OverlayConfig(**stages)
 
 
+_HALT_STATES: tuple[HaltState, ...] = ("freeze", "level", "calm")
+_HALT_STATE_WEIGHTS = (0.4, 0.3, 0.3)
+
+
+def halt_overlays(rng: np.random.Generator) -> Halt:
+    """Draw one random halt for a pretraining series: the signal stops and a steady state persists.
+
+    Teaches that activity can stop and stay stopped, as when a sensor
+    freezes, a machine switches off or a cycle ends, and also that a stop can
+    be temporary. The stop position is uniform in [0.2, 0.97] of each series,
+    so the steady state covers between 3% and 80% of it. The state is
+
+    - freeze (probability 0.4): the last reading before the stop repeats;
+    - level (0.3): a constant at a fraction of the series' range, uniform in
+      [0, 0.2] (an off state near the floor) with probability 0.7, otherwise
+      uniform in [0, 1];
+    - calm (0.3): the mean of the 8-64 steps before the stop, plus noise of
+      log-uniform [0.002, 0.1] standard deviations.
+
+    The state lasts to the end of the series with probability 0.6; otherwise
+    the signal resumes after a log-uniform 16-512 steps.
+
+    Args:
+        rng: Random stream that determines the configuration.
+
+    Returns:
+        The drawn halt stage.
+    """
+    state = _HALT_STATES[int(rng.choice(3, p=_HALT_STATE_WEIGHTS))]
+    duration = None if rng.random() < 0.6 else int(round(_log_uniform(rng, 16, 512)))
+    level = float(rng.uniform(0.0, 0.2)) if rng.random() < 0.7 else float(rng.uniform())
+    return Halt(
+        state=state,
+        start=(0.2, 0.97),
+        duration=duration,
+        level=level,
+        noise=_log_uniform(rng, 0.002, 0.1),
+        window=int(rng.integers(8, 65)),
+    )
+
+
+def _steps_per_day(freq: str | int) -> int | None:
+    """Whole steps per day of a fixed sub-daily frequency ('h', '30min', ...); None otherwise."""
+    if isinstance(freq, int):
+        return None
+    try:
+        step = pd.Timedelta(pd.tseries.frequencies.to_offset(freq))
+    except (TypeError, ValueError):
+        return None
+    n = pd.Timedelta(days=1) / step
+    return int(n) if n >= 2 and float(n).is_integer() else None
+
+
+def _bump_profile(
+    rng: np.random.Generator,
+    n: int,
+    bumps: int | None = None,
+    center: tuple[float, float] = (0.0, 1.0),
+) -> np.ndarray:
+    """A peaked profile over one period of ``n`` steps.
+
+    One to three von Mises bumps (or ``bumps``) with centres uniform in ``center``, a full width at half maximum
+    log-uniform in [3%, 15%] of the period but at least 2 steps, and heights uniform in [0.3, 1]; a dip with
+    probability 0.2. Each step holds the profile's average over its interval, so a narrow peak between two steps
+    is attenuated by its width but never missed.
+    """
+    k = int(rng.integers(1, 4)) if bumps is None else bumps
+    centers = rng.uniform(center[0], center[1], k)
+    fwhm = np.maximum([_log_uniform(rng, 0.03, 0.15) for _ in range(k)], 2.0 / n)
+    heights = rng.uniform(0.3, 1.0, k)
+    sign = -1.0 if rng.random() < 0.2 else 1.0
+    # von Mises exp(kappa * (cos(theta) - 1)) is at half height where cos(pi * fwhm) = 1 - ln 2 / kappa.
+    kappa = np.log(2.0) / (1.0 - np.cos(np.pi * fwhm))
+    fine = 16
+    u = (np.arange(n * fine) + 0.5) / (n * fine)
+    shape = sum(
+        h * np.exp(kap * (np.cos(2 * np.pi * (u - c)) - 1.0))
+        for h, kap, c in zip(heights, kappa, centers, strict=True)
+    )
+    return sign * shape.reshape(n, fine).mean(1)
+
+
+def peak_calendar_overlays(
+    rng: np.random.Generator, calendar: Calendar, steps_per_day: int
+) -> Calendar:
+    """Replace the time-of-day profile of a drawn calendar with a peaked one (rush hours, load peaks).
+
+    Keeps the calendar's mode, amplitude, swing and weekly component. The time-of-day cycle becomes a
+    ``levels`` profile with one bin per step of the day from :func:`_bump_profile`, so every step reads
+    exactly one bin of a grid-aligned series. With probability 0.3 (and at most 10,000 bins per week) one
+    weekly ``levels`` cycle replaces both the time-of-day and the weekly cycle instead, so weekends change
+    the shape of the day: weekdays keep the peaked profile, weekends get it scaled by uniform [0, 0.4]
+    (half of these draws) or a single midday bump. The new time-of-day cycle takes the old one's position,
+    so the weekly cycle keeps its own random stream.
+
+    Args:
+        rng: Random stream that determines the profile.
+        calendar: The calendar drawn by :func:`calendar_overlays`.
+        steps_per_day: Steps per day of the series' frequency, at least 2.
+
+    Returns:
+        The calendar with the peaked profile.
+    """
+    if steps_per_day < 2:
+        raise ValueError(f"steps_per_day must be >= 2, got {steps_per_day}")
+    day = _bump_profile(rng, steps_per_day)
+    if rng.random() < 0.3 and 7 * steps_per_day <= 10_000:
+        if rng.random() < 0.5:
+            weekend = day * float(rng.uniform(0.0, 0.4))
+        else:
+            weekend = _bump_profile(rng, steps_per_day, bumps=1, center=(0.4, 0.6))
+        values = np.concatenate([np.tile(day, 5), np.tile(weekend, 2)])
+        cycles = [
+            CalendarCycle(
+                phase="week", profile="levels", bins=values.size, values=values.tolist()
+            )
+        ]
+    else:
+        cycles = [
+            CalendarCycle(
+                phase="day", profile="levels", bins=steps_per_day, values=day.tolist()
+            )
+            if c.phase == "day"
+            else c
+            for c in calendar.cycles
+        ]
+    return calendar.model_copy(update={"cycles": cycles})
+
+
+def step_cycle_overlays(
+    rng: np.random.Generator, calendar: Calendar | None, length: int
+) -> Calendar | None:
+    """Add a smooth cycle whose period is in steps, long enough to need many patches and short enough to repeat.
+
+    The period is log-uniform in [96, min(400, (length - 1024) / 4)] steps, so at least four repeats remain
+    before a 1,024-step forecast horizon; the profile is Fourier with 2-5 harmonics. On a drawn calendar the
+    cycle is appended with twice the existing weights' sum, so it makes two thirds of the combined profile and
+    the existing cycles one third; amplitude, mode and swing stay. Without a calendar it gets its own,
+    with :func:`calendar_overlays`' mode, amplitude and swing ranges. Series shorter than 1,408 steps get none.
+
+    Args:
+        rng: Random stream that determines the cycle.
+        calendar: The entry's drawn calendar, or None.
+        length: Series length in steps.
+
+    Returns:
+        The calendar with the step cycle, or ``calendar`` unchanged when the series is too short.
+    """
+    high = min(400.0, (length - 1024) / 4)
+    if high < 96:
+        return calendar
+    cycle = CalendarCycle(
+        phase="step",
+        period=int(round(_log_uniform(rng, 96, high))),
+        harmonics=int(rng.integers(2, 6)),
+    )
+    if calendar is None:
+        multiplicative = rng.random() < 0.5
+        return Calendar(
+            cycles=[cycle],
+            mode="multiplicative" if multiplicative else "additive",
+            amplitude=_log_uniform(rng, 1.25, 10.0),
+            swing=float(rng.uniform(0.2, 0.9)),
+            on_unsupported="skip",
+        )
+    weight = 2.0 * sum(c.weight for c in calendar.cycles)
+    return calendar.model_copy(
+        update={
+            "cycles": [*calendar.cycles, cycle.model_copy(update={"weight": weight})]
+        }
+    )
+
+
 def _build(
     specs: list[_Spec],
     members: Iterable[int] | None,
@@ -408,6 +583,11 @@ def _build(
     calendar_rate: float = 0.0,
     observability_rate: float = 0.0,
     max_period: int = 720,
+    halt_rate: float = 0.0,
+    peak_calendar_rate: float = 0.0,
+    step_cycle_rate: float = 0.0,
+    steps_per_day: int | None = None,
+    length: int = 0,
 ) -> list[BaseGenerator]:
     """Instantiate every spec, or only the selected indices in the given order, optionally with drawn overlays."""
     chosen = (
@@ -434,6 +614,35 @@ def _build(
             drawn = drawn.model_copy(
                 update={"calendar": calendar_overlays(calendar_rng)}
             )
+        # Peak calendars and step cycles touch sub-daily entries only, each from its own stream.
+        peak_rng = np.random.default_rng([overlay_seed, i, 4])
+        if (
+            peak_calendar_rate > 0
+            and steps_per_day is not None
+            and drawn.calendar is not None
+            and peak_rng.random() < peak_calendar_rate
+        ):
+            drawn = drawn.model_copy(
+                update={
+                    "calendar": peak_calendar_overlays(
+                        peak_rng, drawn.calendar, steps_per_day
+                    )
+                }
+            )
+        step_rng = np.random.default_rng([overlay_seed, i, 5])
+        if (
+            step_cycle_rate > 0
+            and steps_per_day is not None
+            and step_rng.random() < step_cycle_rate
+        ):
+            drawn = drawn.model_copy(
+                update={
+                    "calendar": step_cycle_overlays(step_rng, drawn.calendar, length)
+                }
+            )
+        halt_rng = np.random.default_rng([overlay_seed, i, 3])
+        if halt_rate > 0 and halt_rng.random() < halt_rate:
+            drawn = drawn.model_copy(update={"halt": halt_overlays(halt_rng)})
         if drawn.active:
             kwargs["overlays"] = _merge_overlays(specs[i], drawn)
         built.append(specs[i](**kwargs))
@@ -955,6 +1164,9 @@ def pretraining_pool(
     overlay_seed: int | None = None,
     calendar_rate: float = 0.0,
     observability_rate: float = 0.0,
+    halt_rate: float = 0.0,
+    peak_calendar_rate: float = 0.0,
+    step_cycle_rate: float = 0.0,
     **base_kwargs: Any,
 ) -> list[BaseGenerator]:
     """Create a breadth-maximizing pool for foundation-model pretraining.
@@ -1037,6 +1249,20 @@ def pretraining_pool(
             replaces the entry's drawn base weight, waveform, observation,
             changepoint, anomaly and missing-data stages. Pools at rate 0 are
             unchanged. Requires ``overlay_seed``. Default 0.0.
+        halt_rate: Probability that an entry also gets a halt drawn by
+            :func:`halt_overlays` from its own stream of ``(overlay_seed,
+            index)``, on top of any other drawn stages. Pools at rate 0 are
+            unchanged. Requires ``overlay_seed``. Default 0.0.
+        peak_calendar_rate: Probability that a sub-daily entry with a drawn
+            calendar gets its time-of-day profile replaced by a peaked one
+            from :func:`peak_calendar_overlays`, from its own stream of
+            ``(overlay_seed, index)``. Pools at rate 0 are unchanged.
+            Requires ``overlay_seed``. Default 0.0.
+        step_cycle_rate: Probability that a sub-daily entry gets a smooth
+            cycle with its period in steps from :func:`step_cycle_overlays`,
+            sized to ``min_length``, from its own stream of ``(overlay_seed,
+            index)``. Pools at rate 0 are unchanged. Requires
+            ``overlay_seed``. Default 0.0.
         **base_kwargs: Additional keyword arguments passed to all generators
             (e.g., engine, id_col, time_col, target_col).
 
@@ -1066,6 +1292,9 @@ def pretraining_pool(
     for name, rate in (
         ("calendar_rate", calendar_rate),
         ("observability_rate", observability_rate),
+        ("halt_rate", halt_rate),
+        ("peak_calendar_rate", peak_calendar_rate),
+        ("step_cycle_rate", step_cycle_rate),
     ):
         if not 0.0 <= rate <= 1.0:
             raise ValueError(f"{name} must be in [0, 1], got {rate}")
@@ -1148,6 +1377,11 @@ def pretraining_pool(
         calendar_rate,
         observability_rate,
         min(720, max(12, min_length // 3)),
+        halt_rate,
+        peak_calendar_rate,
+        step_cycle_rate,
+        _steps_per_day(freq),
+        min_length,
     )
 
 

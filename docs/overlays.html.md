@@ -1,6 +1,6 @@
 ---
 title: Overlays
-description: Calendar cycles, waveforms, changepoints, anomalies, observation effects and missing data
+description: Calendar cycles, waveforms, changepoints, anomalies, halts, observation effects and missing data
 ---
 
 ::: synforecast.overlays.OverlayConfig
@@ -14,6 +14,8 @@ description: Calendar cycles, waveforms, changepoints, anomalies, observation ef
 ::: synforecast.overlays.Changepoints
 
 ::: synforecast.overlays.Anomalies
+
+::: synforecast.overlays.Halt
 
 ::: synforecast.overlays.Observation
 

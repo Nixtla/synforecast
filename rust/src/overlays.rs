@@ -1,7 +1,7 @@
 //! Overlay pipeline shared by the native batch path and the per-series Python path.
 //!
 //! Stages run on each series in a fixed order: base shrink, calendar cycle,
-//! waveform, changepoints, anomalies, observation, missingness. Relative
+//! waveform, changepoints, anomalies, halt, observation, missingness. Relative
 //! magnitudes are measured once, on the untouched base series. The released
 //! stages (changepoints, anomalies, missingness) draw from the legacy seeds
 //! exactly as before; the newer stages draw from streams derived from the raw
@@ -15,6 +15,7 @@ use crate::rng::SfRng;
 const STAGE_CALENDAR: u64 = 1;
 const STAGE_WAVEFORM: u64 = 2;
 const STAGE_OBSERVATION: u64 = 3;
+const STAGE_HALT: u64 = 4;
 
 /// Points on which a Fourier profile is normalized to peak 1.
 const PROFILE_GRID: usize = 1440;
@@ -130,12 +131,30 @@ pub struct ObservationPlan {
     pub stuck_length: usize,
 }
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum HaltState {
+    Freeze,
+    Level,
+    Calm,
+}
+
+pub struct HaltPlan {
+    pub state: HaltState,
+    pub start_low: f64,
+    pub start_high: f64,
+    pub duration: Option<usize>,
+    pub level: f64,
+    pub noise: f64,
+    pub window: usize,
+}
+
 pub struct OverlayPlan {
     pub base_weight: f64,
     pub calendar: Option<CalendarPlan>,
     pub waveform: Option<WaveformPlan>,
     pub changepoints: Option<ChangepointPlan>,
     pub anomalies: Option<AnomalyPlan>,
+    pub halt: Option<HaltPlan>,
     pub observation: Option<ObservationPlan>,
     pub missing: Option<MissingPlan>,
 }
@@ -148,6 +167,7 @@ impl Default for OverlayPlan {
             waveform: None,
             changepoints: None,
             anomalies: None,
+            halt: None,
             observation: None,
             missing: None,
         }
@@ -242,6 +262,9 @@ pub fn apply_overlays(
             if an.relative { base_scale } else { 1.0 },
         )
         .anomaly_indices;
+    }
+    if let Some(halt) = &plan.halt {
+        add_halt(values, halt, raw);
     }
     if let Some(obs) = &plan.observation {
         add_observation(values, obs, raw);
@@ -600,6 +623,69 @@ fn add_waveform(values: &mut [f64], plan: &WaveformPlan, raw: [u64; 3], base_sca
 }
 
 // ---------------------------------------------------------------------------
+// Halt
+// ---------------------------------------------------------------------------
+
+/// Replace the signal from a random step on (for `duration` steps, or to the end) with a steady state; missing values stay missing.
+fn add_halt(values: &mut [f64], plan: &HaltPlan, raw: [u64; 3]) {
+    let n = values.len();
+    let finite: Vec<bool> = values.iter().map(|v| v.is_finite()).collect();
+    if finite.iter().filter(|&&f| f).count() < 2 {
+        return;
+    }
+    let mut rng = SfRng::new(derive_seed(raw, STAGE_HALT, 0));
+    let position = if plan.start_high > plan.start_low {
+        rng.uniform(plan.start_low, plan.start_high)
+    } else {
+        plan.start_low
+    };
+    let start = ((position * n as f64).floor() as usize).clamp(1, n - 1);
+    let end = plan.duration.map_or(n, |d| start.saturating_add(d).min(n));
+    let held = match plan.state {
+        HaltState::Freeze => match (0..start).rev().find(|&t| finite[t]) {
+            Some(t) => values[t],
+            None => return,
+        },
+        HaltState::Level => {
+            let (low, high) = values
+                .iter()
+                .filter(|v| v.is_finite())
+                .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
+                    (lo.min(v), hi.max(v))
+                });
+            low + plan.level * (high - low)
+        }
+        HaltState::Calm => {
+            let recent: Vec<f64> = values[start.saturating_sub(plan.window)..start]
+                .iter()
+                .copied()
+                .filter(|v| v.is_finite())
+                .collect();
+            if recent.is_empty() {
+                return;
+            }
+            recent.iter().sum::<f64>() / recent.len() as f64
+        }
+    };
+    // Noise is in standard deviations of the series entering this stage, as for observation grid steps.
+    let noise = if plan.state == HaltState::Calm && plan.noise > 0.0 {
+        plan.noise * pi::overlay_scale(values)
+    } else {
+        0.0
+    };
+    let mut noise_rng = SfRng::new(derive_seed(raw, STAGE_HALT, 1));
+    for t in start..end {
+        if finite[t] {
+            values[t] = if noise > 0.0 {
+                noise_rng.normal(held, noise)
+            } else {
+                held
+            };
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Observation process
 // ---------------------------------------------------------------------------
 
@@ -708,6 +794,104 @@ mod tests {
             relative: true,
             fallback_additive: true,
         }
+    }
+
+    fn halt(state: HaltState, duration: Option<usize>) -> HaltPlan {
+        HaltPlan {
+            state,
+            start_low: 0.5,
+            start_high: 0.5,
+            duration,
+            level: 0.25,
+            noise: 0.0,
+            window: 10,
+        }
+    }
+
+    #[test]
+    fn test_halt_freeze_holds_the_last_reading_to_the_end() {
+        let mut values: Vec<f64> = (0..200).map(|t| (t as f64 * 0.3).sin()).collect();
+        let before = values.clone();
+        add_halt(&mut values, &halt(HaltState::Freeze, None), [1, 2, 3]);
+        assert_eq!(values[..100], before[..100]);
+        assert!(values[100..].iter().all(|&v| v == before[99]));
+    }
+
+    #[test]
+    fn test_halt_duration_near_usize_max_lasts_to_the_end() {
+        let mut values: Vec<f64> = (0..200).map(|t| (t as f64 * 0.3).sin()).collect();
+        let before = values.clone();
+        add_halt(
+            &mut values,
+            &halt(HaltState::Freeze, Some(usize::MAX)),
+            [1, 2, 3],
+        );
+        assert!(values[100..].iter().all(|&v| v == before[99]));
+    }
+
+    #[test]
+    fn test_halt_with_duration_resumes_the_signal() {
+        let mut values: Vec<f64> = (0..200).map(|t| (t as f64 * 0.3).sin()).collect();
+        let before = values.clone();
+        add_halt(&mut values, &halt(HaltState::Level, Some(40)), [1, 2, 3]);
+        let (low, high) = before
+            .iter()
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
+                (lo.min(v), hi.max(v))
+            });
+        assert!(values[100..140]
+            .iter()
+            .all(|&v| (v - (low + 0.25 * (high - low))).abs() < 1e-12));
+        assert_eq!(values[140..], before[140..]);
+    }
+
+    #[test]
+    fn test_halt_calm_holds_the_recent_mean_with_noise_and_keeps_missing_values() {
+        let mut values: Vec<f64> = (0..200).map(|t| t as f64).collect();
+        values[150] = f64::NAN;
+        let mut plan = halt(HaltState::Calm, None);
+        plan.noise = 0.01;
+        add_halt(&mut values, &plan, [1, 2, 3]);
+        assert!(values[150].is_nan());
+        let mean = (90..100).map(|t| t as f64).sum::<f64>() / 10.0;
+        let tail: Vec<f64> = values[100..]
+            .iter()
+            .copied()
+            .filter(|v| v.is_finite())
+            .collect();
+        assert!(tail.iter().all(|v| (v - mean).abs() < 5.0));
+        assert!(tail.iter().any(|&v| v != mean));
+    }
+
+    #[test]
+    fn test_halt_does_not_move_other_stages() {
+        let base: Vec<f64> = (0..300).map(|t| (t as f64 * 0.05).sin() * 3.0).collect();
+        let observation = || ObservationPlan {
+            floor: None,
+            cap: None,
+            quantum: 0.0,
+            hold: 1,
+            stuck_fraction: 0.1,
+            stuck_length: 10,
+        };
+        let without = OverlayPlan {
+            observation: Some(observation()),
+            ..Default::default()
+        };
+        let with = OverlayPlan {
+            observation: Some(observation()),
+            halt: Some(HaltPlan {
+                start_low: 0.9,
+                start_high: 0.9,
+                ..halt(HaltState::Level, None)
+            }),
+            ..Default::default()
+        };
+        let (mut a, mut b) = (base.clone(), base.clone());
+        apply_overlays(&mut a, &without, [7, 8, 9], [7, 8, 9]);
+        apply_overlays(&mut b, &with, [7, 8, 9], [7, 8, 9]);
+        // Before the halt both series saw identical observation draws.
+        assert_eq!(a[..270], b[..270]);
     }
 
     #[test]

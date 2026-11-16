@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal, Self, get_args
+from typing import Annotated, Any, ClassVar, Literal, Self, get_args
 
 import narwhals.stable.v2 as nw
 import numpy as np
@@ -26,8 +26,10 @@ from pydantic import (
     Field,
     TypeAdapter,
     field_validator,
+    model_validator,
 )
 
+from synforecast import _window
 from synforecast._analysis import classify_series, detect_seasonality
 from synforecast._dtw import nearest_dtw_neighbors
 from synforecast._fitting import fit_generator_params
@@ -1000,6 +1002,407 @@ class DBA(BaseAugmenter):
             )
 
         return synthetic_dfs
+
+
+class _RealWindowSpec(BaseAugmenter):
+    """Shared driver of the real-window specs: ``n_augment`` transformed copies per series.
+
+    Each spec has an array API used per window by training loaders:
+    ``draw(rng)`` consumes a fixed number of draws and returns the
+    data-independent parameters, and ``transform(values, mask, params)``
+    applies them (resampling specs take ``plan`` first). ``apply`` runs the
+    same functions on whole series. Missing values are kept as missing, not
+    interpolated. A copy is written onto the source's last rows (its own
+    timestamps and extra columns), so a resampled copy keeps the source's
+    frequency label. Series a spec cannot transform are skipped with a
+    logged warning; at least one series must be usable.
+    """
+
+    n_augment: Int = Field(
+        default=1,
+        ge=1,
+        le=1000,
+        description="Copies per usable source series, 1 to 1000",
+    )
+
+    _suffix: ClassVar[str] = ""
+
+    def _series(
+        self, values: np.ndarray, observed: np.ndarray, rng: np.random.Generator
+    ) -> tuple[np.ndarray, np.ndarray] | None:
+        """One whole-series copy, or None when this series cannot be transformed."""
+        raise NotImplementedError
+
+    def _synthesize(self, run: "_Run") -> list[nw.DataFrame]:
+        id_col, _, target_col, _ = run.columns
+        rng = run.rng
+        unique_ids = sorted(run.df[id_col].unique().to_list())
+        reserved_ids = {str(series_id) for series_id in unique_ids}
+        references: list[nw.DataFrame] = []
+        generated_ids: list[str] = []
+        copies: list[np.ndarray] = []
+        skipped: list[Any] = []
+        for series_id in unique_ids:
+            raw = run.partitions[series_id].select(target_col).to_numpy().flatten()
+            raw = raw.astype(float)
+            if np.isinf(raw).any():
+                raise ValueError(
+                    f"source series {series_id!r} must not contain infinite values"
+                )
+            values, observed = _window.as_pair(raw)
+            usable = False
+            for i in range(self.n_augment):
+                result = self._series(values, observed, rng) if observed.any() else None
+                if result is None:
+                    continue
+                usable = True
+                y = result[0]
+                references.append(run.out_partitions[series_id][len(raw) - len(y) :])
+                generated_ids.append(
+                    _reserve_generated_id(
+                        f"{series_id}_{self._suffix}_{i}", reserved_ids
+                    )
+                )
+                copies.append(y)
+            if not usable:
+                skipped.append(series_id)
+        _warn_skipped(self._suffix, skipped)
+        if not copies:
+            raise ValueError(f"{self._suffix} found no series it can transform")
+        return [
+            _stack_frames(
+                references, generated_ids, copies, run.out_engine, id_col, target_col
+            )
+        ]
+
+
+class Downsample(_RealWindowSpec):
+    """Mean-pool a real series over k-point buckets, k ~ U{k_min..cap}.
+
+    The cap keeps at least ``min_points`` buckets; a series shorter than
+    ``k_min * min_points`` is skipped. A bucket is the mean of its observed
+    values and missing when it has none.
+
+    IDs follow the pattern ``"{original_id}_downsample_{i}"``.
+
+    Args:
+        n_augment (int): Copies per usable source, from 1 to 1000 (default: 1).
+        k_min (int): Smallest factor (default: 2).
+        k_max (int): Largest factor before the cap (default: 8).
+        min_points (int): Buckets that must remain (default: 512).
+        seed (int | None): Default random seed for ``apply`` (default: None)
+    """
+
+    k_min: Int = Field(default=2, ge=2, description="Smallest bucket size")
+    k_max: Int = Field(
+        default=8, ge=2, description="Largest bucket size before the cap"
+    )
+    min_points: Int = Field(default=512, ge=1, description="Buckets that must remain")
+
+    _suffix: ClassVar[str] = "downsample"
+
+    @model_validator(mode="after")
+    def _check_range(self) -> Self:
+        if self.k_min > self.k_max:
+            raise ValueError("k_min must not exceed k_max")
+        return self
+
+    def draw(self, rng: np.random.Generator) -> tuple[float, float]:
+        """Two uniforms: the factor and the crop start."""
+        u = rng.random(2)
+        return float(u[0]), float(u[1])
+
+    def plan(
+        self, params: tuple[float, float], length: int, want: int
+    ) -> _window.Resample | None:
+        """The raw slice and factor for a ``want``-point crop of a ``length``-point series."""
+        return _window.plan_downsample(
+            params[0], params[1], length, want, self.k_min, self.k_max, self.min_points
+        )
+
+    def transform(
+        self, values: np.ndarray, mask: np.ndarray | None, plan: _window.Resample
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Resample the planned raw slice ``values[plan.start:plan.stop]``."""
+        return _window.resample(*_window.as_pair(values, mask), plan)
+
+    def _series(self, values, observed, rng):
+        plan = self.plan(self.draw(rng), len(values), len(values))
+        if plan is None:
+            return None
+        return _window.resample(
+            values[plan.start : plan.stop], observed[plan.start : plan.stop], plan
+        )
+
+
+class Stretch(_RealWindowSpec):
+    """Resample a real series to a faster or slower clock.
+
+    With probability ``up_share`` (or when the series is too short to slow
+    down) the series is stretched up by r ~ LogU(``up_min``, ``up_max``):
+    linear interpolation between observed knots plus a Brownian bridge of
+    scale c x (robust step scale of the prefix), c ~ U(0, 1); an output
+    between knots is missing when either knot is. Otherwise it is slowed by
+    k ~ LogU(``down_min``, min(``down_max``, length / ``min_points``)) with
+    fractional bucket means (missing below a quarter step of coverage).
+
+    IDs follow the pattern ``"{original_id}_stretch_{i}"``.
+
+    Args:
+        n_augment (int): Copies per usable source, from 1 to 1000 (default: 1).
+        up_share (float): Probability of stretching up (default: 0.5).
+        up_min (float): Smallest up factor (default: 1.15).
+        up_max (float): Largest up factor (default: 3.0).
+        down_min (float): Smallest down factor (default: 1.15).
+        down_max (float): Largest down factor (default: 6.0).
+        min_points (int): Points a slowed series keeps (default: 512).
+        prefix (int): Observed values read by the bridge scale (default: 512).
+        seed (int | None): Default random seed for ``apply`` (default: None)
+    """
+
+    up_share: Float = Field(
+        default=0.5, ge=0, le=1, description="Probability of stretching up"
+    )
+    up_min: Float = Field(default=1.15, gt=1, description="Smallest up factor")
+    up_max: Float = Field(default=3.0, gt=1, description="Largest up factor")
+    down_min: Float = Field(default=1.15, gt=1, description="Smallest down factor")
+    down_max: Float = Field(default=6.0, gt=1, description="Largest down factor")
+    min_points: Int = Field(
+        default=512, ge=1, description="Points a slowed series keeps"
+    )
+    prefix: Int = Field(
+        default=_window.PREFIX, ge=1, description="Observed values read"
+    )
+
+    _suffix: ClassVar[str] = "stretch"
+
+    @model_validator(mode="after")
+    def _check_range(self) -> Self:
+        if self.up_min > self.up_max or self.down_min > self.down_max:
+            raise ValueError("factor minimum must not exceed its maximum")
+        return self
+
+    def draw(self, rng: np.random.Generator) -> tuple[float, float, float, float, int]:
+        """Four uniforms (direction, factor, bridge scale, start) and a bridge seed."""
+        u = rng.random(4)
+        return (*map(float, u), int(rng.integers(0, 2**63)))
+
+    def plan(self, params: tuple, length: int, want: int) -> _window.Resample:
+        """The raw slice and factor for a ``want``-point crop of a ``length``-point series."""
+        return _window.plan_stretch(
+            *params,
+            length,
+            want,
+            self.up_share,
+            (self.up_min, self.up_max),
+            (self.down_min, self.down_max),
+            self.min_points,
+        )
+
+    def transform(
+        self, values: np.ndarray, mask: np.ndarray | None, plan: _window.Resample
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Resample the planned raw slice ``values[plan.start:plan.stop]``."""
+        return _window.resample(*_window.as_pair(values, mask), plan, self.prefix)
+
+    def _series(self, values, observed, rng):
+        plan = self.plan(self.draw(rng), len(values), len(values))
+        return _window.resample(
+            values[plan.start : plan.stop],
+            observed[plan.start : plan.stop],
+            plan,
+            self.prefix,
+        )
+
+
+class PowerWarp(_RealWindowSpec):
+    """Scale-preserving power warp of a nonnegative real series.
+
+    ``s * sign(x) * |x / s| ** p`` with s the mean absolute value of the first
+    ``prefix`` observed values; p ~ LogU(``p_min``, ``p_max``), convex with
+    probability ``convex`` and otherwise 1 / p. Only series whose prefix is
+    nonnegative are warped; the sign is kept, so a later negative value is
+    warped symmetrically rather than clipped.
+
+    IDs follow the pattern ``"{original_id}_powerwarp_{i}"``.
+
+    Args:
+        n_augment (int): Copies per usable source, from 1 to 1000 (default: 1).
+        p_min (float): Smallest exponent (default: 1.25).
+        p_max (float): Largest exponent (default: 2.5).
+        convex (float): Probability of p > 1 (default: 0.65).
+        prefix (int): Observed values read by the scale (default: 512).
+        seed (int | None): Default random seed for ``apply`` (default: None)
+    """
+
+    p_min: Float = Field(default=1.25, ge=1, description="Smallest exponent")
+    p_max: Float = Field(default=2.5, ge=1, description="Largest exponent")
+    convex: Float = Field(default=0.65, ge=0, le=1, description="Probability of p > 1")
+    prefix: Int = Field(
+        default=_window.PREFIX, ge=1, description="Observed values read"
+    )
+
+    _suffix: ClassVar[str] = "powerwarp"
+
+    @model_validator(mode="after")
+    def _check_range(self) -> Self:
+        if self.p_min > self.p_max:
+            raise ValueError("p_min must not exceed p_max")
+        return self
+
+    def draw(self, rng: np.random.Generator) -> float:
+        """The exponent, from two uniforms."""
+        u = rng.random(2)
+        p = _window._log_uniform(float(u[0]), self.p_min, self.p_max)
+        return p if u[1] < self.convex else 1.0 / p
+
+    def transform(
+        self, values: np.ndarray, mask: np.ndarray | None, params: float
+    ) -> tuple[np.ndarray, np.ndarray] | None:
+        """Warped values and mask, or None when the prefix is empty or has a negative value."""
+        return _window.power_warp(*_window.as_pair(values, mask), params, self.prefix)
+
+    def _series(self, values, observed, rng):
+        return _window.power_warp(values, observed, self.draw(rng), self.prefix)
+
+
+class AmplitudeEnvelope(_RealWindowSpec):
+    """Multiply a real series by a random piecewise-linear envelope.
+
+    The envelope runs from the first observed point to the end, with two
+    interior knots at sorted U(0, 1) positions and a lognormal(0, ``sigma``)
+    level at each of its 4 knots.
+
+    IDs follow the pattern ``"{original_id}_envelope_{i}"``.
+
+    Args:
+        n_augment (int): Copies per usable source, from 1 to 1000 (default: 1).
+        sigma (float): Log-scale spread of the knot levels (default: 0.3).
+        seed (int | None): Default random seed for ``apply`` (default: None)
+    """
+
+    sigma: Float = Field(
+        default=0.3, ge=0, description="Log-scale spread of knot levels"
+    )
+
+    _suffix: ClassVar[str] = "envelope"
+
+    def draw(self, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+        """Knot positions (0, two sorted uniforms, 1) and their 4 levels."""
+        interior = np.sort(rng.random(2))
+        levels = np.exp(self.sigma * rng.standard_normal(4))
+        return np.concatenate([[0.0], interior, [1.0]]), levels
+
+    def transform(
+        self,
+        values: np.ndarray,
+        mask: np.ndarray | None,
+        params: tuple[np.ndarray, np.ndarray],
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Values times the envelope, and the unchanged mask."""
+        return _window.amplitude_envelope(*_window.as_pair(values, mask), *params)
+
+    def _series(self, values, observed, rng):
+        return _window.amplitude_envelope(values, observed, *self.draw(rng))
+
+
+class Censor(_RealWindowSpec):
+    """Saturate a real series at a quantile of its prefix.
+
+    With probability ``bottom_share`` a floor at the q ~ U(0, ``bottom_max``)
+    quantile, otherwise a cap at q ~ U(``top_min``, 1). The quantile is the
+    nearest-rank order statistic of the first ``prefix`` observed values.
+    As with ``Observation``'s floor and cap, observed values are clamped and
+    missing values stay missing. Series with fewer than two observations
+    are skipped.
+
+    IDs follow the pattern ``"{original_id}_censor_{i}"``.
+
+    Args:
+        n_augment (int): Copies per usable source, from 1 to 1000 (default: 1).
+        bottom_share (float): Probability of a floor (default: 0.5).
+        bottom_max (float): Largest floor quantile (default: 0.4).
+        top_min (float): Smallest cap quantile (default: 0.6).
+        prefix (int): Observed values read by the quantile (default: 512).
+        seed (int | None): Default random seed for ``apply`` (default: None)
+    """
+
+    bottom_share: Float = Field(
+        default=0.5, ge=0, le=1, description="Probability of a floor"
+    )
+    bottom_max: Float = Field(
+        default=0.4, ge=0, le=1, description="Largest floor quantile"
+    )
+    top_min: Float = Field(default=0.6, ge=0, le=1, description="Smallest cap quantile")
+    prefix: Int = Field(
+        default=_window.PREFIX, ge=2, description="Observed values read"
+    )
+
+    _suffix: ClassVar[str] = "censor"
+
+    def draw(self, rng: np.random.Generator) -> tuple[bool, float]:
+        """Floor or cap, and its quantile, from two uniforms."""
+        u = rng.random(2)
+        bottom = bool(u[0] < self.bottom_share)
+        q = (
+            self.bottom_max * u[1]
+            if bottom
+            else self.top_min + (1 - self.top_min) * u[1]
+        )
+        return bottom, float(q)
+
+    def transform(
+        self, values: np.ndarray, mask: np.ndarray | None, params: tuple[bool, float]
+    ) -> tuple[np.ndarray, np.ndarray] | None:
+        """Saturated values and mask, or None below two prefix observations."""
+        return _window.censor(*_window.as_pair(values, mask), *params, self.prefix)
+
+    def _series(self, values, observed, rng):
+        return _window.censor(values, observed, *self.draw(rng), self.prefix)
+
+
+class Negate(_RealWindowSpec):
+    """Flip the sign of a real series.
+
+    IDs follow the pattern ``"{original_id}_negate_{i}"``.
+
+    Args:
+        n_augment (int): Copies per usable source, from 1 to 1000 (default: 1).
+        seed (int | None): Default random seed for ``apply`` (default: None)
+    """
+
+    _suffix: ClassVar[str] = "negate"
+
+    def transform(
+        self, values: np.ndarray, mask: np.ndarray | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Negated values and the unchanged mask."""
+        return _window.negate(*_window.as_pair(values, mask))
+
+    def _series(self, values, observed, _rng):
+        return _window.negate(values, observed)
+
+
+class Reverse(_RealWindowSpec):
+    """Reverse a real series in time between its first and last observations.
+
+    IDs follow the pattern ``"{original_id}_reverse_{i}"``.
+
+    Args:
+        n_augment (int): Copies per usable source, from 1 to 1000 (default: 1).
+        seed (int | None): Default random seed for ``apply`` (default: None)
+    """
+
+    _suffix: ClassVar[str] = "reverse"
+
+    def transform(
+        self, values: np.ndarray, mask: np.ndarray | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Reversed values and mask."""
+        return _window.reverse(*_window.as_pair(values, mask))
+
+    def _series(self, values, observed, _rng):
+        return _window.reverse(values, observed)
 
 
 def analyze(
