@@ -526,6 +526,7 @@ Mean-reverting Ornstein-Uhlenbeck process, the continuous-time analog of AR(1). 
 | `sigma` | `1.0` | Volatility (> 0) |
 | `initial_value` | `0.0` | Initial value |
 | `dt` | `1.0` | Time step (> 0) |
+| `regime_rate` | `0.0` | Share of series drawn as regime-switching OU paths (`RegimeOUGenerator`); 0 leaves the process unchanged |
 
 ### GeometricBrownianMotionGenerator
 
@@ -1012,6 +1013,60 @@ Simulation options also apply while scoring candidates. Pattern injection and
 search-owned parameter options are not accepted. Native search changes the
 seeded stream used by the former Python search; worker counts do not change it.
 
+### Simons-parity families and transform layer
+
+Ports of the synthetic families and transform layer of the Simons TSFM
+recipe (stage-1 priors in `simons/synth`), in numpy with SynForecast's
+random streams. They match the reference in distribution, not bitwise.
+
+| Generator | Simons family | Prior |
+|-----------|---------------|-------|
+| `CauKerGenerator` | `cauker` | Nonlinear causal DAG over KernelSynth-style roots; one node observed |
+| `PolyrhythmGenerator` | `rhythm` | 3-5 beat layers at divisions of a base period, decaying envelopes, carrier, drift |
+| `AMFMWaveGenerator` | `wave` | Sine/square/triangle/saw components with slowly modulated frequency and amplitude |
+| `ForecastPFNGenerator` | `fpfn` | Positive trend x up to two seasonal factors x Weibull noise |
+| `RegimeOUGenerator` | `sde` | Regime-switching OU with drifting mean, reversion speed and volatility, optional fGn |
+| `EpidemicGenerator` | `epi` | Stochastic SEIRS/SIRS, interventions, reporting delay, weekday effects |
+| `FluidQueueGenerator` | `queue` | Fluid queue under daily load: utilisation, backlog, latency, throughput or speed |
+| `RainfallRunoffGenerator` | `hydro` | Markov rain, snow, soil bucket, routing and groundwater |
+| `ThermalGenerator` | `thermal` | Two-node thermal network with load heat and thermostat or proportional cooling |
+
+The mechanistic generators simulate one path per draw (`simulation_length`
+9,216 steps after a 512-step burn-in, as Simons' trajectory bank) and crop one
+channel the way Simons crops its bank; a path that is not finite, bounded and
+still moving is re-simulated up to `max_attempts` times. Simons instead reuses
+a bank of 8,192 paths refreshed every 400 calls; single draws follow the same
+law, without the bank's reuse; like the bank, each path is rounded to
+float16 after RMS normalisation, and the recurrences run as native loops.
+`simons_parity.exposure_counters()` reports
+draws, redraws and fallbacks per simulator. Every new generator also has
+`generate_block(n_series, length)`, a vectorised draw without overlays.
+
+`pretraining_pool(include_simons_parity=True)` appends the eight families
+(all but `RegimeOUGenerator`) after every other entry, so existing indices
+and draws are unchanged; `simons_regime_ou_rate` sets `regime_rate` on the
+extended `OrnsteinUhlenbeckGenerator` entry, the share of its series drawn as
+regime-switching OU paths. `simons_parity.member_weights(stage)` gives each
+family's normalised Simons-25M weight: 22.64% in total in stages 1 and 2, 20%
+in stages 3, 4 and 4-long (mechanistic families 0).
+
+`SimonsParity` is the transform layer for numpy rows (native units, NaN =
+missing), per stage via `SimonsParity.from_stage(stage)`:
+
+| Step | Component | Simons-25M setting |
+|------|-----------|--------------------|
+| T1 | `BatchAugment` (`batch_augment(values, group, rng)`) | 40% of rows; 1 category, or 2 with probability 0.3; mix 0.35, season 0.25, filter 0.2, lattice 0.2; mix donors are other rows of the batch |
+| T3 | `RandomUnits.flip` | time flip 25%, shared within a group |
+| T2 | `Noisers` | 30% of rows: Poisson counts, lognormal-modulated counts, lognormal shocks, 1% Gaussian spikes of scale U[3, 10] |
+| T3 | `RandomUnits` | sign flip 25%, scale LogU[1e-2, 1e4], 30% shifted to a zero minimum, else offset U[-3, 3]; count rows keep their values |
+| T4 | `DutyCycle` | stages 1 and 2 only: 10% of non-count rows, Markov on/off runs LogU[4, 512], half periodic |
+| T3 | `Gaps` | 10% of rows: holes of 1-32 steps at a start rate LogU[0.001, 0.02], last 32 steps kept |
+
+`series_transforms(values, group, rng)` runs the rows after T1 in that order;
+short-history padding is left to the caller. Statistics read finite values
+only and NaN positions are never filled. Both methods return realized counts
+per decision for exposure logging.
+
 ### Multivariatizer
 
 Not a generator: `synforecast.Multivariatizer` wraps any univariate
@@ -1032,6 +1087,11 @@ mv = Multivariatizer(
 )
 df = mv.generate(n_series=4)
 ```
+
+Bases are drawn with the wrapped generator's `generate_single_series`;
+`native_bases=True` draws them with `generate_native_series` instead (the
+native batch kernel, no overlays), which for TCM is several times faster
+and matches the Python law only in distribution.
 
 TSI, TCM, MAR, and KernelSynth use the Rust batch path for bulk `generate()`
 calls. MAR feature computation and the MBB/DBA numeric kernels are also
@@ -1078,6 +1138,15 @@ scripts in `benchmarks/`; benchmark results are not API guarantees.
 | TCM | Pretraining | Foundation models | Random causal graphs, nonlinear lead-lag structure |
 | KernelSynth | Pretraining | Foundation models | GP samples from randomly composed kernels (Chronos recipe) |
 | MAR | Pretraining | Foundation models | Random mixtures of stationary AR components (GRATIS recipe), feature-targeted tuning |
+| CauKer | Pretraining | Foundation models | Causal DAGs over kernel roots (Simons port) |
+| Polyrhythm | Pretraining | Foundation models | Layered beat trains (Simons port) |
+| AMFMWave | Pretraining | Foundation models | Modulated waveform mixtures (Simons port) |
+| ForecastPFN | Pretraining | Foundation models | Multiplicative trend x seasonality x noise (Simons port) |
+| RegimeOU | Pretraining | Foundation models | Regime-switching OU (Simons port) |
+| Epidemic | Pretraining | Epidemiology | Stochastic SEIRS with reporting (Simons port) |
+| FluidQueue | Pretraining | Operations | Fluid-queue observables (Simons port) |
+| RainfallRunoff | Pretraining | Hydrology | Bucket rainfall-runoff model (Simons port) |
+| Thermal | Pretraining | Buildings/Energy | Two-node thermal network (Simons port) |
 
 ---
 

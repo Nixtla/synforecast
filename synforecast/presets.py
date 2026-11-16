@@ -14,13 +14,16 @@ import pandas as pd
 from pandas.tseries import offsets as _offsets
 
 from synforecast.base import BaseGenerator
+from synforecast.generators.amfm_wave import AMFMWaveGenerator
 from synforecast.generators.bounded_process import BoundedProcessGenerator
+from synforecast.generators.cauker import CauKerGenerator
 from synforecast.generators.chaotic_system import ChaoticSystemGenerator
 from synforecast.generators.clickstream import ClickstreamGenerator
 from synforecast.generators.cyclic import CyclicGenerator
 from synforecast.generators.daily_active_users import DailyActiveUsersGenerator
 from synforecast.generators.energy_load import EnergyLoadGenerator
 from synforecast.generators.ets import ETSGenerator
+from synforecast.generators.forecast_pfn import ForecastPFNGenerator
 from synforecast.generators.fractional_brownian_motion import (
     FractionalBrownianMotionGenerator,
 )
@@ -37,8 +40,15 @@ from synforecast.generators.jump_diffusion import JumpDiffusionGenerator
 from synforecast.generators.kernel_synth import KernelSynthGenerator
 from synforecast.generators.levy_process import LevyProcessGenerator
 from synforecast.generators.mar import MARGenerator
+from synforecast.generators.mechanistic import (
+    EpidemicGenerator,
+    FluidQueueGenerator,
+    RainfallRunoffGenerator,
+    ThermalGenerator,
+)
 from synforecast.generators.ornstein_uhlenbeck import OrnsteinUhlenbeckGenerator
 from synforecast.generators.poisson_process import PoissonProcessGenerator
+from synforecast.generators.polyrhythm import PolyrhythmGenerator
 from synforecast.generators.random_walk import RandomWalkGenerator
 from synforecast.generators.regime_switching import RegimeSwitchingGenerator
 from synforecast.generators.sarima import SARIMAGenerator
@@ -122,6 +132,18 @@ _EXTENDED: tuple[tuple[type[BaseGenerator], dict[str, Any]], ...] = (
     (SeasonalGenerator, {}),
     (StateSpaceGenerator, {}),
     (StochasticVolatilityGenerator, {}),
+)
+
+# Families ported from the Simons TSFM recipe, in synforecast.simons_parity.SIMONS_MEMBERS order.
+_SIMONS_PARITY: tuple[type[BaseGenerator], ...] = (
+    CauKerGenerator,
+    PolyrhythmGenerator,
+    AMFMWaveGenerator,
+    ForecastPFNGenerator,
+    EpidemicGenerator,
+    FluidQueueGenerator,
+    RainfallRunoffGenerator,
+    ThermalGenerator,
 )
 
 
@@ -1167,6 +1189,8 @@ def pretraining_pool(
     halt_rate: float = 0.0,
     peak_calendar_rate: float = 0.0,
     step_cycle_rate: float = 0.0,
+    include_simons_parity: bool = False,
+    simons_regime_ou_rate: float = 0.0,
     **base_kwargs: Any,
 ) -> list[BaseGenerator]:
     """Create a breadth-maximizing pool for foundation-model pretraining.
@@ -1263,6 +1287,17 @@ def pretraining_pool(
             sized to ``min_length``, from its own stream of ``(overlay_seed,
             index)``. Pools at rate 0 are unchanged. Requires
             ``overlay_seed``. Default 0.0.
+        include_simons_parity: When True, append one instance of each family
+            ported from the Simons TSFM recipe (CauKer, Polyrhythm, AMFMWave,
+            ForecastPFN, Epidemic, FluidQueue, RainfallRunoff, Thermal; see
+            :data:`synforecast.simons_parity.SIMONS_MEMBERS`) after all
+            other entries, so existing indices are unchanged. Their stage
+            shares are :func:`synforecast.simons_parity.member_weights`.
+            Default False.
+        simons_regime_ou_rate: ``regime_rate`` of the extended
+            OrnsteinUhlenbeck entry: the share of its series drawn as
+            regime-switching OU paths (the Simons ``sde`` prior). At 0
+            (default) the entry is unchanged.
         **base_kwargs: Additional keyword arguments passed to all generators
             (e.g., engine, id_col, time_col, target_col).
 
@@ -1302,6 +1337,10 @@ def pretraining_pool(
             raise ValueError(f"{name} needs an overlay_seed")
     if n_meta_variants < 1:
         raise ValueError("n_meta_variants must be >= 1")
+    if not 0.0 <= simons_regime_ou_rate <= 1.0:
+        raise ValueError(
+            f"simons_regime_ou_rate must be in [0, 1], got {simons_regime_ou_rate}"
+        )
     if seasonal_period is not None and seasonal_period < 1:
         raise ValueError(f"seasonal_period must be >= 1, got {seasonal_period}")
 
@@ -1364,14 +1403,33 @@ def pretraining_pool(
     # Seed offsets 3000.. sit past the interpretable, meta and seasonal ranges.
     extended: list[_Spec] = (
         [
-            partial(cls, **base, seed=_seed(3000 + k), **settings)
+            partial(
+                cls,
+                **base,
+                seed=_seed(3000 + k),
+                **settings,
+                **(
+                    {"regime_rate": simons_regime_ou_rate}
+                    if cls is OrnsteinUhlenbeckGenerator and simons_regime_ou_rate > 0
+                    else {}
+                ),
+            )
             for k, (cls, settings) in enumerate(_EXTENDED)
         ]
         if include_extended
         else []
     )
+    # Seed offsets 4000.. sit past the extended range.
+    simons: list[_Spec] = (
+        [
+            partial(cls, **base, seed=_seed(4000 + k))
+            for k, cls in enumerate(_SIMONS_PARITY)
+        ]
+        if include_simons_parity
+        else []
+    )
     return _build(
-        interpretable + meta + seasonal + extended,
+        interpretable + meta + seasonal + extended + simons,
         members,
         overlay_seed,
         calendar_rate,

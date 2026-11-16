@@ -555,7 +555,52 @@ class domain:
         seed: int,
     ) -> npt.NDArray[np.float64]: ...
 
+class mechanistic:
+    @staticmethod
+    def epidemic(
+        x0: list[float],
+        beta: npt.NDArray[np.float64],
+        p_const: list[float],
+        p_birth: float,
+        pop: float,
+        imports: npt.NDArray[np.float64],
+        z: npt.NDArray[np.float64],
+        burn: int,
+        length: int,
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]: ...
+    @staticmethod
+    def rainfall_runoff(
+        soil0: float,
+        params: list[float],
+        occ: npt.NDArray[np.float64],
+        p01_t: npt.NDArray[np.float64],
+        amount: npt.NDArray[np.float64],
+        snow_frac: npt.NDArray[np.float64],
+        melt_rate: npt.NDArray[np.float64],
+        pet: npt.NDArray[np.float64],
+        burn: int,
+        length: int,
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]: ...
+    @staticmethod
+    def thermal(
+        t1_0: float,
+        params: list[float],
+        proportional: bool,
+        ambient: npt.NDArray[np.float64],
+        heat: npt.NDArray[np.float64],
+        burn: int,
+        length: int,
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]: ...
+
 class batch:
+    @staticmethod
+    def tcm_trace(
+        length: int,
+        scalar_params: npt.NDArray[np.float64],
+        edge_kinds: npt.NDArray[np.float64],
+        noise_types: npt.NDArray[np.float64],
+        seed: int,
+    ) -> tuple[npt.NDArray[np.float64], dict[str, Any]]: ...
     @staticmethod
     def generate_batch(
         gen_type: int,

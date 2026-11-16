@@ -4,6 +4,29 @@
 
 ### Added
 
+- Simons-parity ports: generators `CauKerGenerator`, `PolyrhythmGenerator`,
+  `AMFMWaveGenerator`, `ForecastPFNGenerator`, `RegimeOUGenerator`,
+  `EpidemicGenerator`, `FluidQueueGenerator`, `RainfallRunoffGenerator` and
+  `ThermalGenerator` (the Simons TSFM stage-1 families, in law), each with a
+  vectorised `generate_block`; `OrnsteinUhlenbeckGenerator(regime_rate=...)`;
+  `pretraining_pool(include_simons_parity=..., simons_regime_ou_rate=...)`,
+  which appends the families after every existing entry; and
+  `synforecast.simons_parity`, the transform layer (`SimonsParity` with
+  `BatchAugment`, `Noisers`, `RandomUnits`, `DutyCycle`, `Gaps`, per stage via
+  `from_stage`) for numpy rows, with Simons-25M stage family weights
+  (`member_weights`) and exposure counters. The mechanistic recurrences run
+  as native loops (`synforecast._lib.mechanistic`), bitwise equal to the
+  Python reference loops. Defaults leave every existing generator and pool
+  draw unchanged.
+
+- `BaseGenerator.generate_native_series(length)`: one series from the
+  generator's native batch kernel without overlays, seeded from its stream;
+  `Multivariatizer(native_bases=True)` draws its bases that way (default
+  False, unchanged). `synforecast._lib.batch.tcm_trace` returns a native TCM
+  series with diagnostics of its accepted SCM (sizes, spectral radius before
+  and after the stability rescale, rescale branch, redraws, fallback); the
+  native TCM output itself is unchanged.
+
 - Real-window augmentation specs `Downsample`, `Stretch`, `PowerWarp`,
   `AmplitudeEnvelope`, `Censor`, `Negate` and `Reverse` (after the Simons
   training code), with `apply(df)` and a per-window numpy API (`draw`,

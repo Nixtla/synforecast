@@ -1,6 +1,6 @@
 ---
 title: Pretraining Generators
-description: TSI, TCM, KernelSynth, and MAR generators for foundation-model pretraining
+description: TSI, TCM, KernelSynth, MAR and Simons-parity generators for foundation-model pretraining
 ---
 
 ::: synforecast.generators.tsi.TSIGenerator
@@ -25,3 +25,57 @@ description: TSI, TCM, KernelSynth, and MAR generators for foundation-model pret
         - generate_single_series
         - tune_to_features
         - tuning_diagnostics
+
+::: synforecast.generators.cauker.CauKerGenerator
+    options:
+      members:
+        - generate_single_series
+        - generate_block
+
+::: synforecast.generators.polyrhythm.PolyrhythmGenerator
+    options:
+      members:
+        - generate_single_series
+        - generate_block
+
+::: synforecast.generators.amfm_wave.AMFMWaveGenerator
+    options:
+      members:
+        - generate_single_series
+        - generate_block
+
+::: synforecast.generators.forecast_pfn.ForecastPFNGenerator
+    options:
+      members:
+        - generate_single_series
+        - generate_block
+
+::: synforecast.generators.regime_ou.RegimeOUGenerator
+    options:
+      members:
+        - generate_single_series
+        - generate_block
+
+::: synforecast.generators.mechanistic.EpidemicGenerator
+    options:
+      members:
+        - generate_single_series
+        - generate_block
+
+::: synforecast.generators.mechanistic.FluidQueueGenerator
+    options:
+      members:
+        - generate_single_series
+        - generate_block
+
+::: synforecast.generators.mechanistic.RainfallRunoffGenerator
+    options:
+      members:
+        - generate_single_series
+        - generate_block
+
+::: synforecast.generators.mechanistic.ThermalGenerator
+    options:
+      members:
+        - generate_single_series
+        - generate_block

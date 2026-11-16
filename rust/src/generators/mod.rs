@@ -1,6 +1,7 @@
 pub mod domain;
 pub mod kernel_synth;
 pub mod mar;
+pub mod mechanistic;
 pub mod multivariate;
 pub mod statistical;
 pub mod stochastic;

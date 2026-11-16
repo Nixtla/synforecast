@@ -895,6 +895,45 @@ class BaseGenerator(BaseModel, ABC):
 
         return all_metadata
 
+    def generate_native_series(self, length: int) -> np.ndarray:
+        """Draw one series from the generator's native batch kernel, without overlays.
+
+        The kernel's seed is the next draw of the generator's stream, so a
+        seeded generator gives the same series on every run. The law is the
+        native kernel's, whose random streams differ from
+        :meth:`generate_single_series`; the two match in distribution only
+        where the kernel is verified to (see the generator's tests).
+
+        Args:
+            length (int): The length of the series to generate.
+
+        Returns:
+            Array of time series values.
+
+        Raises:
+            NotImplementedError: If the generator, in its current
+                configuration, has no native batch kernel.
+        """
+        gen_type = self._batch_gen_type
+        params = self._get_batch_params() if gen_type is not None else None
+        if params is None:
+            raise NotImplementedError(
+                f"{type(self).__name__} has no native batch kernel in this configuration"
+            )
+        scalars, arrays = params
+        seed = self.rng.integers(0, 2**63, size=1, dtype=np.uint64)
+        results = _rs_batch.generate_batch(
+            gen_type,
+            scalars,
+            arrays,
+            np.array([length], dtype=np.int32),
+            seed,
+            np.zeros(3, dtype=np.uint64),
+            _NO_OVERLAYS,
+            n_workers=1,
+        )
+        return np.asarray(results[0]["values"], dtype=np.float64)
+
     @abstractmethod
     def generate_single_series(self, length: int) -> np.ndarray:
         """Generate values for a single time series.

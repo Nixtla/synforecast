@@ -82,6 +82,10 @@ class Multivariatizer(BaseModel):
             each coupled channel, after the level and scale restore (default:
             False, which keeps channels free of overlays as before).
         seed (int | None): Random seed for reproducibility (default: None).
+        native_bases (bool): Draw each base series with the wrapped
+            generator's ``generate_native_series`` (its native batch kernel,
+            no overlays) instead of ``generate_single_series`` (default:
+            False, which leaves every draw unchanged).
 
     Example:
         >>> from synforecast.generators import TSIGenerator
@@ -111,6 +115,10 @@ class Multivariatizer(BaseModel):
     )
     seed: int | None = Field(
         default=None, description="Random seed for reproducibility"
+    )
+    native_bases: bool = Field(
+        default=False,
+        description="Draw base series from the wrapped generator's native batch kernel",
     )
 
     _rng: np.random.Generator = PrivateAttr()
@@ -169,8 +177,13 @@ class Multivariatizer(BaseModel):
 
     def _draw_base(self, gen: BaseGenerator, length: int) -> np.ndarray:
         """Draw one guarded base series; fall back to noise after redraws."""
+        draw = (
+            gen.generate_native_series
+            if self.native_bases
+            else gen.generate_single_series
+        )
         for _ in range(_MAX_REDRAWS + 1):
-            values = np.asarray(gen.generate_single_series(length), dtype=np.float64)
+            values = np.asarray(draw(length), dtype=np.float64)
             if self._series_ok(values):
                 return values
         return self.rng.normal(0.0, 1.0, length)

@@ -64,6 +64,7 @@ from synforecast.presets import (
     step_cycle_overlays,
 )
 from synforecast.real_augment import RealWindowAugment, WindowPlan
+from synforecast.simons_parity import SimonsParity
 from synforecast.utils import generate_series
 
 __all__ = [
@@ -91,6 +92,7 @@ __all__ = [
     "PowerWarp",
     "RealWindowAugment",
     "Reverse",
+    "SimonsParity",
     "Stretch",
     "SynAugment",
     "SynSet",

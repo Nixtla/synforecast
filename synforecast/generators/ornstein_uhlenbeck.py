@@ -3,6 +3,7 @@
 import numpy as np
 from pydantic import Field, model_validator
 
+from synforecast import _families
 from synforecast._lib import stochastic as _rs_stoch
 from synforecast.base import BaseGenerator
 
@@ -36,6 +37,11 @@ class OrnsteinUhlenbeckGenerator(BaseGenerator):
         sigma (float): Volatility (default: 1.0).
         initial_value (float): Initial value X_0 (default: 0.0).
         dt (float): Model time step per observation (default: 1.0).
+        regime_rate (float): Probability that a series is instead a
+            regime-switching OU path with drifting mean, reversion speed and
+            volatility (the Simons ``sde`` prior, see ``RegimeOUGenerator``),
+            in standardised units. At 0 (default) no extra draw is made and
+            the series are exactly those of the plain process.
         seed (int | None): Random seed for reproducibility (default: None).
     """
 
@@ -44,6 +50,9 @@ class OrnsteinUhlenbeckGenerator(BaseGenerator):
     sigma: float = Field(default=1.0, gt=0, description="Volatility")
     initial_value: float = Field(default=0.0, description="Initial value")
     dt: float = Field(default=1.0, gt=0, description="Time step")
+    regime_rate: float = Field(
+        default=0.0, ge=0, le=1, description="Share of regime-switching OU series"
+    )
 
     @model_validator(mode="after")
     def validate_stability(self) -> "OrnsteinUhlenbeckGenerator":
@@ -57,7 +66,9 @@ class OrnsteinUhlenbeckGenerator(BaseGenerator):
             )
         return self
 
-    def _get_batch_params(self) -> tuple[np.ndarray, list[np.ndarray]]:
+    def _get_batch_params(self) -> tuple[np.ndarray, list[np.ndarray]] | None:
+        if self.regime_rate > 0:
+            return None
         return (
             np.array(
                 [
@@ -82,6 +93,8 @@ class OrnsteinUhlenbeckGenerator(BaseGenerator):
         Returns:
             Array of time series values.
         """
+        if self.regime_rate > 0 and self.rng.random() < self.regime_rate:
+            return _families.regime_ou(self.rng, 1, length)[0]
         seed = int(self.rng.integers(0, 2**63))
         return _rs_stoch.ornstein_uhlenbeck(
             length,

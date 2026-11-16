@@ -164,8 +164,48 @@ fn results_to_py_list<'py>(
 }
 
 /// Register the `batch` submodule under `synforecast._lib`.
+/// One TCM series from the native kernel plus diagnostics of its accepted SCM.
+///
+/// Returns (values, dict) with n_vars, max_lag, n_edges, n_linear_edges, radius_before, target_radius,
+/// rescale_branch (0 down, 1 up, 2 up then down, 3 none), radius_after, redraws and fallback. The values equal
+/// those of `generate_batch` for GEN_TCM with the same seed and no overlays.
+#[pyfunction]
+#[pyo3(signature = (length, scalar_params, edge_kinds, noise_types, seed))]
+pub fn tcm_trace<'py>(
+    py: Python<'py>,
+    length: usize,
+    scalar_params: PyReadonlyArray1<'py, f64>,
+    edge_kinds: PyReadonlyArray1<'py, f64>,
+    noise_types: PyReadonlyArray1<'py, f64>,
+    seed: u64,
+) -> PyResult<(Py<PyArray1<f64>>, Py<PyAny>)> {
+    let sp = scalar_params.as_slice()?;
+    let ek = edge_kinds.as_slice()?;
+    let nt = noise_types.as_slice()?;
+    if sp.len() < 13 || ek.is_empty() || nt.is_empty() || length == 0 {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "tcm_trace needs 13 scalars, non-empty pools and length >= 1",
+        ));
+    }
+    let mut out = vec![0.0; length];
+    let report = crate::generators::tcm::tcm_traced(&mut out, sp, ek, nt, seed);
+    let info = pyo3::types::PyDict::new(py);
+    info.set_item("n_vars", report.n_vars)?;
+    info.set_item("max_lag", report.max_lag)?;
+    info.set_item("n_edges", report.n_edges)?;
+    info.set_item("n_linear_edges", report.n_linear_edges)?;
+    info.set_item("radius_before", report.rescale.radius)?;
+    info.set_item("target_radius", report.rescale.target)?;
+    info.set_item("rescale_branch", report.rescale.branch)?;
+    info.set_item("radius_after", report.radius_after)?;
+    info.set_item("redraws", report.redraws)?;
+    info.set_item("fallback", report.fallback)?;
+    Ok((PyArray1::from_vec(py, out).into(), info.into_any().unbind()))
+}
+
 pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "batch")?;
+    m.add_function(wrap_pyfunction!(tcm_trace, &m)?)?;
     m.add_function(wrap_pyfunction!(generate_batch, &m)?)?;
     m.add_function(wrap_pyfunction!(generate_multi_batch, &m)?)?;
     parent.add_submodule(&m)?;

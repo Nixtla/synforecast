@@ -261,7 +261,7 @@ fn companion_spectral_radius(lin: &[f64], k: usize, p: usize) -> f64 {
 /// the down-scale sets the spectral radius to the target (exactly, up to the
 /// power-iteration estimate error). Weak linear parts are boosted uniformly
 /// (capped) instead, then re-checked. Mirrors `_rescale_for_stability`.
-fn rescale_for_stability(rng: &mut SfRng, cfg: &Cfg, scm: &mut Scm) {
+fn rescale_for_stability(rng: &mut SfRng, cfg: &Cfg, scm: &mut Scm) -> Rescale {
     let target_range = if rng.uniform01() < PERSISTENT_PROB {
         RADIUS_TARGET_HIGH
     } else {
@@ -280,21 +280,59 @@ fn rescale_for_stability(rng: &mut SfRng, cfg: &Cfg, scm: &mut Scm) {
         }
     };
 
-    if radius > target {
+    let branch = if radius > target {
         scale_linear_edges(scm, true, target / radius);
+        RESCALE_DOWN
     } else if radius > 1e-9 {
         let u = (target / radius).min(UPSCALE_CAP);
         scale_linear_edges(scm, false, u);
         let new_radius = companion_spectral_radius(&linear_part(scm), scm.n_vars, scm.max_lag);
         if new_radius >= cfg.stability_margin {
             scale_linear_edges(scm, true, target / new_radius);
+            RESCALE_UP_DOWN
+        } else {
+            RESCALE_UP
         }
+    } else {
+        RESCALE_NONE
+    };
+    Rescale {
+        radius,
+        target,
+        branch,
     }
+}
+
+/// Rescale branch codes reported by [`tcm_traced`].
+pub const RESCALE_DOWN: i32 = 0;
+pub const RESCALE_UP: i32 = 1;
+pub const RESCALE_UP_DOWN: i32 = 2;
+pub const RESCALE_NONE: i32 = 3;
+
+/// Spectral radius before rescaling, the drawn target and the branch taken.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Rescale {
+    pub radius: f64,
+    pub target: f64,
+    pub branch: i32,
+}
+
+/// Diagnostics of one generated series: the accepted SCM (none on fallback) and the redraw count.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TcmTrace {
+    pub n_vars: usize,
+    pub max_lag: usize,
+    pub n_edges: usize,
+    pub n_linear_edges: usize,
+    pub rescale: Rescale,
+    pub radius_after: f64,
+    pub redraws: usize,
+    pub fallback: bool,
 }
 
 /// Draw a random SCM: graph, edge functions, noise config; then rescale the
 /// linear part for stability. Mirrors `_sample_scm` in tcm.py.
-fn sample_scm(rng: &mut SfRng, cfg: &Cfg) -> Scm {
+fn sample_scm(rng: &mut SfRng, cfg: &Cfg) -> (Scm, Rescale) {
     let n = integer_incl(rng, cfg.n_vars.0.max(1), cfg.n_vars.1.max(1)) as usize;
     let max_lag = integer_incl(rng, cfg.max_lag.0.max(1), cfg.max_lag.1.max(1)) as usize;
     let p_edge = uniform_range(rng, cfg.edge_prob.0, cfg.edge_prob.1);
@@ -368,8 +406,8 @@ fn sample_scm(rng: &mut SfRng, cfg: &Cfg) -> Scm {
         nodes,
         noise,
     };
-    rescale_for_stability(rng, cfg, &mut scm);
-    scm
+    let rescale = rescale_for_stability(rng, cfg, &mut scm);
+    (scm, rescale)
 }
 
 /// Roll the SCM out with burn-in and return the target node (node 0).
@@ -462,9 +500,32 @@ fn fallback_series(rng: &mut SfRng, out: &mut [f64]) {
 /// finiteness/scale guard are redrawn up to `MAX_REDRAWS` times, then a
 /// guaranteed-stable AR(1) is used, matching tcm.py.
 pub fn tcm(out: &mut [f64], sp: &[f64], edge_kinds: &[f64], noise_types: &[f64], seed: u64) {
+    generate(out, sp, edge_kinds, noise_types, seed, false);
+}
+
+/// [`tcm`] plus diagnostics of the accepted SCM; the output is identical to `tcm` for the same seed.
+pub fn tcm_traced(
+    out: &mut [f64],
+    sp: &[f64],
+    edge_kinds: &[f64],
+    noise_types: &[f64],
+    seed: u64,
+) -> TcmTrace {
+    generate(out, sp, edge_kinds, noise_types, seed, true)
+}
+
+fn generate(
+    out: &mut [f64],
+    sp: &[f64],
+    edge_kinds: &[f64],
+    noise_types: &[f64],
+    seed: u64,
+    trace: bool,
+) -> TcmTrace {
+    let mut report = TcmTrace::default();
     let length = out.len();
     if length == 0 {
-        return;
+        return report;
     }
     assert!(sp.len() >= 13, "tcm: expected >= 13 scalar params");
     assert!(!edge_kinds.is_empty(), "tcm: edge kind pool is empty");
@@ -485,14 +546,30 @@ pub fn tcm(out: &mut [f64], sp: &[f64], edge_kinds: &[f64], noise_types: &[f64],
 
     let mut rng = SfRng::new(seed);
     for _ in 0..=MAX_REDRAWS {
-        let scm = sample_scm(&mut rng, &cfg);
+        let (scm, rescale) = sample_scm(&mut rng, &cfg);
         let values = rollout(&mut rng, &cfg, &scm, length);
         if series_ok(&values) {
             out.copy_from_slice(&values);
-            return;
+            if trace {
+                report.n_vars = scm.n_vars;
+                report.max_lag = scm.max_lag;
+                report.n_edges = scm.nodes.iter().map(|edges| edges.len()).sum();
+                report.n_linear_edges = scm
+                    .nodes
+                    .iter()
+                    .map(|edges| edges.iter().filter(|e| e.is_linear_part()).count())
+                    .sum();
+                report.rescale = rescale;
+                report.radius_after =
+                    companion_spectral_radius(&linear_part(&scm), scm.n_vars, scm.max_lag);
+            }
+            return report;
         }
+        report.redraws += 1;
     }
     fallback_series(&mut rng, out);
+    report.fallback = true;
+    report
 }
 
 #[cfg(test)]
@@ -610,7 +687,7 @@ mod tests {
         let cfg = cfg_from(&sp, &kinds, &ntypes);
         for seed in 0..100 {
             let mut rng = SfRng::new(seed);
-            let scm = sample_scm(&mut rng, &cfg);
+            let (scm, _) = sample_scm(&mut rng, &cfg);
             let r = companion_spectral_radius(&linear_part(&scm), scm.n_vars, scm.max_lag);
             assert!(
                 r < cfg.stability_margin + 0.02,

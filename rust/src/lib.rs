@@ -31,6 +31,7 @@ fn _lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
     bindings::volatility::register(m)?;
     bindings::multivariate::register(m)?;
     bindings::domain::register(m)?;
+    bindings::mechanistic::register(m)?;
     bindings::batch::register(m)?;
     Ok(())
 }
