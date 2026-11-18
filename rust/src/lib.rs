@@ -14,6 +14,8 @@ pub mod bindings;
 pub mod distributions;
 pub mod fft;
 pub mod generators;
+pub mod group_params;
+pub mod groups;
 pub mod linalg;
 pub mod overlays;
 pub mod pattern_injection;
@@ -32,5 +34,6 @@ fn _lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
     bindings::multivariate::register(m)?;
     bindings::domain::register(m)?;
     bindings::batch::register(m)?;
+    bindings::groups::register(m)?;
     Ok(())
 }

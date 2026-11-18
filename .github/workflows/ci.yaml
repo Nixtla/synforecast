@@ -122,6 +122,7 @@ jobs:
           uv run python benchmarks/benchmark_performance.py --quick
           uv run python benchmarks/benchmark_balanced_pool.py --quick
           uv run python benchmarks/benchmark_batch_parallel.py --quick
+          uv run python benchmarks/benchmark_groups.py --quick
 
   optional-engines:
     name: Optional dataframe engines

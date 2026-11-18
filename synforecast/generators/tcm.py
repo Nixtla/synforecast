@@ -4,6 +4,7 @@ import numpy as np
 from narwhals.stable.v2.typing import IntoDataFrameT
 from pydantic import Field, PrivateAttr, model_validator
 
+from synforecast._numeric import MAX_ABS, MIN_STD, companion_spectral_radius
 from synforecast.base import BaseGenerator
 from synforecast.exogenous import SeriesMetadata
 
@@ -16,8 +17,8 @@ _EDGE_KIND_CODES = {kind: code for code, kind in enumerate(_EDGE_KINDS)}
 _LINEAR_PART_CODES = (0, 1, 2)  # linear, tanh, relu
 
 # Divergence guard thresholds (mirror tsfm's synthetic-pool guard)
-_MAX_ABS = 1e8
-_MIN_STD = 1e-8
+_MAX_ABS = MAX_ABS
+_MIN_STD = MIN_STD
 # SCM redraws allowed before falling back to a guaranteed-stable AR(1)
 _MAX_REDRAWS = 5
 _MAX_BURN_IN = 200
@@ -294,14 +295,7 @@ class TCMGenerator(BaseGenerator):
     @staticmethod
     def _companion_spectral_radius(lin_mats: list[np.ndarray]) -> float:
         """Spectral radius of the companion matrix of the linear part."""
-        p = len(lin_mats)
-        k = lin_mats[0].shape[0]
-        companion = np.zeros((k * p, k * p))
-        for lag, mat in enumerate(lin_mats):
-            companion[0:k, lag * k : (lag + 1) * k] = mat
-        if p > 1:
-            companion[k:, 0:-k] = np.eye(k * (p - 1))
-        return float(np.max(np.abs(np.linalg.eigvals(companion))))
+        return companion_spectral_radius(lin_mats)
 
     def _linear_part(self, scm: dict) -> list[np.ndarray]:
         """Assemble per-lag gain matrices from linear/tanh/relu edges."""
