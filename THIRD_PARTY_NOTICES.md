@@ -55,6 +55,15 @@ which is distributed under Apache-2.0. SynForecast's implementation and its
 deviations are described in `GENERATORS.md` and the corresponding source
 docstrings.
 
+## Simons synthetic covariate curriculum
+
+`synforecast/simons_covariates/` ports the synthetic covariate mechanisms of
+the [Simons TSFM recipe](https://github.com/Abel-ai-lab/Simons) at commit
+`24110a634c60ea5eda1ba18ce20ef3c7618c4c6c` (`simons/synth/covariates/*.py`
+and the role planner and effect rows of
+`simons/training/covariates/roles.py`), distributed under Apache-2.0. The
+module docstrings name the file each part comes from.
+
 ## AirPassengers documentation data
 
 `nbs/data/air_passengers.csv` contains the classic monthly international

@@ -4,6 +4,19 @@
 
 ### Added
 
+- `synforecast.simons_covariates` (opt-in, needs scipy): a port of the
+  Simons TSFM recipe's synthetic covariate curriculum. Five effect families
+  (`generic`, `classical`, `energy`, `retail`, `lagged`; `families.make_task`),
+  synthetic covariate effects on base windows (`synthetic_window`, the
+  stage-3/4 covariate pass), 32-slot effect rows (`effect_row`,
+  `EffectRowStream`), covariate roles, end blocks and future cuts on coupled
+  groups (`RolePlanner`, with `structure_from_recipes` for Multivariatizer /
+  `CoupledSpec` lead-lag recipes and `role_meta_from_roles` for `GroupPrior`
+  roles) and the per-stage curriculum (`CovariateCurriculum.from_simons_stage`).
+  The numpy random stream is consumed as in the reference, so the same seed and
+  base windows give bitwise-equal outputs. Nothing is imported by default;
+  existing draws are unchanged.
+
 - Group overlays and observation plans (`synforecast.groups`).
   `GroupPrior(overlays=GroupOverlaySpec(...))` draws, per group, shared
   events (one changepoint and anomaly schedule from the
