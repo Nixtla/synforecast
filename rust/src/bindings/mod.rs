@@ -3,6 +3,7 @@ pub mod batch;
 pub mod distributions;
 pub mod domain;
 pub mod mechanistic;
+pub mod groups;
 pub mod multivariate;
 pub mod overlays;
 pub mod pattern_injection;

@@ -7,10 +7,11 @@ import numpy as np
 from pydantic import Field, PrivateAttr, model_validator
 
 from synforecast._lib import augmentation as _rs_augmentation
+from synforecast._numeric import MAX_ABS, MIN_STD
 from synforecast.base import BaseGenerator
 
-_MAX_ABS = 1e8
-_MIN_STD = 1e-8
+_MAX_ABS = MAX_ABS
+_MIN_STD = MIN_STD
 _MAX_RETRIES = 8
 _MAX_MIXTURE_CHECK_ORDER = 32
 _SUPPORTED_FEATURES = {

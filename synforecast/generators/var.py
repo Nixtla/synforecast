@@ -7,11 +7,17 @@ from narwhals.stable.v2.typing import IntoDataFrameT
 from pydantic import Field, model_validator
 
 from synforecast._lib import multivariate as _rs_mv
+from synforecast._numeric import (
+    VAR_STABILITY,
+    companion_spectral_radius,
+    stabilize,
+    validate_covariance,
+)
 from synforecast.base import BaseGenerator
 from synforecast.exogenous import SeriesMetadata
 
 # Target companion spectral radius when rescaling random coefficients
-_STABILITY_TARGET = 0.95
+_STABILITY_TARGET = VAR_STABILITY
 # Burn-in steps discarded so the process reaches its stationary distribution
 _BURN_IN = 100
 
@@ -102,17 +108,7 @@ class VARGenerator(BaseGenerator):
             )
 
         if self.innovation_covariance is not None:
-            innov_cov = np.array(self.innovation_covariance, dtype=np.float64)
-            if innov_cov.ndim != 2 or innov_cov.shape[0] != innov_cov.shape[1]:
-                raise ValueError("innovation_covariance must be square")
-            if not np.allclose(innov_cov, innov_cov.T, atol=1e-8):
-                raise ValueError("innovation_covariance must be symmetric")
-            try:
-                np.linalg.cholesky(innov_cov)
-            except np.linalg.LinAlgError as e:
-                raise ValueError(
-                    "innovation_covariance must be positive definite"
-                ) from e
+            innov_cov = validate_covariance(self.innovation_covariance)
             object.__setattr__(self, "_innovation_covariance_array", innov_cov)
 
         return self
@@ -127,14 +123,7 @@ class VARGenerator(BaseGenerator):
         Returns:
             Maximum eigenvalue modulus; the VAR is stable iff < 1.
         """
-        p = len(coef_matrices)
-        k = coef_matrices[0].shape[0]
-        companion = np.zeros((k * p, k * p))
-        for i, mat in enumerate(coef_matrices):
-            companion[0:k, i * k : (i + 1) * k] = mat
-        if p > 1:
-            companion[k:, 0:-k] = np.eye(k * (p - 1))
-        return float(np.max(np.abs(np.linalg.eigvals(companion))))
+        return companion_spectral_radius(coef_matrices)
 
     def _generate_stable_coefficients(self, n_variables: int) -> list[np.ndarray]:
         """Generate random coefficient matrices that satisfy stability.
@@ -150,15 +139,7 @@ class VARGenerator(BaseGenerator):
             self.rng.uniform(-0.3, 0.3, (n_variables, n_variables)) * 0.7**lag
             for lag in range(self.lag_order)
         ]
-        radius = self._companion_spectral_radius(coef_matrices)
-        if radius >= _STABILITY_TARGET:
-            # Scaling A_l by s^l maps every companion eigenvalue z to s*z,
-            # so this rescale sets the spectral radius exactly to the target
-            s = _STABILITY_TARGET / radius
-            coef_matrices = [
-                mat * s ** (lag + 1) for lag, mat in enumerate(coef_matrices)
-            ]
-        return coef_matrices
+        return stabilize(coef_matrices, _STABILITY_TARGET)
 
     def _resolve_parameters(
         self, n_variables: int

@@ -3,6 +3,7 @@
 import numpy as np
 from pydantic import Field, model_validator
 
+from synforecast._numeric import MAX_ABS, MIN_STD
 from synforecast.base import BaseGenerator
 
 # Ordered tuples: default pool order must be stable across processes
@@ -17,8 +18,8 @@ _TREND_TYPES = (
 )
 _IRREGULAR_TYPES = ("gaussian", "ar1", "garch_like", "student_t", "laplace")
 
-_MAX_ABS = 1e8
-_MIN_STD = 1e-8
+_MAX_ABS = MAX_ABS
+_MIN_STD = MIN_STD
 _MAX_RETRIES = 8
 
 
