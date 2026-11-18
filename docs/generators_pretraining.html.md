@@ -1,6 +1,6 @@
 ---
 title: Pretraining Generators
-description: TSI, TCM, KernelSynth, MAR and Simons-parity generators for foundation-model pretraining
+description: TSI, TCM, KernelSynth, MAR, Simons-parity, TempoPFN SDE and SarSim generators for foundation-model pretraining
 ---
 
 ::: synforecast.generators.tsi.TSIGenerator
@@ -75,6 +75,18 @@ description: TSI, TCM, KernelSynth, MAR and Simons-parity generators for foundat
         - generate_block
 
 ::: synforecast.generators.mechanistic.ThermalGenerator
+    options:
+      members:
+        - generate_single_series
+        - generate_block
+
+::: synforecast.generators.tempo_sde.TempoSDEGenerator
+    options:
+      members:
+        - generate_single_series
+        - generate_block
+
+::: synforecast.generators.sarsim.SarSimGenerator
     options:
       members:
         - generate_single_series

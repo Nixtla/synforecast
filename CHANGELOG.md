@@ -4,6 +4,15 @@
 
 ### Added
 
+- `TempoSDEGenerator` (TempoPFN regime-switching, time-inhomogeneous OU with
+  an optional exact fBm driver) and `SarSimGenerator` (SarSim stable SARIMA,
+  SARIMA-2 base/envelope and level-scaled Poisson, generalised-gamma and
+  lognormal noisers), each with a vectorised `generate_block`;
+  `pretraining_pool(include_tempo_sarsim=...)`, which appends them after
+  every existing entry; and `synforecast.tempo_sarsim` (pool members and
+  `member_weights`). Defaults leave every existing generator and pool draw
+  unchanged.
+
 - Simons-parity ports: generators `CauKerGenerator`, `PolyrhythmGenerator`,
   `AMFMWaveGenerator`, `ForecastPFNGenerator`, `RegimeOUGenerator`,
   `EpidemicGenerator`, `FluidQueueGenerator`, `RainfallRunoffGenerator` and

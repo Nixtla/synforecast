@@ -52,10 +52,12 @@ from synforecast.generators.polyrhythm import PolyrhythmGenerator
 from synforecast.generators.random_walk import RandomWalkGenerator
 from synforecast.generators.regime_switching import RegimeSwitchingGenerator
 from synforecast.generators.sarima import SARIMAGenerator
+from synforecast.generators.sarsim import SarSimGenerator
 from synforecast.generators.seasonal import SeasonalGenerator
 from synforecast.generators.state_space import StateSpaceGenerator
 from synforecast.generators.stochastic_volatility import StochasticVolatilityGenerator
 from synforecast.generators.tcm import TCMGenerator
+from synforecast.generators.tempo_sde import TempoSDEGenerator
 from synforecast.generators.tsi import TSIGenerator
 from synforecast.generators.vital_signs import VitalSignsGenerator
 from synforecast.overlays import (
@@ -144,6 +146,12 @@ _SIMONS_PARITY: tuple[type[BaseGenerator], ...] = (
     FluidQueueGenerator,
     RainfallRunoffGenerator,
     ThermalGenerator,
+)
+
+# TempoPFN regime SDE and SarSim SARIMA-2, in synforecast.tempo_sarsim.TEMPO_SARSIM_MEMBERS order.
+_TEMPO_SARSIM: tuple[type[BaseGenerator], ...] = (
+    TempoSDEGenerator,
+    SarSimGenerator,
 )
 
 
@@ -1191,6 +1199,7 @@ def pretraining_pool(
     step_cycle_rate: float = 0.0,
     include_simons_parity: bool = False,
     simons_regime_ou_rate: float = 0.0,
+    include_tempo_sarsim: bool = False,
     **base_kwargs: Any,
 ) -> list[BaseGenerator]:
     """Create a breadth-maximizing pool for foundation-model pretraining.
@@ -1298,6 +1307,13 @@ def pretraining_pool(
             OrnsteinUhlenbeck entry: the share of its series drawn as
             regime-switching OU paths (the Simons ``sde`` prior). At 0
             (default) the entry is unchanged.
+        include_tempo_sarsim: When True, append one TempoSDEGenerator
+            (TempoPFN regime-switching SDE with optional fBm) and one
+            SarSimGenerator (SarSim SARIMA / SARIMA-2 with level-scaled
+            noisers) after all other entries, including the Simons-parity
+            ones, so existing indices are unchanged; see
+            :data:`synforecast.tempo_sarsim.TEMPO_SARSIM_MEMBERS` and
+            :func:`synforecast.tempo_sarsim.member_weights`. Default False.
         **base_kwargs: Additional keyword arguments passed to all generators
             (e.g., engine, id_col, time_col, target_col).
 
@@ -1428,8 +1444,17 @@ def pretraining_pool(
         if include_simons_parity
         else []
     )
+    # Seed offsets 5000.. sit past the Simons-parity range.
+    tempo_sarsim: list[_Spec] = (
+        [
+            partial(cls, **base, seed=_seed(5000 + k))
+            for k, cls in enumerate(_TEMPO_SARSIM)
+        ]
+        if include_tempo_sarsim
+        else []
+    )
     return _build(
-        interpretable + meta + seasonal + extended + simons,
+        interpretable + meta + seasonal + extended + simons + tempo_sarsim,
         members,
         overlay_seed,
         calendar_rate,

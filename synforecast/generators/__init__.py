@@ -40,10 +40,12 @@ from synforecast.generators.random_walk import RandomWalkGenerator
 from synforecast.generators.regime_ou import RegimeOUGenerator
 from synforecast.generators.regime_switching import RegimeSwitchingGenerator
 from synforecast.generators.sarima import SARIMAGenerator
+from synforecast.generators.sarsim import SarSimGenerator
 from synforecast.generators.seasonal import SeasonalGenerator
 from synforecast.generators.state_space import StateSpaceGenerator
 from synforecast.generators.stochastic_volatility import StochasticVolatilityGenerator
 from synforecast.generators.tcm import TCMGenerator
+from synforecast.generators.tempo_sde import TempoSDEGenerator
 from synforecast.generators.tsi import TSIGenerator
 from synforecast.generators.var import VARGenerator
 from synforecast.generators.vital_signs import VitalSignsGenerator
@@ -96,4 +98,7 @@ __all__ = [
     "FluidQueueGenerator",
     "RainfallRunoffGenerator",
     "ThermalGenerator",
+    # TempoPFN regime SDE and SarSim SARIMA-2
+    "TempoSDEGenerator",
+    "SarSimGenerator",
 ]

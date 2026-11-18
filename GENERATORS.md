@@ -1067,6 +1067,35 @@ short-history padding is left to the caller. Statistics read finite values
 only and NaN positions are never filled. Both methods return realized counts
 per decision for exposure logging.
 
+### TempoPFN regime SDE and SarSim SARIMA-2
+
+Two opt-in families after their papers' method descriptions (numpy,
+vectorised `generate_block`; ported ideas, not code).
+
+| Generator | Source | Prior |
+|-----------|--------|-------|
+| `TempoSDEGenerator` | TempoPFN (arXiv:2510.25502, App. C.1) | Regime-switching OU, per-step regime stay probability U[0.85, 0.999], per-regime trends (with structural changes) and seasonal terms on mean and volatility, optional exact fBm driver (Hurst U[0.3, 0.8]) and stochastic volatility, global level/scale and measurement noise |
+| `SarSimGenerator` | SarSim (arXiv:2601.00970, Table 9) | Stable SARIMA from roots inside the unit circle with fractional and seasonal integration; SARIMA-2 (fast base plus or times a slow upsampled envelope); Poisson, generalised-gamma or lognormal observation noise at a rate scaled to the level |
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `TempoSDEGenerator.dt` | `0.01` | Euler-Maruyama step (model time units) |
+| `TempoSDEGenerator.fbm_rate` | `0.25` | Share of series driven by fractional Brownian motion |
+| `TempoSDEGenerator.hurst_min` / `hurst_max` | `0.3` / `0.8` | Hurst exponent range |
+| `TempoSDEGenerator.stay_min` / `stay_max` | `0.85` / `0.999` | Per-step regime stay probability range |
+| `TempoSDEGenerator.stochastic_vol_rate` | `0.0` | Share of series with a regime-dependent log-OU volatility factor |
+| `SarSimGenerator.sarima2_rate` | `0.5` | Share of SARIMA-2 series |
+| `SarSimGenerator.multiplicative_rate` | `0.5` | Share of SARIMA-2 series combined multiplicatively |
+| `SarSimGenerator.noiser_rate` | `0.75` | Share of series replaced by level-scaled observation noise |
+| `SarSimGenerator.max_season` | `52` | Largest SARIMA season |
+| `SarSimGenerator.ar_radius` / `seasonal_ar_radius` | `0.9` / `0.1` | Root radius bounds (stability and invertibility) |
+
+`pretraining_pool(include_tempo_sarsim=True)` appends both after every other
+entry (including the Simons-parity ones), so existing indices and draws are
+unchanged. `tempo_sarsim.member_weights(stage, tempo_sde_share,
+sarsim_share)` gives their stream shares (defaults 6% each in stages 1 and
+2, 3% each later); a share of 0 removes a family for an add/remove contrast.
+
 ### Multivariatizer
 
 Not a generator: `synforecast.Multivariatizer` wraps any univariate
