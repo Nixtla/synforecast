@@ -4,6 +4,12 @@
 
 ### Added
 
+- `synforecast.simons_coupling`: `SimonsCoupling`, the coupling mechanisms of
+  the Simons TSFM recipe (identity, mix, lag up to `lag_max`, coint, func,
+  event, with base, walk, drift, impulse and pulse drivers) for groups of
+  numpy channels, with `CouplingPlan` and `fft_length`. New module only;
+  every existing draw is unchanged.
+
 - Simons-parity ports: generators `CauKerGenerator`, `PolyrhythmGenerator`,
   `AMFMWaveGenerator`, `ForecastPFNGenerator`, `RegimeOUGenerator`,
   `EpidemicGenerator`, `FluidQueueGenerator`, `RainfallRunoffGenerator` and

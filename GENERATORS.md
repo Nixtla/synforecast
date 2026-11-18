@@ -1067,6 +1067,28 @@ short-history padding is left to the caller. Statistics read finite values
 only and NaN positions are never filled. Both methods return realized counts
 per decision for exposure logging.
 
+`SimonsCoupling` (`synforecast.simons_coupling`) ports the coupling stage
+of the Simons recipe (`simons/synth/multi.py`) for numpy rows, one group at
+a time. Each group of channels draws one mechanism uniformly from
+`mechanisms` (a group of one channel is identity):
+
+| Mechanism | Channels |
+|-----------|----------|
+| `identity` | independent |
+| `mix` | signed combinations of one or two drivers |
+| `lag` | the first channels observe a driver; the others follow a driver or an earlier follower at a lag LogU[4, `lag_max`], optionally smoothed |
+| `coint` | combinations of one or two random-walk drivers (with or without drift) plus their own OU-like noise |
+| `func` | tanh, softplus, abs, clip, rounding or hinge of a lagged driver |
+| `event` | decaying responses to an impulse train or a jittered pulse train |
+
+Each channel is `sqrt(rho) * response + sqrt(1 - rho) * own`. Responses are
+linear convolutions on a grid twice the padded length, so lags never wrap:
+draw `size` channel bases and `plan.base_drivers` driver bases at
+`padded_length(length)`, call `plan(size, rng)` and then
+`couple(plan, own, driver_bases, length, rng)`, which returns the
+standardised last `length` steps. `plan` uses the numpy stream exactly as
+Simons' planner does; `couple` matches in distribution.
+
 ### Multivariatizer
 
 Not a generator: `synforecast.Multivariatizer` wraps any univariate
