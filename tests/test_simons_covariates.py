@@ -2,6 +2,8 @@
 
 import hashlib
 import json
+import platform
+import sys
 
 import numpy as np
 import pytest
@@ -71,6 +73,13 @@ GOLDEN_PR107 = {
 
 
 class TestGolden:
+    @pytest.mark.skipif(
+        sys.platform != "linux"
+        or platform.machine() != "x86_64"
+        or sys.implementation.name != "cpython"
+        or sys.version_info[:2] != (3, 13),
+        reason="the fixture hashes draws on linux x86_64 with Python 3.13",
+    )
     def test_main_draws_byte_identical(self) -> None:
         import synforecast.simons_covariates  # noqa: F401
 
@@ -84,6 +93,13 @@ class TestGolden:
             )
         assert out == GOLDEN_MAIN
 
+    @pytest.mark.skipif(
+        sys.platform != "linux"
+        or platform.machine() != "x86_64"
+        or sys.implementation.name != "cpython"
+        or sys.version_info[:2] != (3, 13),
+        reason="the fixture hashes draws on linux x86_64 with Python 3.13",
+    )
     def test_group_prior_draws_byte_identical(self) -> None:
         import synforecast.simons_covariates  # noqa: F401
 

@@ -81,8 +81,11 @@ def _same(a, b):
 
 
 @pytest.mark.skipif(
-    sys.platform != "linux" or platform.machine() != "x86_64",
-    reason="the fixture hashes floats drawn on linux x86_64",
+    sys.platform != "linux"
+    or platform.machine() != "x86_64"
+    or sys.implementation.name != "cpython"
+    or sys.version_info[:2] != (3, 13),
+    reason="the fixture hashes floats drawn on linux x86_64 with Python 3.13",
 )
 def test_no_overlays_draws_bitwise_as_3b33546e():
     reference = json.loads((FIXTURES / "group_draws_3b33546e.json").read_text())
