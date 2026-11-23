@@ -138,7 +138,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build source distribution
-        uses: PyO3/maturin-action@2e6429cdbcfb68a5450668dcab09d445af5704e8 # v1
+        uses: PyO3/maturin-action@e540ea8409b4a5477e16fafabf7e74d1ffca6d29 # v1
         with:
           command: sdist
           args: --out dist
